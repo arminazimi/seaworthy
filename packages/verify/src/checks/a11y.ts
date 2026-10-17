@@ -4,6 +4,27 @@ import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { check, locate, meta, pagesOf, replaceAttribute } from "./helpers.js";
 
+export const a11yIframeTitle = check(meta("a11y.iframe-title", "Iframe has no descriptive title", "error", ["WCAG 4.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (element.tagName !== "iframe" || (attr(element, "title") ?? "").trim()) continue;
+      const location = locate(page, element, "title");
+      out.push({
+        message: "The iframe has no non-empty title to describe its content.",
+        location,
+        fix: {
+          kind: "manual",
+          summary: 'Add a descriptive title attribute to the iframe, such as title="Office location map". Name the embedded content, not just "frame".',
+          edits: [],
+        },
+        key: `${attr(element, "id") ?? attr(element, "src") ?? "iframe"}:${location.line ?? ""}`,
+      });
+    }
+  }
+  return out;
+});
+
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
