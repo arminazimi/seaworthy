@@ -40,6 +40,10 @@ Seaworthy does not compete on rule count. It competes on **verification before d
 
 The reference theme is now a separate project that uses Seaworthy to verify itself ([ADR 0009](docs/adr/0009-theme-split-and-position.md)).
 
+## Consumers
+
+The reference theme is a separate project that depends on Seaworthy ([ADR 0009](docs/adr/0009-theme-split-and-position.md)). Its source maps, agent-readable output, CI gate, badge, and MCP server each rely on a Seaworthy deliverable, listed with phases in [docs/consumers/theme.md](docs/consumers/theme.md). Seaworthy never depends on the theme. Tasks that exist mainly for it: `spec.source-map`, `int.source-map`, `readability.webmcp`, `int.theme-fixture`, and `launch2.theme-consumer`.
+
 ## Product principles
 
 These rules decide every scope question below.
@@ -520,7 +524,8 @@ Verify fits into whatever stack a site already uses. Each integration is a recip
 | `int.next-export` | Next.js static export recipe | free-agent | S | `verify.cli` |
 | `int.mkdocs` | MkDocs recipe | free-agent | S | `verify.cli` |
 | `int.ci-hosts` | Recipes for GitLab CI, Netlify, Vercel, Cloudflare Pages | free-agent | S | `action.core` |
-| `int.source-map` | Map findings from built files back to source files where the generator exposes it (permalinks, front matter, source maps) | strong-agent | M | `verify.report-schema` |
+| `spec.source-map` | Source-map contract: a published file that says which source file and line produced each page and section, for themes and generators to emit (`spec/source-map/v0`) | strong-agent | M | `verify.report-schema` |
+| `int.source-map` | Map findings from built files back to source files, reading the source-map contract and, where it is absent, what the generator exposes (permalinks, front matter) | strong-agent | M | `spec.source-map` |
 | `int.conformance` | Each example builds and verifies in CI | strong-agent | M | `int.astro` |
 | `int.eleventy` | Eleventy recipe and example | free-agent | S | `verify.cli` |
 | `int.gatsby` | Gatsby recipe and example | free-agent | S | `verify.cli` |
@@ -840,6 +845,7 @@ Checks that need a real browser at real screen sizes: the page that breaks on a 
 | `layout.reflow` | Content that does not reflow at 320 CSS px (WCAG 1.4.10) | strong-agent | S | `layout.viewports` |
 | `layout.screenshots` | Save a screenshot crop for each rendered finding, referenced from the report | strong-agent | S | `layout.viewports` |
 | `layout.fixtures` | Rendered fixtures with known layout problems, run in CI with a preinstalled browser | free-agent | S | `layout.viewports` |
+| `readability.webmcp` | Experimental: tools a page registers through WebMCP are well-formed and their handlers respond, in a real browser (draft standard: note at most) | strong-agent | M | `layout.viewports` |
 
 ### Exit criteria
 - [ ] Rendered fixtures run in CI.
@@ -862,6 +868,7 @@ A second launch: "Seaworthy now verifies the live site too", with a report on de
 | `launch2.live-report` | Verify 100 deployed docs sites live; publish aggregate, anonymized findings | strong-agent | M | `live.cli` |
 | `launch2.video` | Demo video: an agent deploys, Seaworthy catches a deploy-only break, the agent fixes it | maintainer | M | `live.deploy-diff` |
 | `launch2.theme-consumer` | The theme project verifies every pull request with the Seaworthy Action and shows the badge | maintainer | S | `action.core` |
+| `int.theme-fixture` | The theme's starter sites run as clean fixtures in Seaworthy's CI, so both projects catch regressions in each other | free-agent | S | `verify.fixtures` |
 
 ### Exit criteria
 - [ ] `verify 0.2.0` published with live-site verification.
