@@ -1,0 +1,9 @@
+User-agent: Googlebot
+Disallow: /private/
+
+User-agent: *
+Disallow: /
+
+Sitemap: /sitemap.xml
+Sitemap: https://example.test/missing-sitemap.xml
+Sitemap: https://example.test/sitemap.xml

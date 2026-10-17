@@ -8,6 +8,8 @@ import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
+import { securityMixedContent, securityTargetBlank } from "./security.js";
+import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { socialImageUrl, socialOpenGraph } from "./social.js";
 
 export const builtInChecks: readonly Check[] = [
@@ -28,6 +30,11 @@ export const builtInChecks: readonly Check[] = [
   namesButton,
   namesLabel,
   namesLink,
+  robotsBlocksAll,
+  robotsSitemap,
+  securityMixedContent,
+  securityTargetBlank,
+  sitemapEntries,
   socialImageUrl,
   socialOpenGraph,
 ];

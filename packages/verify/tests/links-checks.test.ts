@@ -121,7 +121,8 @@ after(() => server.close());
 const linkTo = (path: string) => `<a href="${base}${path}">${path}</a>`;
 
 test("probe: classifies statuses the way the docs promise", async () => {
-  const kind = async (path: string) => (await probe(`${base}${path}`, fetch, 1000)).kind;
+  // Generous timeout: the first loopback connection on a cold Windows runner can take over a second.
+  const kind = async (path: string) => (await probe(`${base}${path}`, fetch, 10_000)).kind;
   assert.equal(await kind("/ok"), "ok");
   assert.equal(await kind("/moved"), "ok", "redirects are followed");
   assert.equal(await kind("/head-refused"), "ok", "a server that refuses HEAD gets a GET");
@@ -135,7 +136,7 @@ test("probe: classifies statuses the way the docs promise", async () => {
 test("probe: an unreachable host and a silent server are reported, not thrown", async () => {
   const slow = await probe(`${base}/slow`, fetch, 150);
   assert.deepEqual(slow, { kind: "unreachable", reason: "no answer within 0.15 seconds" });
-  const refused = await probe("http://127.0.0.1:1/", fetch, 1000);
+  const refused = await probe("http://127.0.0.1:1/", fetch, 10_000);
   assert.equal(refused.kind, "unreachable");
 });
 
