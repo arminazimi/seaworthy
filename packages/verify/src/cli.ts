@@ -6,12 +6,14 @@ import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BaselineError, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
+import { ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js";
 import { builtInChecks } from "./checks/index.js";
 import { ConfigError, loadConfig } from "./config.js";
 import { FORMATS, type Format, formatReport } from "./formats/index.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
 import type { Check, Report, Severity } from "./types.js";
 import { VERSION } from "./version.js";
+import { buildSite } from "./site.js";
 import { verifySite } from "./verify.js";
 
 export const EXIT = {
@@ -45,6 +47,9 @@ Options:
   --baseline <file>    Accept the findings recorded in this file; report and fail only on new ones
   --update-baseline <file>
                        Record all current findings in this file, then exit 0
+  --changed            Report only findings in files that changed since the last run (hashes in .seaworthy/cache.json)
+  --changed-since <ref>
+                       Report only findings in files that differ from a git ref (for sites that commit their output)
   --rendered           Run checks that need a browser
   --network            Run checks that make network requests
   --help, -h           Print this help
@@ -80,6 +85,8 @@ interface Options {
   config: string | undefined;
   baseline: string | undefined;
   updateBaseline: string | undefined;
+  changed: boolean;
+  changedSince: string | undefined;
   rendered: boolean;
   network: boolean;
 }
@@ -87,7 +94,7 @@ interface Options {
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, rendered: false, network: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -122,14 +129,19 @@ function parseOptions(args: readonly string[]): Options {
       }
       case "--config":
       case "--baseline":
-      case "--update-baseline": {
+      case "--update-baseline":
+      case "--changed-since": {
         const [v, next] = value(flag, inline, i);
         if (flag === "--config") options.config = v;
         else if (flag === "--baseline") options.baseline = v;
-        else options.updateBaseline = v;
+        else if (flag === "--update-baseline") options.updateBaseline = v;
+        else options.changedSince = v;
         i = next;
         break;
       }
+      case "--changed":
+        options.changed = true;
+        break;
       case "--rendered":
         options.rendered = true;
         break;
@@ -165,6 +177,8 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
 
   const { config, file: configFile } = loadConfig(cwd, options.config, checks.map((c) => c.meta.id));
   if (options.updateBaseline !== undefined && options.baseline !== undefined) throw new UsageError("use --baseline or --update-baseline, not both");
+  if (options.changed && options.changedSince !== undefined) throw new UsageError("use --changed or --changed-since, not both");
+  if (options.updateBaseline !== undefined && (options.changed || options.changedSince !== undefined)) throw new UsageError("--update-baseline records every finding, so it cannot be combined with --changed or --changed-since");
 
   const requested = options.dir ?? config.root ?? DEFAULT_FOLDERS.find((name) => existsSync(resolve(cwd, name)) && statSync(resolve(cwd, name)).isDirectory());
   if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
@@ -174,9 +188,22 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const baselinePath = options.baseline ?? (options.updateBaseline === undefined ? config.baseline : undefined);
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
 
-  const { report, site, unbaselined } = await verifySite({
+  const label = rootLabel(cwd, folder);
+  const site = buildSite(folder);
+  let saveCache: (() => void) | undefined;
+  let changed: Set<string> | undefined;
+  if (options.changedSince !== undefined) changed = changedSinceRef(folder, options.changedSince).files;
+  else if (options.changed) {
+    const result = changedSinceLastRun(site, cwd, label);
+    changed = result.changed.files;
+    saveCache = result.save;
+  }
+
+  const { report, unbaselined } = await verifySite({
     folder,
-    rootLabel: rootLabel(cwd, folder),
+    site,
+    ...(changed ? { changed } : {}),
+    rootLabel: label,
     checks,
     config,
     ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
@@ -191,6 +218,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
     return { code: report.errors.length > 0 ? EXIT.internal : EXIT.ok, stdout: `seaworthy: baseline written to ${options.updateBaseline} (${unbaselined.length} finding${unbaselined.length === 1 ? "" : "s"} in ${baseline.entries.length} entr${baseline.entries.length === 1 ? "y" : "ies"})\n`, stderr: report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; the baseline may be incomplete\n` : "" };
   }
 
+  saveCache?.();
   const text = formatReport(report, options.format, {
     readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
   });
@@ -215,7 +243,7 @@ export async function run(argv: readonly string[], env: CliEnvironment = {}): Pr
     if (command === "verify") return await verify(rest, env);
     return { code: EXIT.usage, stdout: "", stderr: `Unknown command: ${command}\n\n${HELP}` };
   } catch (error) {
-    if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
+    if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError || error instanceof ChangedError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
     return { code: EXIT.internal, stdout: "", stderr: `seaworthy: ${error instanceof Error ? error.message : String(error)}\n` };
   }
 }

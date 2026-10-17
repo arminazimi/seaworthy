@@ -15,6 +15,13 @@ export function formatMarkdown(report: Report): string {
   out.push(total === 0 ? "## Seaworthy: no findings" : `## Seaworthy: ${total} finding${total === 1 ? "" : "s"} in ${files} file${files === 1 ? "" : "s"}`, "");
   out.push(`${code(report.root)}: ${report.summary.pages} page${report.summary.pages === 1 ? "" : "s"}, ${report.checks.length} check${report.checks.length === 1 ? "" : "s"}${total > 0 ? `. ${severityCounts(report)}.` : "."}`, "");
 
+  const notes: string[] = [];
+  if (report.summary.changedFiles !== undefined) notes.push(`Scope: findings in the ${report.summary.changedFiles} file${report.summary.changedFiles === 1 ? "" : "s"} that changed.`);
+  if (report.summary.suppressed > 0) notes.push(`${report.summary.suppressed} suppressed on purpose.`);
+  if (report.summary.baselined > 0) notes.push(`${report.summary.baselined} accepted by the baseline.`);
+  if (report.summary.baselineStale > 0) notes.push(`${report.summary.baselineStale} baseline ${report.summary.baselineStale === 1 ? "entry" : "entries"} fixed: run \`--update-baseline\` to prune.`);
+  if (notes.length > 0) out.push(notes.join(" "), "");
+
   if (total > 0) {
     const shown = report.findings.slice(0, MAX_MARKDOWN_ROWS);
     out.push("| Severity | Check | Location | Problem |", "| --- | --- | --- | --- |");

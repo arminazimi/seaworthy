@@ -46,6 +46,10 @@ export function formatPretty(report: Report): string {
     out.push("");
   }
 
+  if (report.summary.changedFiles !== undefined) out.push(`Scope: findings in the ${plural(report.summary.changedFiles, "file")} that changed. Run without --changed to check everything.`, "");
+  if (report.summary.suppressed > 0) out.push(`${plural(report.summary.suppressed, "finding")} suppressed on purpose (see "suppressed" in the JSON report).`);
+  if (report.summary.baselined > 0) out.push(`${plural(report.summary.baselined, "finding")} accepted by the baseline.`);
+  if (report.summary.baselineStale > 0) out.push(`${plural(report.summary.baselineStale, "baseline entry")} no longer match anything: fixed. Run --update-baseline to prune.`);
   const files = new Set(report.findings.map((f) => f.location.file)).size;
   out.push(report.findings.length === 0 ? "No findings." : `${plural(report.findings.length, "finding")} in ${plural(files, "file")}: ${severityCounts(report)}.`);
   return out.join("\n") + "\n";

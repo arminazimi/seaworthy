@@ -14,6 +14,8 @@ import type { Check, Finding, Report } from "./types.js";
 export interface VerifyOptions {
   /** The built site folder. */
   folder: string;
+  /** A graph already built for this folder, to avoid building it twice. */
+  site?: SiteGraph;
   /** The label for `report.root`: the folder as the user would write it, relative to where verify runs. */
   rootLabel: string;
   checks: readonly Check[];
@@ -24,6 +26,8 @@ export interface VerifyOptions {
   network?: boolean;
   /** When set, findings it accepts are removed from the report and counted. */
   baseline?: Baseline;
+  /** Under --changed: site-relative files that changed. Findings elsewhere are not reported. */
+  changed?: ReadonlySet<string>;
   /** Defaults to the current time. Pass a fixed date in tests. */
   now?: Date;
 }
@@ -38,7 +42,7 @@ export interface VerifyResult {
 export async function verifySite(options: VerifyOptions): Promise<VerifyResult> {
   const config: Config = options.config ?? { checks: {}, ignore: [], suppressions: [] };
   const now = options.now ?? new Date();
-  const site = buildSite(options.folder);
+  const site = options.site ?? buildSite(options.folder);
 
   const resolved = resolveChecks(config, options.checks);
   const run = await runChecks({
@@ -47,6 +51,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
     enable: { browser: options.rendered === true, network: options.network === true },
     options: resolved.options,
     severity: resolved.severity,
+    ...(options.changed ? { changed: options.changed } : {}),
   });
 
   const knownIds = options.checks.map((c) => c.meta.id);
@@ -58,11 +63,14 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
   const unbaselined = [...suppression.findings, ...inline.problems, ...suppression.expired];
 
   const baseline = options.baseline ? applyBaseline(unbaselined, options.baseline) : { findings: unbaselined, baselined: 0, stale: 0 };
+  // The baseline is applied to everything first, so entries for unchanged files are not counted as stale.
+  const reported = options.changed ? baseline.findings.filter((f) => options.changed!.has(f.location.file)) : baseline.findings;
   const report = buildReport({
     root: options.rootLabel,
     pages: site.pages.size,
     checks: [...resolved.checks, ...SUPPRESSION_CHECKS],
-    findings: baseline.findings,
+    findings: reported,
+    ...(options.changed ? { changedFiles: options.changed.size } : {}),
     suppressed: suppression.suppressed,
     baselined: baseline.baselined,
     baselineStale: baseline.stale,

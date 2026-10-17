@@ -16,6 +16,8 @@ export interface RunOptions {
   /** Overrides each check's default severity, keyed by check ID. */
   severity?: Readonly<Record<string, Severity>>;
   signal?: AbortSignal;
+  /** Passed to checks as `context.changed`. Findings are not filtered here; the pipeline does that. */
+  changed?: ReadonlySet<string>;
 }
 
 export interface RunResult {
@@ -88,7 +90,7 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
     runnable.map(async (check) => {
       try {
         const severity = options.severity?.[check.meta.id] ?? check.meta.severity;
-        const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal }));
+        const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal, ...(options.changed ? { changed: options.changed } : {}) }));
         return { findings: drafts.map((draft) => toFinding(check.meta, draft, severity)) };
       } catch (error) {
         return { error: { check: check.meta.id, message: error instanceof Error ? error.message : String(error) } };
