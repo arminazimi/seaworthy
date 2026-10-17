@@ -1,0 +1,48 @@
+:root {
+  --seaworthy-color-abyss: #15101a;
+  --seaworthy-color-ink: #2a1f2d;
+  --seaworthy-color-desert-rose: #c47a74;
+  --seaworthy-color-rose-deep: #a9514d;
+  --seaworthy-color-rose-light: #e3b0aa;
+  --seaworthy-color-sand: #f6eee9;
+  --seaworthy-color-mist: #9a8f98;
+  --seaworthy-color-sea-teal: #2f6f73;
+  --seaworthy-color-signal-amber: #8a5a00;
+  --seaworthy-color-alert-red: #b3261e;
+
+  --seaworthy-font-sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --seaworthy-font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  --seaworthy-space-1: 4px;
+  --seaworthy-space-2: 8px;
+  --seaworthy-space-3: 12px;
+  --seaworthy-space-4: 16px;
+  --seaworthy-space-6: 24px;
+  --seaworthy-space-8: 32px;
+  --seaworthy-space-12: 48px;
+  --seaworthy-space-16: 64px;
+  --seaworthy-space-24: 96px;
+  --seaworthy-space-32: 128px;
+
+  --seaworthy-radius-compact: 8px;
+  --seaworthy-radius-card: 16px;
+  --seaworthy-radius-panel: 24px;
+}
+
+[data-seaworthy-theme="dark"] {
+  --seaworthy-canvas: var(--seaworthy-color-abyss);
+  --seaworthy-surface: var(--seaworthy-color-ink);
+  --seaworthy-text: var(--seaworthy-color-sand);
+  --seaworthy-text-accent: var(--seaworthy-color-rose-light);
+  --seaworthy-text-muted: var(--seaworthy-color-mist);
+  --seaworthy-line: var(--seaworthy-color-desert-rose);
+}
+
+[data-seaworthy-theme="light"] {
+  --seaworthy-canvas: var(--seaworthy-color-sand);
+  --seaworthy-surface: #fff;
+  --seaworthy-text: var(--seaworthy-color-ink);
+  --seaworthy-text-accent: var(--seaworthy-color-rose-deep);
+  --seaworthy-text-muted: var(--seaworthy-color-ink);
+  --seaworthy-line: var(--seaworthy-color-rose-deep);
+}

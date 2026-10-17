@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title">
+<title id="title">Seaworthy social preview</title>
+<rect width="1280" height="640" fill="#15101A"/>
+<g transform="translate(112 192) scale(1)"><g fill="none" stroke-width="13"><g stroke="#F6EEE9"><path d="M42.54 107 A88 88 0 0 1 213.46 107"/><path d="M42.54 149 A88 88 0 0 0 213.46 149"/></g><g stroke="#E3B0AA"><path d="M71.8 107 A60 60 0 0 1 184.2 107"/><path d="M71.8 149 A60 60 0 0 0 184.2 149"/></g></g><rect x="14" y="121" width="228" height="14" fill="#C47A74"/></g>
+<text x="420" y="322" fill="#F6EEE9" font-family="Inter Variable, Inter, Helvetica Neue, Arial, sans-serif" font-size="82" font-weight="700" letter-spacing="11">SEAWORTHY</text>
+<text x="424" y="378" fill="#E3B0AA" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24" letter-spacing="2">SHIP SITES AGENTS CAN TRUST.</text>
+<text x="112" y="566" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" letter-spacing="0.5">npx seaworthy verify ./dist</text>
+</svg>

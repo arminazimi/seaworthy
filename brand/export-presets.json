@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "format": "png",
+  "note": "Exports are rendered from the SVG sources with headless Chrome. Run `npm run export:brand`.",
+  "presets": [
+    {
+      "name": "social-preview-dark",
+      "source": "templates/social-preview-dark.svg",
+      "output": "exports/social-preview-dark.png",
+      "width": 1280,
+      "height": 640,
+      "background": "#15101A"
+    },
+    {
+      "name": "avatar-dark",
+      "source": "templates/avatar-dark.svg",
+      "output": "exports/avatar-dark.png",
+      "width": 512,
+      "height": 512,
+      "background": "#15101A"
+    },
+    {
+      "name": "banner-dark",
+      "source": "templates/banner-dark.svg",
+      "output": "exports/banner-dark.png",
+      "width": 1500,
+      "height": 500,
+      "background": "#15101A"
+    },
+    {
+      "name": "marketplace-feature-dark",
+      "source": "templates/marketplace-feature-dark.svg",
+      "output": "exports/marketplace-feature-dark.png",
+      "width": 965,
+      "height": 482,
+      "background": "#15101A"
+    },
+    {
+      "name": "marketplace-logo-dark",
+      "source": "templates/marketplace-logo-dark.svg",
+      "output": "exports/marketplace-logo-dark.png",
+      "width": 512,
+      "height": 512,
+      "background": null
+    },
+    {
+      "name": "social-preview-light",
+      "source": "templates/social-preview-light.svg",
+      "output": "exports/social-preview-light.png",
+      "width": 1280,
+      "height": 640,
+      "background": "#F6EEE9"
+    },
+    {
+      "name": "avatar-light",
+      "source": "templates/avatar-light.svg",
+      "output": "exports/avatar-light.png",
+      "width": 512,
+      "height": 512,
+      "background": "#F6EEE9"
+    },
+    {
+      "name": "banner-light",
+      "source": "templates/banner-light.svg",
+      "output": "exports/banner-light.png",
+      "width": 1500,
+      "height": 500,
+      "background": "#F6EEE9"
+    },
+    {
+      "name": "marketplace-feature-light",
+      "source": "templates/marketplace-feature-light.svg",
+      "output": "exports/marketplace-feature-light.png",
+      "width": 965,
+      "height": 482,
+      "background": "#F6EEE9"
+    },
+    {
+      "name": "marketplace-logo-light",
+      "source": "templates/marketplace-logo-light.svg",
+      "output": "exports/marketplace-logo-light.png",
+      "width": 512,
+      "height": 512,
+      "background": null
+    }
+  ]
+}

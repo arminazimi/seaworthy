@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title">
+<title id="title">Seaworthy logo system review sheet</title>
+<rect width="1600" height="900" fill="#0C080F"/>
+<rect x="40" y="40" width="740" height="510" rx="24" fill="#15101A"/>
+<rect x="820" y="40" width="740" height="510" rx="24" fill="#F6EEE9"/>
+<rect x="40" y="590" width="1520" height="270" rx="24" fill="#2A1F2D"/>
+<g transform="translate(92 150) scale(0.95)"><g fill="none" stroke-width="13"><g stroke="#F6EEE9"><path d="M42.54 107 A88 88 0 0 1 213.46 107"/><path d="M42.54 149 A88 88 0 0 0 213.46 149"/></g><g stroke="#E3B0AA"><path d="M71.8 107 A60 60 0 0 1 184.2 107"/><path d="M71.8 149 A60 60 0 0 0 184.2 149"/></g></g><rect x="14" y="121" width="228" height="14" fill="#C47A74"/></g>
+<text x="355" y="276" fill="#F6EEE9" font-family="Inter Variable, Inter, Helvetica Neue, Arial, sans-serif" font-size="50" font-weight="700" letter-spacing="5">SEAWORTHY</text>
+<text x="357" y="312" fill="#E3B0AA" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">SHIP SITES AGENTS CAN TRUST.</text>
+<text x="357" y="336" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">VERIFIED BEFORE IT SAILS.</text>
+<g transform="translate(872 150) scale(0.95)"><g fill="none" stroke-width="13"><g stroke="#2A1F2D"><path d="M42.54 107 A88 88 0 0 1 213.46 107"/><path d="M42.54 149 A88 88 0 0 0 213.46 149"/></g><g stroke="#A9514D"><path d="M71.8 107 A60 60 0 0 1 184.2 107"/><path d="M71.8 149 A60 60 0 0 0 184.2 149"/></g></g><rect x="14" y="121" width="228" height="14" fill="#2A1F2D"/></g>
+<text x="1135" y="276" fill="#2A1F2D" font-family="Inter Variable, Inter, Helvetica Neue, Arial, sans-serif" font-size="50" font-weight="700" letter-spacing="5">SEAWORTHY</text>
+<text x="1137" y="312" fill="#A9514D" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">SHIP SITES AGENTS CAN TRUST.</text>
+<text x="1137" y="336" fill="#2A1F2D" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">VERIFIED BEFORE IT SAILS.</text>
+<g transform="translate(100 625) scale(0.72)"><g fill="none" stroke-width="13"><g stroke="#F6EEE9"><path d="M42.54 107 A88 88 0 0 1 213.46 107"/><path d="M42.54 149 A88 88 0 0 0 213.46 149"/></g><g stroke="#F6EEE9"><path d="M71.8 107 A60 60 0 0 1 184.2 107"/><path d="M71.8 149 A60 60 0 0 0 184.2 149"/></g></g><rect x="14" y="121" width="228" height="14" fill="#F6EEE9"/></g>
+<g transform="translate(335 680) scale(0.3125)"><g fill="none" stroke-width="13"><g stroke="#F6EEE9"><path d="M42.54 107 A88 88 0 0 1 213.46 107"/><path d="M42.54 149 A88 88 0 0 0 213.46 149"/></g><g stroke="#E3B0AA"><path d="M71.8 107 A60 60 0 0 1 184.2 107"/><path d="M71.8 149 A60 60 0 0 0 184.2 149"/></g></g><rect x="14" y="121" width="228" height="14" fill="#C47A74"/></g>
+<g transform="translate(455 712) scale(0.15625)"><g fill="none" stroke-width="13"><g stroke="#F6EEE9"><path d="M42.54 107 A88 88 0 0 1 213.46 107"/><path d="M42.54 149 A88 88 0 0 0 213.46 149"/></g><g stroke="#E3B0AA"><path d="M71.8 107 A60 60 0 0 1 184.2 107"/><path d="M71.8 149 A60 60 0 0 0 184.2 149"/></g></g><rect x="14" y="121" width="228" height="14" fill="#C47A74"/></g>
+<text x="340" y="815" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="0">80px</text>
+<text x="462" y="815" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="0">40px</text>
+<circle cx="640" cy="710" r="30" fill="#15101A" stroke="#4a3f4d" stroke-width="1"/>
+<text x="604" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#15101A</text>
+<circle cx="740" cy="710" r="30" fill="#2A1F2D" stroke="#4a3f4d" stroke-width="1"/>
+<text x="704" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#2A1F2D</text>
+<circle cx="840" cy="710" r="30" fill="#C47A74" stroke="#4a3f4d" stroke-width="1"/>
+<text x="804" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#C47A74</text>
+<circle cx="940" cy="710" r="30" fill="#A9514D" stroke="#4a3f4d" stroke-width="1"/>
+<text x="904" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#A9514D</text>
+<circle cx="1040" cy="710" r="30" fill="#E3B0AA" stroke="#4a3f4d" stroke-width="1"/>
+<text x="1004" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#E3B0AA</text>
+<circle cx="1140" cy="710" r="30" fill="#F6EEE9" stroke="#4a3f4d" stroke-width="1"/>
+<text x="1104" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#F6EEE9</text>
+<circle cx="1240" cy="710" r="30" fill="#2F6F73" stroke="#4a3f4d" stroke-width="1"/>
+<text x="1204" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#2F6F73</text>
+<circle cx="1340" cy="710" r="30" fill="#8A5A00" stroke="#4a3f4d" stroke-width="1"/>
+<text x="1304" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#8A5A00</text>
+<circle cx="1440" cy="710" r="30" fill="#B3261E" stroke="#4a3f4d" stroke-width="1"/>
+<text x="1404" y="770" fill="#9A8F98" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" letter-spacing="0">#B3261E</text>
+</svg>
