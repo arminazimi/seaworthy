@@ -32,7 +32,7 @@ Seaworthy is that check. It is built for the loop agents already run: change, ve
 - **Adoptable today.** A baseline file lets a site with hundreds of existing issues adopt Seaworthy and fail only on new ones.
 - **Extensible for years.** Check packs, presets, and integrations arrive through a versioned extension API.
 
-A reference theme, an editorial, RTL-ready site that passes every check out of the box, ships in a second launch wave.
+Seaworthy checks the build folder before deploy, and from the second launch wave also the live site after it. An editorial, RTL-ready reference theme that passes every check is being built as a separate project.
 
 ## Roadmap
 
@@ -43,7 +43,7 @@ A reference theme, an editorial, RTL-ready site that passes every check out of t
 | 2 | Dec 2026 | MCP server, Agent Skills, GitHub Action |
 | 3 | Jan 2027 | Framework integrations, agent benchmark, private beta |
 | 4 | Feb 2027 | **Launch: Seaworthy verify 0.1** |
-| 5 | Mar 2027 | **Launch: reference theme 0.1** |
+| 5 | Mar 2027 | **Launch: live-site verification and the agent loop** |
 | 6 | Apr 2027 | Extension API and open spec 0.9 |
 
 Full detail, with every epic and task: [ROADMAP.md](ROADMAP.md).

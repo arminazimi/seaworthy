@@ -119,3 +119,11 @@ test("the real ROADMAP.md and briefs build without errors", () => {
   for (const issue of issues) assert.ok(issue.title.length <= 256, `${issue.key}: title too long for GitHub`);
   for (const issue of issues) assert.ok(issue.body.length < 65_000, `${issue.key}: body too long for GitHub`);
 });
+
+test("items moved to the theme project are no longer in the roadmap", async () => {
+  const { MOVED_TO_THEME } = await import("./status.mjs");
+  const { issues } = buildIssues(real, loadBriefs());
+  const keys = new Set(issues.map((i) => i.key));
+  for (const key of MOVED_TO_THEME) assert.ok(!keys.has(key), `${key} is still in ROADMAP.md`);
+  assert.ok(!issues.some((i) => i.labels.includes("track: theme")), "no theme track remains");
+});

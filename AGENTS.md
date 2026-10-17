@@ -4,7 +4,7 @@ Instructions for coding agents (Claude Code, Codex, Cursor, Copilot, Kilo Code, 
 
 ## What Seaworthy is
 
-Seaworthy verifies websites for agents. One command checks any built static site, from any framework and on any host, and returns a versioned, machine-readable report. Every finding has a stable check ID, a location, and a fix hint an agent can apply. It will ship as a CLI, an MCP server, a GitHub Action, and Agent Skills, plus a reference theme that passes every check.
+Seaworthy verifies websites for agents. One command checks any built static site, from any framework and on any host, and returns a versioned, machine-readable report. Every finding has a stable check ID, a location, and a fix hint an agent can apply. It ships as a CLI, an MCP server, a GitHub Action, and Agent Skills. The reference theme is a separate project that uses Seaworthy to verify itself (ADR 0009).
 
 **Status: pre-alpha.** The repository skeleton exists; the verify engine does not yet. See [ROADMAP.md](ROADMAP.md).
 
@@ -28,7 +28,6 @@ npm run build:brand     # regenerate brand SVGs after editing brand/tokens.json 
 | `packages/mcp` | The MCP server: a thin adapter over the verify API | Own check logic |
 | `packages/action` | The GitHub Action: a thin adapter over the verify API | Own check logic |
 | `skills/` | Agent Skills | Contain logic the CLI does not also expose |
-| `theme/` | The reference theme (tier 2 track) | Block the verify track |
 | `fixtures/` | Built sites with ground-truth findings | Contain anything a check cannot reproduce offline |
 | `spec/` | Versioned contracts | Change without an RFC once frozen |
 | `docs/adr/` | Architecture decisions | Be edited after acceptance; supersede instead |

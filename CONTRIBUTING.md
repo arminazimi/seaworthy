@@ -11,7 +11,6 @@ Every planned task is an issue generated from [ROADMAP.md](ROADMAP.md) and linke
   - `lane: strong-agent`: needs design judgment. Good for experienced contributors and strong coding agents.
   - `lane: maintainer`: needs accounts, credentials, or decisions. Maintainers only.
 - **Size** says how big it is: `size: XS` (under an hour), `size: S` (a few hours), `size: M` (about a day).
-- **Track** says how urgent it is: `track: verify` blocks the first launch; `track: theme` can slip.
 - Pick a task whose dependencies (listed under **Depends on**) are closed.
 
 ## Claim it

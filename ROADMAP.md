@@ -4,7 +4,7 @@
 >
 > **Seaworthy verifies websites for agents.** One command checks any built static site (any framework, any host)
 > and returns a versioned, machine-readable report: every finding has an ID, a location, and a fix hint that an agent can apply.
-> A reference theme shows what a site that passes everything from day one looks like.
+> Before deploy on the build folder, and after deploy on the live site.
 
 ## North star
 
@@ -14,7 +14,7 @@ is a spec that other tools implement.
 
 This roadmap covers the first six months:
 - **Launch wave 1 (Phase 4):** `seaworthy verify` 0.1, with MCP, Agent Skills, and a GitHub Action.
-- **Launch wave 2 (Phase 5):** the reference theme 0.1, an editorial, RTL-ready theme that passes every check.
+- **Launch wave 2 (Phase 5):** live-site verification, hosting and site-level checks, and a faster agent loop.
 - **Phase 6:** extension API for custom checks and a draft spec (0.9) that months 7 to 12 turn into 1.0.
 
 ## Why verify is the core product
@@ -25,6 +25,20 @@ This roadmap covers the first six months:
 | Cost to try | Migrate a site | One command: `npx seaworthy verify ./dist` |
 | Path to a standard | Themes rarely become standards | Verification tools do (ESLint, Lighthouse) |
 | As models improve | Building a theme gets easier | More generated output means more need to check it |
+
+## Position
+
+Research on 2026-10-18 ([ADR 0009](docs/adr/0009-theme-split-and-position.md)) found real demand (AI-built sites fail basic accessibility; the European Accessibility Act applies since June 2025) and real competition:
+
+| Tool | What it does | What it lacks that Seaworthy has |
+|---|---|---|
+| squirrelscan | Website QA for coding agents: 300+ rules, Skills, MCP, LLM output | Documented audits are of live domains; no SARIF, baseline, suppressions, or literal edits; rendering uses paid cloud credits |
+| Cloudflare Agent Readiness | Scores a live URL on emerging agent standards | No CLI or CI; no accessibility or links; one URL, not a site |
+| lychee, html-proofer, pa11y, Lighthouse CI | One slice each (links, accessibility, performance) | One shared report, IDs, fingerprints, and fixes across all of them |
+
+Seaworthy does not compete on rule count. It competes on **verification before deploy** (and after, from Phase 5), **CI-grade contracts**, **fixes proven by tests**, **local and free** rendered checks, and an **open spec**. Coverage still roughly doubles in this roadmap, led by accessibility.
+
+The reference theme is now a separate project that uses Seaworthy to verify itself ([ADR 0009](docs/adr/0009-theme-split-and-position.md)).
 
 ## Product principles
 
@@ -41,17 +55,17 @@ These rules decide every scope question below.
 
 ## Phases
 
-| Phase | Dates | Theme | Release |
+| Phase | Dates | Focus | Release |
 |---|---|---|---|
 | Phase 0 | 2026-10-19 → 2026-11-01 | Foundations and feasibility spikes | none |
 | Phase 1 | 2026-11-02 → 2026-11-29 | Verify engine and check pack v1 | `verify 0.1.0-alpha.1` |
 | Phase 2 | 2026-11-30 → 2026-12-20 | Agent interface: MCP, Skills, Action | `verify 0.1.0-alpha.2` |
 | Phase 3 | 2026-12-21 → 2027-01-17 | Integrations, benchmark, docs, private beta | `verify 0.1.0-beta.1` |
 | Phase 4 | 2027-01-18 → 2027-02-07 | **Launch wave 1: verify** | **`verify 0.1.0`** |
-| Phase 5 | 2027-02-08 → 2027-03-07 | **Launch wave 2: reference theme** | **`theme 0.1.0`**, `verify 0.2.0` |
+| Phase 5 | 2027-02-08 → 2027-03-07 | **Launch wave 2: live sites and the agent loop** | **`verify 0.2.0`** |
 | Phase 6 | 2027-03-08 → 2027-04-18 | Extensions, spec 0.9, community | `verify 0.3.0` + Spec 0.9 |
 
-**Tracks.** The **verify track** is tier 1: it blocks launch wave 1. The **theme track** (E-theme-*) is tier 2: it runs in parallel from Phase 1, is mostly `free-agent` work, and can slip without blocking wave 1.
+**Volume.** About 300 tasks. Most rule checks are small `free-agent` tasks meant to run in parallel, by agents and contributors. If throughput is too low, dates move rather than quality.
 
 Phase 3 spans the holiday period, which is why it is four weeks long.
 
@@ -64,9 +78,9 @@ Copy the label system from Evergreen, with areas for this project.
 | Roadmap | `roadmap`, `type: epic`, `type: task` |
 | Lane | `lane: strong-agent` (needs a strong coding agent or experienced contributor), `lane: free-agent` (spec-complete, good for free agents and newcomers), `lane: maintainer` (accounts, credentials, or decisions) |
 | Size | `size: XS` (< 1h), `size: S` (a few hours), `size: M` (about a day) |
-| Type | `type: check`, `type: integration`, `type: layout`, `type: preset`, `type: fixture`, `type: test`, `type: docs`, `type: spike` |
-| Area | `area: core`, `area: checks`, `area: agent`, `area: integration`, `area: theme`, `area: i18n`, `area: devops`, `area: docs`, `area: brand`, `area: community`, `area: standards`, `area: release`, `area: validation` |
-| Track | `track: verify` (tier 1), `track: theme` (tier 2) |
+| Type | `type: check`, `type: integration`, `type: preset`, `type: fixture`, `type: test`, `type: docs`, `type: spike` |
+| Area | `area: core`, `area: checks`, `area: a11y`, `area: html`, `area: live`, `area: agent`, `area: integration`, `area: i18n`, `area: devops`, `area: dx`, `area: docs`, `area: brand`, `area: community`, `area: standards`, `area: release`, `area: validation` |
+| Status | `moved: theme` (now belongs to the theme project; will be transferred) |
 
 No task is bigger than `size: M`. Anything bigger becomes an epic.
 
@@ -123,7 +137,7 @@ npm run check
 A repository that agents and humans can contribute to on day one: clear lanes, one check command, and instruction files for agents.
 
 ### Scope
-- Monorepo: `packages/verify`, `packages/mcp`, `packages/action`, `skills/`, `theme/`, `fixtures/`, `spec/`, `docs/`
+- Monorepo: `packages/verify`, `packages/mcp`, `packages/action`, `skills/`, `fixtures/`, `spec/`, `docs/`
 - `npm run check` as the single gate
 - `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`
 - Label set and roadmap-to-issues generator (port of Evergreen's `planning/roadmap`)
@@ -161,8 +175,10 @@ Answer the questions that could change the architecture before building on them.
 | `spike.browser` | Headless browser for a11y and Lighthouse: cost in CI, and a static-only fallback when no browser is available | strong-agent | M | none |
 | `spike.check-model` | Check API design: static (HTML/AST) vs. rendered (browser) checks, and how they share one report | strong-agent | M | none |
 | `spike.prior-art` | Review html-proofer, lychee, pa11y, Lighthouse CI, webhint; list what to reuse vs. build | strong-agent | S | none |
-| `spike.md-twin-liquid` | Theme track: can plain GitHub Pages emit a raw Markdown twin per page? | strong-agent | M | none |
-| `spike.persian-type` | Theme track: serif and sans fonts for Latin and Persian (license, size, rendering) | strong-agent | S | none |
+| `spike.competitors` | Run squirrelscan, Cloudflare Agent Readiness, lychee, and pa11y on the fixtures; write down what each finds and misses | strong-agent | M | none |
+| `spike.crawler` | Design live-site crawling: discovery from links and sitemaps, robots.txt, rate limits, page caps, and how pages enter the site graph | strong-agent | M | `spike.check-model` |
+| `spike.html-conformance` | Can parse5's parse errors plus a few rules give useful HTML conformance without Java? Compare with the Nu Html Checker on the fixtures | strong-agent | S | none |
+| `spike.markdown-sources` | Checking repository Markdown (README, docs) for broken links and anchors: GitHub heading slugs, relative paths, and where it fits | strong-agent | S | none |
 
 ### Exit criteria
 - [ ] Each spike has an ADR in `docs/adr/` with a decision and its consequences.
@@ -247,6 +263,9 @@ Name, mark, palette, badge, and launch art are decided and shipped as a reusable
 | `verify.suppress` | Suppressions with required reason and optional expiry | strong-agent | S | `verify.config` |
 | `verify.changed` | `--changed <ref>` incremental mode | strong-agent | S | `verify.html-parse` |
 | `verify.fixtures` | Clean and broken fixture sites with ground-truth findings | free-agent | S | `verify.check-api` |
+| `verify.timings` | `--timings`: time per check and per stage, kept out of the default report so it stays deterministic | free-agent | S | `verify.cli` |
+| `verify.max-findings` | `--max-findings` and per-check caps, so a broken site does not produce a 50,000-line report | free-agent | S | `verify.cli` |
+| `verify.parallel` | Run static checks in parallel over the shared graph; measure on a 10,000-page fixture | strong-agent | M | `verify.html-parse` |
 
 ### Exit criteria
 - [ ] `seaworthy verify` produces a valid report on fixtures built with at least three different generators.
@@ -306,11 +325,80 @@ Verify answers "can agents and AI search read this site?" by checking conformanc
 | `check.ai-robots` | AI crawler directives are explicit and consistent | free-agent | S | `check.sitemap-robots` |
 | `check.ssr-content` | Main content present without JavaScript | strong-agent | S | `verify.html-parse` |
 | `readability.score` | Agent-readability summary score in the report | strong-agent | S | `check.llms-txt` |
+| `readability.content-signals` | Content Signals and AIPREF `Content-Usage` lines in robots.txt are well-formed when present (draft standard: warning at most) | free-agent | S | `readability.spec` |
+| `readability.agent-skills-index` | `/.well-known/agent-skills/index.json` is valid and every listed skill exists, when present | free-agent | S | `readability.spec` |
+| `readability.api-catalog` | `/.well-known/api-catalog` (RFC 9727) is valid linkset JSON and its links resolve, when present | free-agent | S | `readability.spec` |
+| `readability.mcp-card` | MCP Server Card is valid JSON with required fields, at the paths the current draft uses, when present | free-agent | S | `readability.spec` |
+| `readability.a2a-card` | A2A agent card at `/.well-known/agent-card.json` matches the 1.0 schema, when present | free-agent | S | `readability.spec` |
+| `readability.markdown-negotiation` | Opt-in, network: the deployed page answers `Accept: text/markdown` with Markdown | strong-agent | S | `readability.spec`, `check.links-external` |
+| `readability.severity-policy` | Document and test severities: llms.txt and draft standards are notes or warnings, never errors | free-agent | XS | `readability.spec` |
 
 ### Exit criteria
 - [ ] Running verify on a popular docs site gives a correct, explainable agent-readability score.
 
 ---
+
+## Epic: Static accessibility pack
+<!-- seaworthy-roadmap-key: E-a11y-static -->
+> **Epic** · **Phase:** Phase 1 — Verify engine and check pack v1 (2026-11-02 → 2026-11-29) · **Track:** verify
+
+### Outcome
+The accessibility rules that need no browser, built on the shared graph: the bulk of what makes AI-built sites fail WCAG Level A. Each rule is one small task with a fixture.
+
+### Scope
+- Rules from WCAG 2.2 Level A and AA that can be decided from HTML alone
+- Severity follows the conformance level: Level A failures are errors
+
+### Non-goals
+- Rules that need layout or color: those run in a browser (`check.a11y`, `E-rendered-layout`).
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `a11y.duplicate-id` | Duplicate `id` values on a page (break labels, anchors, and ARIA references) | free-agent | S | `verify.html-parse` |
+| `a11y.aria-attributes` | ARIA attributes that do not exist, are misspelled, or have invalid values | free-agent | M | `verify.html-parse` |
+| `a11y.aria-roles` | Unknown `role` values and roles not allowed on the element | free-agent | S | `verify.html-parse` |
+| `a11y.aria-references` | `aria-labelledby`, `aria-describedby`, and `aria-controls` that point at ids that do not exist | free-agent | S | `verify.html-parse` |
+| `a11y.hidden-focusable` | `aria-hidden="true"` on an element that is or contains something focusable | free-agent | S | `verify.html-parse` |
+| `a11y.tabindex` | `tabindex` greater than 0, which breaks the natural focus order | free-agent | XS | `verify.html-parse` |
+| `a11y.iframe-title` | `<iframe>` without a title | free-agent | XS | `verify.html-parse` |
+| `a11y.table-headers` | Data tables with no header cells, and `headers` attributes pointing nowhere | free-agent | S | `verify.html-parse` |
+| `a11y.autocomplete` | Invalid `autocomplete` tokens on personal-data fields (WCAG 1.3.5) | free-agent | S | `verify.html-parse` |
+| `a11y.lang-parts` | `lang` on inner elements must be a valid language code (WCAG 3.1.2) | free-agent | XS | `verify.html-parse` |
+| `a11y.skip-link` | Pages with navigation before the main content have a working skip link | free-agent | S | `verify.html-parse` |
+| `a11y.landmarks` | Exactly one `<main>` (or role=main) per page; no content-bearing page without it | free-agent | S | `verify.html-parse` |
+| `a11y.empty-headings` | Headings with no text | free-agent | XS | `verify.html-parse` |
+| `a11y.radio-groups` | Radio buttons and checkbox groups without a `fieldset` and `legend` or a group label | free-agent | S | `verify.html-parse` |
+| `a11y.media-captions` | `<video>` without a captions track (WCAG 1.2.2) and autoplaying media with sound | free-agent | S | `verify.html-parse` |
+
+### Exit criteria
+- [ ] Every rule has a broken fixture and a docs page that names its WCAG success criterion.
+- [ ] The clean fixtures still produce no findings.
+
+
+## Epic: HTML conformance without Java
+<!-- seaworthy-roadmap-key: E-html -->
+> **Epic** · **Phase:** Phase 1 — Verify engine and check pack v1 (2026-11-02 → 2026-11-29) · **Track:** verify
+
+### Outcome
+Catch the HTML mistakes that change how browsers and assistive technology read a page, using the parser's own error reporting plus a few targeted rules, with no Java dependency.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `html.parse-errors` | Report the HTML parser's own errors (stray end tags, bad nesting, duplicate attributes) as findings with exact positions | strong-agent | M | `spike.html-conformance` |
+| `html.doctype` | Missing or non-standard doctype (quirks mode changes layout) | free-agent | XS | `verify.html-parse` |
+| `html.charset` | Missing character encoding, or declared after the first 1,024 bytes | free-agent | XS | `verify.html-parse` |
+| `html.nesting` | Content models the parser accepts but browsers mishandle: interactive inside interactive, block inside `<p>`, `<a>` inside `<a>` | free-agent | M | `verify.html-parse` |
+| `html.obsolete` | Obsolete elements and attributes (`<center>`, `<font>`, `<marquee>`, `align`, `bgcolor`) | free-agent | S | `verify.html-parse` |
+| `html.meta-refresh` | `<meta http-equiv="refresh">` with a delay, which moves people before they can read (WCAG 2.2.1) | free-agent | XS | `verify.html-parse` |
+| `html.inline-handlers` | Inline event handlers and `javascript:` URLs that block a strict Content Security Policy | free-agent | S | `verify.html-parse` |
+| `html.docs` | Docs page comparing Seaworthy's HTML checks with the Nu Html Checker: what each covers | free-agent | S | `html.parse-errors` |
+
+### Exit criteria
+- [ ] Parse errors carry exact line and column.
+- [ ] A docs page says honestly what the Nu Html Checker covers that Seaworthy does not.
+
 
 # Phase 2 — Agent interface: MCP, Skills, Action (2026-11-30 → 2026-12-20)
 
@@ -336,6 +424,12 @@ Any MCP-capable agent can verify a site, understand each finding, and confirm it
 | `mcp.config` | `get_config_schema` and `create_baseline` | free-agent | S | `verify.baseline` |
 | `mcp.server-json` | `server.json` metadata for the MCP Registry | free-agent | XS | `mcp.server` |
 | `mcp.tests` | End-to-end tests: break a fixture, verify, fix, verify clean | strong-agent | M | `mcp.verify` |
+| `mcp.fix-preview` | `fix_preview` tool: the unified diff of every edit, without writing files | strong-agent | S | `mcp.verify` |
+| `mcp.diff-reports` | `diff_reports` tool: what is new and what was fixed between two runs | free-agent | S | `mcp.verify` |
+| `mcp.prompts` | MCP prompts for the common workflows: fix everything, adopt on an existing site, make a site agent-ready | free-agent | S | `mcp.server` |
+| `mcp.progress` | Progress notifications for long runs (large sites, rendered checks) | strong-agent | S | `mcp.verify` |
+| `mcp.docs-resources` | Every check's docs page as an MCP resource | free-agent | XS | `mcp.catalog` |
+| `mcp.http-transport` | Local Streamable HTTP transport in addition to stdio | strong-agent | M | `mcp.server` |
 
 ### Exit criteria
 - [ ] An agent introduces a broken link, finds it with `verify_site`, fixes it, and gets a clean report, all through MCP.
@@ -355,6 +449,10 @@ Agents run verify before they say "done", without being told, because the instru
 | `skills.init-agents` | `seaworthy init --agents`: adds verify instructions to `AGENTS.md` / `CLAUDE.md` in any repo | strong-agent | S | `skills.verify-loop` |
 | `skills.other-tools` | Equivalent rules for other agent tools (Cursor, Copilot instructions) | free-agent | S | `skills.verify-loop` |
 | `skills.plugin` | Claude Code plugin bundling skills and MCP server | strong-agent | S | `skills.verify-loop` |
+| `skills.evals` | Trigger and outcome evals for the Skills, run in CI (like Evergreen's skill evals) | strong-agent | M | `skills.verify-loop` |
+| `skills.a11y-fix` | Agent Skill: fix accessibility findings well (real alt text, visible labels), not just silence them | strong-agent | S | `skills.verify-loop` |
+| `skills.agent-ready` | Agent Skill: make a site agent-ready using the agent-readability findings | free-agent | S | `skills.verify-loop` |
+| `skills.codex-plugin` | Codex plugin bundling the Skills and the MCP server | strong-agent | S | `skills.plugin` |
 
 ### Exit criteria
 - [ ] A fresh agent session in a repo with `seaworthy init --agents` runs verify after editing the site, unprompted.
@@ -373,11 +471,34 @@ One step in any workflow verifies a site on every PR. The badge is the main grow
 | `action.pr-comment` | PR comment with new and fixed findings | strong-agent | S | `verify.markdown` |
 | `action.badge` | Badge endpoint and README snippet | strong-agent | S | `brand.badge` |
 | `action.marketplace` | Publish to GitHub Marketplace | maintainer | XS | `action.core` |
+| `action.annotations` | Inline annotations on pull requests for findings in tracked files | strong-agent | S | `action.core` |
+| `action.job-summary` | Job summary with counts, top findings, and the badge | free-agent | S | `action.core` |
+| `action.cache` | Cache `.seaworthy/` and the browser between runs | free-agent | S | `action.core` |
+| `action.multi-site` | Verify several sites in one repository (monorepos) | free-agent | S | `action.core` |
 
 ### Exit criteria
 - [ ] A repo adds one workflow step and gets SARIF findings, a PR comment, and a badge.
 
 ---
+
+## Epic: Agent-friendly output
+<!-- seaworthy-roadmap-key: E-agent-output -->
+> **Epic** · **Phase:** Phase 2 — Agent interface: MCP, Skills, Action (2026-11-30 → 2026-12-20) · **Track:** verify
+
+### Outcome
+Output that costs an agent as few tokens as possible and tells it what to do first.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `agent.format-llm` | `--format llm`: compact output sized for an agent's context window, with the fix first | strong-agent | M | `verify.markdown` |
+| `agent.fix-prompts` | A ready-to-paste prompt per finding and per report, in every output format | free-agent | S | `verify.report-schema` |
+| `agent.explain-cli` | `seaworthy explain <check-id>`: the docs page in the terminal | free-agent | S | `mcp.catalog` |
+| `agent.ndjson` | `--format ndjson`: one finding per line, streamed as checks finish | strong-agent | S | `verify.report-schema` |
+
+### Exit criteria
+- [ ] `--format llm` uses at least 50% fewer tokens than `--format json` on the fixtures, measured in a test.
+
 
 # Phase 3 — Integrations, benchmark, docs, private beta (2026-12-21 → 2027-01-17)
 
@@ -401,6 +522,12 @@ Verify fits into whatever stack a site already uses. Each integration is a recip
 | `int.ci-hosts` | Recipes for GitLab CI, Netlify, Vercel, Cloudflare Pages | free-agent | S | `action.core` |
 | `int.source-map` | Map findings from built files back to source files where the generator exposes it (permalinks, front matter, source maps) | strong-agent | M | `verify.report-schema` |
 | `int.conformance` | Each example builds and verifies in CI | strong-agent | M | `int.astro` |
+| `int.eleventy` | Eleventy recipe and example | free-agent | S | `verify.cli` |
+| `int.gatsby` | Gatsby recipe and example | free-agent | S | `verify.cli` |
+| `int.nuxt` | Nuxt static generation recipe and example | free-agent | S | `verify.cli` |
+| `int.sveltekit` | SvelteKit static adapter recipe and example | free-agent | S | `verify.cli` |
+| `int.zola` | Zola recipe and example | free-agent | S | `verify.cli` |
+| `int.pages-workflow` | Drop-in step for the official GitHub Pages deploy workflow | free-agent | S | `action.core` |
 
 ### Exit criteria
 - [ ] At least six generators and four hosts have tested recipes.
@@ -425,6 +552,11 @@ A public, reproducible measure of how much better agents ship sites with Seawort
 | `bench.baseline` | Baseline: agents without Seaworthy tools | maintainer | S | `bench.runner` |
 | `bench.results` | Results page, regenerated per release | free-agent | S | `bench.baseline` |
 | `bench.discovery` | Cold-prompt task: does an agent find Seaworthy from public sources alone? | strong-agent | S | `bench.runner` |
+| `bench.corpus` | Pin 50 real public sites (docs, blogs, stores) as a shared corpus with hand-checked ground truth for a sample | strong-agent | M | `bench.tasks` |
+| `bench.competitors` | Run squirrelscan, lychee, pa11y, and Seaworthy on the corpus; publish findings, misses, and false positives honestly | strong-agent | M | `bench.corpus`, `spike.competitors` |
+| `bench.precision` | Measure precision per check on the corpus; any check below 0.95 is fixed or downgraded before launch | strong-agent | M | `bench.corpus` |
+| `bench.agents-matrix` | Run the agent tasks with Claude Code, Codex, and Cursor | maintainer | M | `bench.runner` |
+| `bench.tokens` | Measure tokens per fix loop for json, markdown, and llm output | free-agent | S | `agent.format-llm`, `bench.runner` |
 
 ### Exit criteria
 - [ ] Results published and reproducible with one command.
@@ -439,12 +571,18 @@ Docs that an agent or a person can act on in under two minutes. The docs site pa
 ### Tasks
 | Key | Task | Lane | Size | Depends |
 |---|---|---|---|---|
-| `docs.site` | Docs site (built with the theme track if ready, any generator otherwise) | strong-agent | M | none |
+| `docs.site` | Docs site, built with any generator (the theme project's, once it is ready) | strong-agent | M | none |
 | `docs.quickstart` | Quickstart: one command, first report, first fix | free-agent | S | `docs.site` |
 | `docs.checks` | Generated reference page per check from the check catalog | strong-agent | S | `mcp.catalog` |
 | `docs.agent-playbook` | Playbook: verify from an agent (MCP, Skill, CLI) | free-agent | S | `skills.verify-loop` |
 | `docs.adopt` | Playbook: adopt verify in a large existing site | free-agent | S | `verify.baseline` |
 | `docs.llms` | `llms.txt` and Markdown alternates for the docs site (dogfood) | free-agent | XS | `check.llms-txt` |
+| `docs.rules-catalog` | Generated, searchable catalog of every check with severity, standard, and examples | strong-agent | M | `docs.checks` |
+| `docs.tutorial` | Tutorial: an agent builds a site, verifies it, and fixes it, start to finish | free-agent | S | `docs.agent-playbook` |
+| `docs.compare` | Comparison page against squirrelscan, Cloudflare Agent Readiness, lychee, and pa11y, linking the benchmark | strong-agent | S | `bench.competitors` |
+| `docs.faq` | FAQ: built output vs source, false positives, privacy, offline use | free-agent | S | `docs.site` |
+| `docs.persian` | Persian docs landing page and quickstart | free-agent | S | `docs.quickstart` |
+| `docs.accessibility-law` | Guide: what automated checks can and cannot prove for WCAG 2.2 and the European Accessibility Act | strong-agent | S | `docs.site` |
 
 ### Exit criteria
 - [ ] Docs site has a clean verify report and an agent-readability score of 100.
@@ -464,6 +602,9 @@ Seaworthy is findable wherever agents and developers look, without anyone knowin
 | `discovery.npm-meta` | npm keywords, README sections, and description tuned for search | free-agent | XS | none |
 | `discovery.awesome` | Submit to awesome lists (static sites, a11y, MCP, agents) | free-agent | S | `release.publish` |
 | `discovery.integrations-listing` | List in framework integration directories (Astro, Docusaurus) | maintainer | S | `int.astro` |
+| `discovery.skills-directories` | List the Skills in public skills directories | maintainer | S | `skills.plugin` |
+| `discovery.mcp-directories` | List the MCP server in public MCP directories | maintainer | S | `mcp.server-json` |
+| `discovery.own-well-known` | Seaworthy's own site publishes an Agent Skills index and MCP card, and passes its own agent checks | free-agent | S | `readability.agent-skills-index` |
 
 ### Exit criteria
 - [ ] Listed in the MCP Registry, two agent marketplaces, and GitHub Marketplace.
@@ -482,11 +623,35 @@ Real users on real sites find the false positives and rough edges before launch,
 | `beta.recruit` | Recruit 15 beta users across Jekyll, Astro, Docusaurus, Hugo, and agent-first users | maintainer | S | `docs.quickstart` |
 | `beta.feedback` | Feedback form and triage board | free-agent | XS | none |
 | `beta.false-positives` | Track false positives per check; fix each as its own task | strong-agent | M | `beta.feedback` |
+| `beta.case-studies` | Three written case studies from beta users, with before and after numbers | maintainer | M | `beta.recruit` |
+| `beta.issue-forms` | Issue forms for false positives and missing checks that capture a minimal reproduction | free-agent | XS | `beta.feedback` |
 
 ### Exit criteria
 - [ ] 15 beta repos running the Action; no check with a known false positive at launch.
 
 ---
+
+## Epic: Developer experience
+<!-- seaworthy-roadmap-key: E-dx -->
+> **Epic** · **Phase:** Phase 3 — Integrations, benchmark, docs, private beta (2026-12-21 → 2027-01-17) · **Track:** verify
+
+### Outcome
+Getting started takes one command, errors explain themselves, and the tool behaves on every OS.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `dx.init` | `seaworthy init`: create a config, a CI workflow, and a baseline in one step, for people and agents | strong-agent | M | `verify.config`, `action.core` |
+| `dx.base-path-detect` | Detect `basePath` from Jekyll, Astro, Docusaurus, Hugo, and VitePress configs | strong-agent | S | `check.base-url` |
+| `dx.color` | Colored terminal output when attached to a TTY; `NO_COLOR` respected | free-agent | XS | `verify.pretty` |
+| `dx.errors-audit` | Audit every error message: says what happened and what to do next | free-agent | S | `verify.cli` |
+| `dx.config-validate` | `seaworthy config check`: validate a config without running checks | free-agent | XS | `verify.config` |
+| `dx.windows` | Windows paths, line endings, and long paths covered by tests | free-agent | S | `verify.cli` |
+| `dx.offline` | Prove the default run makes no network requests (test fails on any socket) | strong-agent | S | `verify.cli` |
+
+### Exit criteria
+- [ ] A new user goes from zero to a passing CI run with `seaworthy init` and one commit.
+
 
 # Phase 4 — Launch wave 1: verify (2027-01-18 → 2027-02-07)
 
@@ -506,6 +671,10 @@ Verify 0.1 is published on every channel, with frozen contracts, a README that c
 | `release.smoke` | Smoke-test published packages after every release | free-agent | S | `release.publish` |
 | `release.readme` | README: 30-second GIF, one-line install, badge, benchmark numbers | strong-agent | S | `bench.results` |
 | `release.perf` | Performance: verify a 1,000-page site in under 30 s (static checks) | strong-agent | M | `verify.html-parse` |
+| `release.notice` | `NOTICE` file listing third-party licenses (axe-core is MPL-2.0) | free-agent | XS | `release.changelog` |
+| `release.sbom` | Publish an SBOM with every release | free-agent | S | `release.publish` |
+| `release.install-budget` | CI fails when a cold `npx` install exceeds the ADR 0004 budget | strong-agent | S | `release.publish` |
+| `release.startup-budget` | CI fails when `seaworthy --version` startup exceeds 150 ms | free-agent | S | `verify.cli` |
 
 ### Exit criteria
 - [ ] `verify 0.1.0` published on npm, MCP Registry, and GitHub Marketplace, and smoke-tested.
@@ -531,97 +700,172 @@ Developers and agent users see verify catch real bugs on real sites.
 | `launch1.posts` | Draft posts per channel | strong-agent | S | `launch1.kit` |
 | `launch1.day` | Launch day: post and respond | maintainer | M | `launch1.posts` |
 | `launch1.response-week` | One week of fast issue response | maintainer | M | `launch1.day` |
+| `launch1.state-report` | "State of agent-built sites": what the corpus shows, with methods and limits | strong-agent | M | `bench.corpus` |
+| `launch1.compare-post` | Post: how Seaworthy differs, linking the benchmark | strong-agent | S | `docs.compare` |
+| `launch1.accessibility-post` | Post: checking agent-built sites against WCAG 2.2, honest about automated limits | strong-agent | S | `docs.accessibility-law` |
+| `launch1.product-hunt` | Product Hunt launch | maintainer | S | `launch1.kit` |
+| `launch1.newsletters` | Pitch to accessibility, frontend, and AI tooling newsletters | maintainer | S | `launch1.kit` |
+| `launch1.talks` | Submit talk proposals to two conferences | maintainer | S | `launch1.kit` |
+| `launch1.demo-repo` | Public demo repository: a broken site and the agent's fix pull requests | strong-agent | S | `mcp.tests` |
 
 ### Exit criteria
 - [ ] Launched on at least four channels; every launch-week issue answered within 24 hours.
 
 ---
 
-# Phase 5 — Launch wave 2: reference theme (2027-02-08 → 2027-03-07)
+# Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07)
 
-The theme track runs in parallel from Phase 1. Its epics are listed here because they ship in this phase.
+Wave 2 extends Seaworthy past the deploy: the same checks, plus hosting checks, on the live site; site-level quality; rendered layout checks; and a faster loop for agents. The reference theme is now its own project ([ADR 0009](docs/adr/0009-theme-split-and-position.md)).
 
-## Epic: Theme design tokens and editorial type system
-<!-- seaworthy-roadmap-key: E-theme-tokens -->
-> **Epic** · **Phase:** Phase 1 → Phase 5 · **Track:** theme · **Tier:** 2 (may slip without blocking wave 1)
+## Epic: Live-site verification
+<!-- seaworthy-roadmap-key: E-live -->
+> **Epic** · **Phase:** Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07) · **Track:** verify
 
 ### Outcome
-An editorial theme where every visual decision is a CSS custom property, restyled from `_config.yml` without editing CSS.
+`seaworthy verify https://example.com` checks the deployed site with the same checks and report, and compares it with the build folder to catch what broke in deployment.
+
+### Scope
+- Same origin only
+- Opt-in network, like `links.external`
+
+### Non-goals
+- Logging in to sites, or filling forms.
 
 ### Tasks
 | Key | Task | Lane | Size | Depends |
 |---|---|---|---|---|
-| `theme.tokens` | Token scale (color, type, spacing) | strong-agent | M | `spike.persian-type` |
-| `theme.dark` | Dark mode without flash, manual toggle | strong-agent | S | `theme.tokens` |
-| `theme.config` | Map `_config.yml` tokens to CSS variables, with JSON Schema | strong-agent | S | `theme.tokens` |
-| `theme.signature` | Editorial signature: display serif, numbered sections, hairline rules | strong-agent | S | `theme.tokens` |
-| `theme.tokens-docs` | Document every token | free-agent | S | `theme.config` |
+| `live.fetch` | Fetch pages over HTTP into the same site graph the static checks use | strong-agent | M | `spike.crawler` |
+| `live.crawl` | Crawl from a start URL through links and sitemaps: same origin, depth and page caps | strong-agent | M | `live.fetch` |
+| `live.robots` | Respect robots.txt and crawl-delay; identify as Seaworthy | free-agent | S | `live.crawl` |
+| `live.rate-limits` | Per-host concurrency, retries with backoff, and a total time budget | strong-agent | S | `live.crawl` |
+| `live.cli` | `seaworthy verify https://example.com` | strong-agent | S | `live.crawl` |
+| `live.report` | Reports for live runs: URL root, URL locations, schema and SARIF updated | strong-agent | S | `live.cli` |
+| `live.deploy-diff` | Compare a build folder with the deployed site: files never deployed, stale pages, base-path breaks | strong-agent | M | `live.cli` |
+| `live.headers-option` | Extra request headers for preview deployments behind protection | free-agent | S | `live.cli` |
+| `live.preview-urls` | Action input to verify Netlify, Vercel, and Cloudflare Pages preview URLs | strong-agent | S | `live.cli`, `action.core` |
+| `live.fixtures` | Live fixtures served from a local HTTP server in tests | free-agent | S | `live.fetch` |
 
 ### Exit criteria
-- [ ] Changing three tokens restyles the demo site; all text tokens pass WCAG AA in light and dark.
+- [ ] A live run of the docs site matches the build-folder run except for findings that only exist after deploy.
+- [ ] Crawling respects robots.txt and the rate limits by default.
 
-## Epic: Theme layouts and RTL
-<!-- seaworthy-roadmap-key: E-theme-layouts -->
-> **Epic** · **Phase:** Phase 1 → Phase 5 · **Track:** theme · **Tier:** 2
+
+## Epic: Hosting checks
+<!-- seaworthy-roadmap-key: E-hosting -->
+> **Epic** · **Phase:** Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07) · **Track:** verify
 
 ### Outcome
-Four layouts (home, doc, post, page) with first-class RTL and multilingual support, so the reference theme covers project pages, docs, and blogs in any direction.
+Problems that exist only on a server: status codes, redirects, security headers, compression, caching, and content types.
 
 ### Tasks
 | Key | Task | Lane | Size | Depends |
 |---|---|---|---|---|
-| `theme.base` | Base layout: landmarks, skip link, toggle | strong-agent | S | `theme.tokens` |
-| `theme.home` | `home` layout | strong-agent | S | `theme.base` |
-| `theme.doc` | `doc` layout: sidebar nav, TOC, prev/next | strong-agent | M | `theme.base` |
-| `theme.post` | `post` layout | free-agent | S | `theme.base` |
-| `theme.page` | `page` layout | free-agent | XS | `theme.base` |
-| `theme.code` | Code blocks and copy button | free-agent | S | `theme.base` |
-| `theme.logical-css` | Logical CSS properties everywhere | free-agent | S | `theme.base` |
-| `theme.i18n` | UI strings in `_data/i18n/`, `dir` from `lang`, language switcher | strong-agent | M | `theme.doc` |
-| `theme.persian` | Persian type stack, digits, and Jalali dates (opt-in) | strong-agent | M | `theme.i18n` |
-| `theme.search` | Client-side search | strong-agent | M | `theme.doc` |
+| `hosting.soft-404` | Missing pages must answer 404, not 200 with an error page | free-agent | S | `live.cli` |
+| `hosting.https-redirect` | HTTP redirects to HTTPS | free-agent | XS | `live.cli` |
+| `hosting.redirect-chains` | Redirect chains longer than one hop, and redirect loops | free-agent | S | `live.cli` |
+| `hosting.hsts` | HSTS present with a sensible max-age | free-agent | XS | `live.cli` |
+| `hosting.csp` | Content Security Policy present and not trivially bypassed (`unsafe-inline` scripts, `*`) | strong-agent | S | `live.cli` |
+| `hosting.compression` | Text responses are compressed (gzip or brotli) | free-agent | XS | `live.cli` |
+| `hosting.cache` | Hashed assets are cacheable for a long time; HTML is not cached forever | free-agent | S | `live.cli` |
+| `hosting.content-type` | Responses have the right MIME type (JavaScript served as text/plain breaks pages) | free-agent | S | `live.cli` |
+| `hosting.headers-files` | Validate `_headers` and `_redirects` files in the build (Netlify, Cloudflare Pages) | free-agent | S | `verify.html-parse` |
 
 ### Exit criteria
-- [ ] Every example site (minimal, docs, blog, Persian) passes `seaworthy verify` with zero findings.
+- [ ] Every hosting check has a live fixture.
 
-## Epic: Theme agent-readable output
-<!-- seaworthy-roadmap-key: E-theme-ai -->
-> **Epic** · **Phase:** Phase 5 · **Track:** theme · **Tier:** 2
+
+## Epic: Site-level quality
+<!-- seaworthy-roadmap-key: E-site-quality -->
+> **Epic** · **Phase:** Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07) · **Track:** verify
 
 ### Outcome
-The theme emits everything the agent-readability checks look for, out of the box.
+Problems no single page shows: orphans, duplicates, empty pages, and weight budgets.
 
 ### Tasks
 | Key | Task | Lane | Size | Depends |
 |---|---|---|---|---|
-| `theme.llms-txt` | Generate `llms.txt` and `llms-full.txt` | free-agent | S | `readability.spec` |
-| `theme.md-twin` | Markdown twin per page (mode per spike ADR) | strong-agent | M | `spike.md-twin-liquid` |
-| `theme.jsonld` | JSON-LD per layout | free-agent | S | `theme.doc` |
-| `theme.copy-button` | "Copy page as Markdown" button | free-agent | S | `theme.md-twin` |
-| `theme.action` | Template ships with the verify Action and badge enabled | free-agent | XS | `action.core` |
+| `quality.orphans` | Pages no other page links to | free-agent | S | `verify.html-parse` |
+| `quality.duplicate-titles` | The same title on several pages | free-agent | XS | `check.meta` |
+| `quality.duplicate-descriptions` | The same meta description on several pages | free-agent | XS | `check.meta` |
+| `quality.empty-pages` | Pages with no main text | free-agent | S | `verify.html-parse` |
+| `quality.not-found-page` | The build has a 404 page and it is a real page | free-agent | XS | `verify.html-parse` |
+| `quality.page-weight` | Per-page weight budget for HTML, CSS, JavaScript, images, and fonts, with no browser | strong-agent | M | `verify.html-parse` |
+| `quality.font-count` | Too many font files on one page | free-agent | XS | `quality.page-weight` |
+| `quality.redirect-stubs` | Chains and loops of meta-refresh redirect pages | free-agent | S | `html.meta-refresh` |
+| `quality.canonical-consistency` | Canonical URLs point at pages that exist and do not point at each other in circles | free-agent | S | `check.meta` |
 
 ### Exit criteria
-- [ ] Every example site scores 100 on agent-readability.
+- [ ] Every check has a broken fixture and a docs page.
+
+
+## Epic: The agent loop
+<!-- seaworthy-roadmap-key: E-agent-loop -->
+> **Epic** · **Phase:** Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07) · **Track:** verify
+
+### Outcome
+Verify, fix, verify again, as fast and cheaply as possible, for agents and for people reviewing their work.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `loop.diff` | `seaworthy diff before.json after.json`: new, fixed, and unchanged findings | strong-agent | S | `verify.report-schema` |
+| `loop.fix-dry-run` | `seaworthy fix --dry-run`: every edit as one unified diff; Seaworthy still writes no files | strong-agent | M | `verify.report-schema` |
+| `loop.watch` | `--watch`: verify again whenever the build folder changes, reporting only what changed | strong-agent | M | `verify.changed` |
+| `loop.html-report` | `--format html`: one self-contained page for people, with filters | strong-agent | M | `verify.report-schema` |
+| `loop.history` | Keep recent runs in `.seaworthy/history` for diffs and trends | free-agent | S | `loop.diff` |
+| `loop.new-only` | `--new-only`: report only findings that were not there in the last run | free-agent | S | `loop.history` |
+| `loop.prompt-export` | Export all findings as one prompt an agent can work through in order | free-agent | S | `agent.fix-prompts` |
+| `loop.mcp-watch` | MCP tool that waits for the next build and returns its report | strong-agent | S | `loop.watch`, `mcp.verify` |
+| `loop.docs` | Docs: the fastest verify-and-fix loop for agents, with measured timings | free-agent | S | `loop.watch` |
+
+### Exit criteria
+- [ ] On the fixtures, `--watch` reports a fix within 2 seconds of the rebuild.
+
+
+## Epic: Rendered layout checks
+<!-- seaworthy-roadmap-key: E-rendered-layout -->
+> **Epic** · **Phase:** Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07) · **Track:** verify
+
+### Outcome
+Checks that need a real browser at real screen sizes: the page that breaks on a phone, the button too small to tap, the focus nobody can see.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `layout.viewports` | Run rendered checks at phone, tablet, and desktop widths | strong-agent | M | `check.a11y` |
+| `layout.horizontal-overflow` | Pages that scroll sideways on a phone | strong-agent | S | `layout.viewports` |
+| `layout.target-size` | Touch targets smaller than 24×24 px (WCAG 2.5.8) | strong-agent | S | `layout.viewports` |
+| `layout.focus-visible` | Focusable elements with no visible focus indicator (WCAG 2.4.7) | strong-agent | M | `layout.viewports` |
+| `layout.text-clipping` | Text cut off by its container | strong-agent | M | `layout.viewports` |
+| `layout.reflow` | Content that does not reflow at 320 CSS px (WCAG 1.4.10) | strong-agent | S | `layout.viewports` |
+| `layout.screenshots` | Save a screenshot crop for each rendered finding, referenced from the report | strong-agent | S | `layout.viewports` |
+| `layout.fixtures` | Rendered fixtures with known layout problems, run in CI with a preinstalled browser | free-agent | S | `layout.viewports` |
+
+### Exit criteria
+- [ ] Rendered fixtures run in CI.
+- [ ] Each rendered finding carries a selector and, optionally, a screenshot.
+
 
 ## Epic: Launch wave 2
 <!-- seaworthy-roadmap-key: E-launch-2 -->
-> **Epic** · **Phase:** Phase 5 — Launch wave 2 (2027-02-08 → 2027-03-07)
+> **Epic** · **Phase:** Phase 5 — Launch wave 2: live sites and the agent loop (2027-02-08 → 2027-03-07)
 
 ### Outcome
-A second, visual launch: "the theme that passes every check, in English and Persian."
+A second launch: "Seaworthy now verifies the live site too", with a report on deployed sites and a demo of the faster agent loop.
 
 ### Tasks
 | Key | Task | Lane | Size | Depends |
 |---|---|---|---|---|
-| `launch2.template` | GitHub template repo, topics, social preview | maintainer | XS | `theme.action` |
-| `launch2.directories` | Submit to Jekyll theme directories | free-agent | S | `launch2.template` |
-| `launch2.visual-tests` | Screenshot tests: light, dark, RTL at three widths | strong-agent | M | `theme.persian` |
 | `launch2.readme-fa` | Persian README and docs landing page | free-agent | S | `release.readme` |
-| `launch2.posts` | Launch posts with screenshots and a "before/after verify" story | strong-agent | S | `brand.kit` |
+| `launch2.posts` | Launch posts: live-site verification and the agent loop, with before and after examples | strong-agent | S | `brand.kit` |
 | `launch2.day` | Launch day | maintainer | M | `launch2.posts` |
+| `launch2.live-report` | Verify 100 deployed docs sites live; publish aggregate, anonymized findings | strong-agent | M | `live.cli` |
+| `launch2.video` | Demo video: an agent deploys, Seaworthy catches a deploy-only break, the agent fixes it | maintainer | M | `live.deploy-diff` |
+| `launch2.theme-consumer` | The theme project verifies every pull request with the Seaworthy Action and shows the badge | maintainer | S | `action.core` |
 
 ### Exit criteria
-- [ ] `theme 0.1.0` published; 25 public sites built with it or with verify's badge.
+- [ ] `verify 0.2.0` published with live-site verification.
+- [ ] Launched on at least four channels.
 
 ---
 
@@ -638,7 +882,7 @@ Anyone can publish a check pack without forking Seaworthy. This is what lets the
 - External checks through the same check API built-in checks use
 - Check packs as npm packages with a manifest and `spec:` compatibility range
 - Graceful degradation: an incompatible pack warns and is skipped
-- Theme presets as a second extension point
+- Rule presets (`extends`) as a second extension point
 
 ### Tasks
 | Key | Task | Lane | Size | Depends |
@@ -649,7 +893,10 @@ Anyone can publish a check pack without forking Seaworthy. This is what lets the
 | `ext.add` | `seaworthy add <pack>` | strong-agent | S | `ext.loader` |
 | `ext.first-packs` | First official packs: i18n/hreflang, docs-quality, performance budgets (one task each) | free-agent | S | `ext.loader` |
 | `ext.mcp` | `list_packs` and `add_pack` MCP tools | free-agent | S | `ext.add` |
-| `ext.presets` | Theme presets as an extension point; five official presets | free-agent | S | `ext.spec` |
+| `ext.rule-presets` | `"extends": "seaworthy:recommended"`, `strict`, and `a11y` presets | strong-agent | M | `ext.spec` |
+| `ext.sdk-docs` | Guide: write, test, and publish a check pack | free-agent | S | `ext.template` |
+| `ext.registry` | Public list of community check packs, submitted by pull request | free-agent | S | `ext.loader` |
+| `ext.types` | Published TypeScript types for the check API | free-agent | S | `ext.spec` |
 
 ### Exit criteria
 - [ ] An external repo publishes a check pack that works with one command.
@@ -692,6 +939,8 @@ Every verified site makes the next user more likely: public usage counts, a show
 | `growth.showcase` | Showcase of verified sites, submissions by PR | free-agent | S | `docs.site` |
 | `growth.leaderboard` | Monthly "agent-readability of top docs sites" report | strong-agent | M | `launch1.top100` |
 | `growth.newsletter` | Release notes digest | maintainer | XS | none |
+| `growth.badge-wall` | Wall of repositories showing the badge, refreshed weekly | free-agent | S | `growth.usage-count` |
+| `growth.integrations-gallery` | Gallery of verified example sites per framework | free-agent | S | `int.conformance` |
 
 ### Exit criteria
 - [ ] Monthly report published twice; showcase has 50 sites.
@@ -734,6 +983,67 @@ Seaworthy is safe to run on untrusted sites, fast on large ones, correct on ever
 
 ---
 
+## Epic: Markdown sources
+<!-- seaworthy-roadmap-key: E-markdown-sources -->
+> **Epic** · **Phase:** Phase 6 — Extensions, spec 0.9, community (2027-03-08 → 2027-04-18) · **Track:** verify
+
+### Outcome
+Many repositories have no built site but do have a README and docs in Markdown. Checking their links and anchors brings Seaworthy to every repository.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `md.graph` | Read Markdown files into a graph of headings and links (GitHub-flavored) | strong-agent | M | `spike.markdown-sources` |
+| `md.links` | Relative links between Markdown files that point at missing files | free-agent | S | `md.graph` |
+| `md.anchors` | Heading anchors that do not exist, using GitHub's slug rules | free-agent | S | `md.graph` |
+| `md.images` | Images in Markdown that point at missing files, and images with no alt text | free-agent | S | `md.graph` |
+| `md.external` | Opt-in external link checking for Markdown, sharing `links.external` | free-agent | S | `md.graph`, `check.links-external` |
+| `md.cli` | `seaworthy verify --markdown README.md docs/` | strong-agent | S | `md.graph` |
+| `md.action` | Action input for Markdown sources | free-agent | XS | `md.cli`, `action.core` |
+
+### Exit criteria
+- [ ] `seaworthy verify --markdown` passes on this repository's own docs.
+
+
+## Epic: International sites
+<!-- seaworthy-roadmap-key: E-i18n-pack -->
+> **Epic** · **Phase:** Phase 6 — Extensions, spec 0.9, community (2027-03-08 → 2027-04-18) · **Track:** verify
+
+### Outcome
+Multilingual and right-to-left sites: language alternates, direction, and translation coverage.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `i18n.hreflang` | `hreflang` links are reciprocal and point at pages that exist | free-agent | S | `verify.html-parse` |
+| `i18n.x-default` | Multilingual sites declare an `x-default` | free-agent | XS | `i18n.hreflang` |
+| `i18n.dir` | Right-to-left languages declare `dir="rtl"` | free-agent | XS | `check.rtl` |
+| `i18n.parity` | Every page exists in every language the site declares, or is listed as untranslated | strong-agent | S | `i18n.hreflang` |
+| `i18n.switcher` | Language switcher links point at the same page in the other language | free-agent | S | `i18n.hreflang` |
+
+### Exit criteria
+- [ ] Every check has a broken fixture, including a Persian one.
+
+
+## Epic: Trends
+<!-- seaworthy-roadmap-key: E-trends -->
+> **Epic** · **Phase:** Phase 6 — Extensions, spec 0.9, community (2027-03-08 → 2027-04-18) · **Track:** verify
+
+### Outcome
+Show whether a site is getting better or worse over time, without a hosted service.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `trends.store` | Keep summary numbers per run for trends | free-agent | S | `loop.history` |
+| `trends.chart` | Trend chart in the HTML report | free-agent | S | `trends.store`, `loop.html-report` |
+| `trends.pr-comment` | PR comment shows the trend over the last runs | free-agent | S | `trends.store`, `action.pr-comment` |
+| `trends.export` | Export history as CSV and JSON | free-agent | XS | `trends.store` |
+
+### Exit criteria
+- [ ] The HTML report shows the last ten runs.
+
+
 # Metrics
 
 Stars are an outcome we cannot schedule. These are the leading indicators we track every phase.
@@ -742,7 +1052,8 @@ Stars are an outcome we cannot schedule. These are the leading indicators we tra
 |---|---|---|---|
 | Weekly npm downloads (verify) | 200 | 2,000 | 15,000 |
 | Repos running the Action or showing the badge | 30 | 300 | 3,000 |
-| Generators with tested recipes | 6 | 8 | 12 |
+| Generators with tested recipes | 6 | 13 | 16 |
+| Built-in checks | 40 | 110 | 150 |
 | External contributors | 10 | 40 | 150 |
 | Community check packs | 0 | 5 | 30 |
 | Agent benchmark: pass rate gain with Seaworthy | measured | +30 points | published per release |
@@ -754,7 +1065,7 @@ Stars are an outcome we cannot schedule. These are the leading indicators we tra
 |---|---|
 | 7–8 | Spec 1.0 through the RFC process; more generators; community-led check packs |
 | 9–10 | Optional hosted dashboard for teams (history, trends); IDE integration; more agent protocols |
-| 11–12 | Spec 1.0 final; conformance program; `verify 1.0` and `theme 1.0`; second launch wave for both |
+| 11–12 | Spec 1.0 final; conformance program; `verify 1.0`; a third launch |
 
 # Long-term extensibility
 
@@ -763,5 +1074,5 @@ Built to take years of features without a rewrite:
 - **New web standards and AI crawler rules** arrive as checks or check packs.
 - **New frameworks and hosts** arrive as recipes tested in CI.
 - **New agent protocols** arrive as thin wrappers over the same CLI and report contract the MCP server uses.
-- **New site types** arrive as theme layouts or presets, not core changes.
+- **New kinds of sites** (docs, stores, apps) arrive as check packs and presets, not core changes.
 - **Breaking changes** are rare, versioned, decided by RFC, and shipped with a migration note.

@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { BUILTIN_LABELS, EPIC_AREAS, LABELS, LANES, SIZES, TRACKS, typeFor } from "./labels.mjs";
 import { parseRoadmap } from "./parse.mjs";
-import { DONE } from "./status.mjs";
+import { DONE, MOVED_TO_THEME } from "./status.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..", "..");
@@ -88,6 +88,9 @@ export function buildIssues(markdown, briefs = new Map(), { done = DONE, strict 
   }
   for (const key of Object.keys(done)) {
     if (!byKey.has(key) || byKey.get(key).kind !== "task") errors.push(`status.mjs marks ${key} done, but it is not a task`);
+  }
+  for (const key of MOVED_TO_THEME) {
+    if (byKey.has(key)) errors.push(`${key} is listed in MOVED_TO_THEME but is still in ROADMAP.md`);
   }
   for (const key of briefs.keys()) {
     if (!byKey.has(key) || byKey.get(key).kind !== "task") errors.push(`briefs/${key}.md does not match a task key`);
@@ -256,7 +259,7 @@ function main() {
   const out = join(here, "out");
   mkdirSync(out, { recursive: true });
   const phases = result.phases.map((p) => ({ ...p, dueOn: `${p.end}T23:59:59Z`, description: `${p.title} (${p.start} → ${p.end}). Release: ${p.release}.` }));
-  writeFileSync(join(out, "issues.json"), JSON.stringify({ phases, issues: result.issues }, null, 2) + "\n");
+  writeFileSync(join(out, "issues.json"), JSON.stringify({ phases, issues: result.issues, movedToTheme: MOVED_TO_THEME }, null, 2) + "\n");
   writeFileSync(join(out, "labels.json"), JSON.stringify(result.labels, null, 2) + "\n");
   writeFileSync(join(out, "preview.md"), preview(result) + "\n");
   console.log(summary);
