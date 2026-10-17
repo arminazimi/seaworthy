@@ -56,14 +56,57 @@ const scratch = mkdtempSync(join(tmpdir(), "seaworthy-roadmap-"));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const save = () => writeFileSync(statePath, JSON.stringify(state, null, 2) + "\n");
 
-function gh(args, input) {
+function ghOnce(args, input) {
   if (input !== undefined) {
     const file = join(scratch, "payload.json");
     writeFileSync(file, JSON.stringify(input));
     args = [...args, "--input", file];
   }
-  const text = execFileSync("gh", ["api", ...args], { encoding: "utf8", maxBuffer: 1e8 });
+  const text = execFileSync("gh", ["api", ...args], { encoding: "utf8", maxBuffer: 1e8, stdio: ["ignore", "pipe", "pipe"] });
   return text.trim() ? JSON.parse(text) : null;
+}
+
+const isTransient = (error) => /unexpected EOF|ECONNRESET|ETIMEDOUT|EAI_AGAIN|timeout|HTTP 50[0-9]|HTTP 429|secondary rate limit/i.test(String(error?.stderr ?? error?.message ?? error));
+const pause = (ms) => execFileSync(process.execPath, ["-e", `setTimeout(() => {}, ${ms})`]);
+
+/** GET and PATCH are safe to repeat: retry transient failures with backoff. */
+function gh(args, input) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return ghOnce(args, input);
+    } catch (error) {
+      if (attempt >= 4 || !isTransient(error)) throw error;
+      console.log(`  retry ${attempt} after: ${String(error.stderr ?? error.message).trim().split("\n")[0]}`);
+      pause(2000 * 2 ** attempt);
+    }
+  }
+}
+
+/** Finds an issue that already carries a roadmap key, among the most recently created ones. */
+function findCreated(key) {
+  const recent = gh([`repos/${REPO}/issues?state=all&per_page=30&sort=created&direction=desc`]);
+  return recent.find((i) => (i.body ?? "").startsWith(`<!-- seaworthy-roadmap-key: ${key} -->`));
+}
+
+/**
+ * Creating an issue is not safe to repeat: a request can fail after GitHub created the issue. Before each retry,
+ * look for an issue with this key, so a retry never makes a duplicate.
+ */
+function createIssue(key, payload) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return ghOnce([`repos/${REPO}/issues`, "-X", "POST"], payload);
+    } catch (error) {
+      if (attempt >= 4 || !isTransient(error)) throw error;
+      pause(2000 * 2 ** attempt);
+      const existing = findCreated(key);
+      if (existing) {
+        console.log(`  recovered #${existing.number} for ${key}, created by the failed request`);
+        return existing;
+      }
+      console.log(`  retry ${attempt} creating ${key}`);
+    }
+  }
 }
 
 function resolve(body) {
@@ -123,7 +166,7 @@ for (const p of phases) {
 
 // 3. Create new issues with placeholder bodies (references resolve in step 4).
 for (const issue of newIssues) {
-  const created = gh([`repos/${REPO}/issues`, "-X", "POST"], {
+  const created = createIssue(issue.key, {
     title: issue.title,
     body: `<!-- seaworthy-roadmap-key: ${issue.key} -->\n_Roadmap issue is being created; details follow shortly._`,
     labels: issue.labels,
