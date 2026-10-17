@@ -1,0 +1,11 @@
+{
+  "description": "Four links start with /seaworthy/ but the built site has no such folder; they resolve once the prefix is removed. One finding, at the first of them.",
+  "findings": [
+    {
+      "check": "links.base-url",
+      "file": "index.html",
+      "line": 5,
+      "column": 9
+    }
+  ]
+}

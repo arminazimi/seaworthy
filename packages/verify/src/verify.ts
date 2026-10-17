@@ -42,7 +42,7 @@ export interface VerifyResult {
 export async function verifySite(options: VerifyOptions): Promise<VerifyResult> {
   const config: Config = options.config ?? { checks: {}, ignore: [], suppressions: [] };
   const now = options.now ?? new Date();
-  const site = options.site ?? buildSite(options.folder);
+  const site = options.site ?? buildSite(options.folder, config.basePath === undefined ? {} : { basePath: config.basePath });
 
   const resolved = resolveChecks(config, options.checks);
   const run = await runChecks({

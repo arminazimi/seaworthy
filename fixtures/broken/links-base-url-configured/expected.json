@@ -1,0 +1,11 @@
+{
+  "description": "With basePath /repo/, a root-absolute link that does not start with /repo/ leaves the site. /repo/about.html, a relative link, and a protocol-relative link are fine.",
+  "findings": [
+    {
+      "check": "links.base-url",
+      "file": "index.html",
+      "line": 5,
+      "column": 46
+    }
+  ]
+}

@@ -150,16 +150,23 @@ test("report spec version starts at 0 until the contract is frozen", () => {
   assert.equal(REPORT_SPEC_VERSION, 0);
 });
 
-test("the built binary runs as a process and uses exit codes", () => {
+test("the built binary runs as a process, finds real problems, and uses exit codes", () => {
   const bin = fileURLToPath(new URL("../src/cli.js", import.meta.url));
   assert.equal(execFileSync(process.execPath, [bin, "--version"], { encoding: "utf8" }), `${VERSION}\n`);
-  const site = makeSite({ "index.html": PAGE });
-  const ok = spawnSync(process.execPath, [bin, "verify", site], { encoding: "utf8" });
+
+  const clean = makeSite({ "index.html": '<!doctype html><title>t</title><a href="/about.html">a</a>', "about.html": "<!doctype html><title>a</title>" });
+  const ok = spawnSync(process.execPath, [bin, "verify", clean], { encoding: "utf8" });
   assert.equal(ok.status, EXIT.ok);
   assert.match(ok.stdout, /No findings\./);
-  const bad = spawnSync(process.execPath, [bin, "verify", join(site, "nope")], { encoding: "utf8" });
+
+  const broken = spawnSync(process.execPath, [bin, "verify", makeSite({ "index.html": PAGE })], { encoding: "utf8" });
+  assert.equal(broken.status, EXIT.findings, "the built-in links.internal check finds /missing.html");
+  assert.match(broken.stdout, /links\.internal +Link to \/missing\.html points to a page that does not exist/);
+
+  const bad = spawnSync(process.execPath, [bin, "verify", join(clean, "nope")], { encoding: "utf8" });
   assert.equal(bad.status, EXIT.usage);
 });
+
 
 const imgCheck: Check = {
   meta: { id: "images.alt", title: "Image has no alt", severity: "error", needs: ["html"], docs: "https://example.test/x", standards: [] },
