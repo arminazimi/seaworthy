@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -159,4 +159,70 @@ test("the built binary runs as a process and uses exit codes", () => {
   assert.match(ok.stdout, /No findings\./);
   const bad = spawnSync(process.execPath, [bin, "verify", join(site, "nope")], { encoding: "utf8" });
   assert.equal(bad.status, EXIT.usage);
+});
+
+const imgCheck: Check = {
+  meta: { id: "images.alt", title: "Image has no alt", severity: "error", needs: ["html"], docs: "https://example.test/x", standards: [] },
+  run: (ctx) => [...ctx.site.pages.values()].filter((p) => p.source.includes("<img src=")).map((p) => ({ message: "no alt", location: { file: p.file, line: 1 }, fix: { kind: "manual" as const, summary: "add alt" }, key: p.url })),
+};
+const IMG = '<!doctype html><title>t</title><img src="a.png">';
+
+test("seaworthy.config.json is picked up: root, failOn, and severity overrides", async () => {
+  const cwd = makeSite({
+    "site/index.html": IMG,
+    "seaworthy.config.json": JSON.stringify({ root: "site", failOn: "none", checks: { "images.alt": "warning" } }),
+  });
+  const result = await run(["verify", "--format", "json"], { cwd, checks: [imgCheck] });
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.root, "site");
+  assert.deepEqual(report.summary.bySeverity, { warning: 1 });
+  assert.equal(result.code, EXIT.ok, "failOn: none from the config");
+  assert.equal((await run(["verify", "--fail-on", "warning"], { cwd, checks: [imgCheck] })).code, EXIT.findings, "a flag beats the config");
+});
+
+test("a bad config is a usage error that names the problem", async () => {
+  const cwd = makeSite({ "site/index.html": IMG, "seaworthy.config.json": JSON.stringify({ checks: { "images.alt": "critical" } }) });
+  const result = await run(["verify", "site"], { cwd, checks: [imgCheck] });
+  assert.equal(result.code, EXIT.usage);
+  assert.match(result.stderr, /checks\."images\.alt": got "critical"/);
+  const missing = await run(["verify", "site", "--config", "nope.json"], { cwd, checks: [imgCheck] });
+  assert.match(missing.stderr, /config file not found: nope\.json/);
+});
+
+test("adopting with a baseline: record once, then only new findings fail", async () => {
+  const cwd = makeSite({ "dist/index.html": IMG, "dist/about.html": IMG });
+  const first = await run(["verify", "dist"], { cwd, checks: [imgCheck] });
+  assert.equal(first.code, EXIT.findings);
+
+  const written = await run(["verify", "dist", "--update-baseline", "seaworthy-baseline.json"], { cwd, checks: [imgCheck] });
+  assert.equal(written.code, EXIT.ok);
+  assert.match(written.stdout, /baseline written to seaworthy-baseline\.json \(2 findings in 2 entries\)/);
+  assert.ok(existsSync(join(cwd, "seaworthy-baseline.json")));
+
+  const adopted = await run(["verify", "dist", "--baseline", "seaworthy-baseline.json", "--format", "json"], { cwd, checks: [imgCheck] });
+  assert.equal(adopted.code, EXIT.ok);
+  assert.deepEqual(JSON.parse(adopted.stdout).summary.baselined, 2);
+
+  writeFileSync(join(cwd, "dist", "new.html"), IMG);
+  const grown = await run(["verify", "dist", "--baseline", "seaworthy-baseline.json", "--format", "json"], { cwd, checks: [imgCheck] });
+  assert.equal(grown.code, EXIT.findings);
+  assert.deepEqual(JSON.parse(grown.stdout).findings.map((f: { location: { file: string } }) => f.location.file), ["new.html"]);
+});
+
+test("baseline flag mistakes are usage errors with a way forward", async () => {
+  const cwd = makeSite({ "dist/index.html": IMG });
+  const missing = await run(["verify", "dist", "--baseline", "nope.json"], { cwd, checks: [imgCheck] });
+  assert.equal(missing.code, EXIT.usage);
+  assert.match(missing.stderr, /baseline file not found: nope\.json\. Create it with --update-baseline nope\.json/);
+  const both = await run(["verify", "dist", "--baseline", "a.json", "--update-baseline", "b.json"], { cwd, checks: [imgCheck] });
+  assert.match(both.stderr, /not both/);
+  writeFileSync(join(cwd, "bad.json"), "{}");
+  assert.equal((await run(["verify", "dist", "--baseline", "bad.json"], { cwd, checks: [imgCheck] })).code, EXIT.usage);
+});
+
+test("the baseline named in the config is used", async () => {
+  const cwd = makeSite({ "dist/index.html": IMG });
+  await run(["verify", "dist", "--update-baseline", "b.json"], { cwd, checks: [imgCheck] });
+  writeFileSync(join(cwd, "seaworthy.config.json"), JSON.stringify({ baseline: "b.json" }));
+  assert.equal((await run(["verify", "dist"], { cwd, checks: [imgCheck] })).code, EXIT.ok);
 });

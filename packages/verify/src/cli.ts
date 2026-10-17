@@ -5,14 +5,14 @@ import { existsSync, mkdirSync, realpathSync, statSync, writeFileSync } from "no
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { BaselineError, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
 import { builtInChecks } from "./checks/index.js";
-import { runChecks } from "./engine.js";
+import { ConfigError, loadConfig } from "./config.js";
 import { FORMATS, type Format, formatReport } from "./formats/index.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
-import { buildReport } from "./report.js";
-import { buildSite } from "./site.js";
 import type { Check, Report, Severity } from "./types.js";
 import { VERSION } from "./version.js";
+import { verifySite } from "./verify.js";
 
 export const EXIT = {
   /** No findings at or above the failing severity. */
@@ -41,6 +41,10 @@ Options:
   --format <format>    pretty (default), json, markdown, or sarif
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
+  --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
+  --baseline <file>    Accept the findings recorded in this file; report and fail only on new ones
+  --update-baseline <file>
+                       Record all current findings in this file, then exit 0
   --rendered           Run checks that need a browser
   --network            Run checks that make network requests
   --help, -h           Print this help
@@ -72,7 +76,10 @@ interface Options {
   dir: string | undefined;
   format: Format;
   out: string | undefined;
-  failOn: Severity | "none";
+  failOn: Severity | "none" | undefined;
+  config: string | undefined;
+  baseline: string | undefined;
+  updateBaseline: string | undefined;
   rendered: boolean;
   network: boolean;
 }
@@ -80,7 +87,7 @@ interface Options {
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: "error", rendered: false, network: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, rendered: false, network: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -113,6 +120,16 @@ function parseOptions(args: readonly string[]): Options {
         i = next;
         break;
       }
+      case "--config":
+      case "--baseline":
+      case "--update-baseline": {
+        const [v, next] = value(flag, inline, i);
+        if (flag === "--config") options.config = v;
+        else if (flag === "--baseline") options.baseline = v;
+        else options.updateBaseline = v;
+        i = next;
+        break;
+      }
       case "--rendered":
         options.rendered = true;
         break;
@@ -136,7 +153,7 @@ export function rootLabel(cwd: string, folder: string): string {
   return rel.split("\\").join("/");
 }
 
-function failing(report: Report, failOn: Options["failOn"]): boolean {
+function failing(report: Report, failOn: Severity | "none"): boolean {
   if (failOn === "none") return false;
   return report.findings.some((f) => SEVERITY_ORDER[f.severity] <= SEVERITY_ORDER[failOn]);
 }
@@ -146,14 +163,33 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const cwd = env.cwd ?? process.cwd();
   const checks = env.checks ?? builtInChecks;
 
-  const requested = options.dir ?? DEFAULT_FOLDERS.find((name) => existsSync(resolve(cwd, name)) && statSync(resolve(cwd, name)).isDirectory());
+  const { config, file: configFile } = loadConfig(cwd, options.config, checks.map((c) => c.meta.id));
+  if (options.updateBaseline !== undefined && options.baseline !== undefined) throw new UsageError("use --baseline or --update-baseline, not both");
+
+  const requested = options.dir ?? config.root ?? DEFAULT_FOLDERS.find((name) => existsSync(resolve(cwd, name)) && statSync(resolve(cwd, name)).isDirectory());
   if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
   const folder = resolve(cwd, requested);
   if (!existsSync(folder) || !statSync(folder).isDirectory()) throw new UsageError(`${requested} is not a folder`);
 
-  const site = buildSite(folder);
-  const result = await runChecks({ site, checks, enable: { browser: options.rendered, network: options.network } });
-  const report = buildReport({ root: rootLabel(cwd, folder), pages: site.pages.size, checks, findings: result.findings, skipped: result.skipped, errors: result.errors });
+  const baselinePath = options.baseline ?? (options.updateBaseline === undefined ? config.baseline : undefined);
+  if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
+
+  const { report, site, unbaselined } = await verifySite({
+    folder,
+    rootLabel: rootLabel(cwd, folder),
+    checks,
+    config,
+    ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
+    rendered: options.rendered || config.rendered === true,
+    network: options.network || config.network === true,
+    ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
+  });
+
+  if (options.updateBaseline !== undefined) {
+    const baseline = createBaseline(unbaselined);
+    writeBaseline(resolve(cwd, options.updateBaseline), baseline);
+    return { code: report.errors.length > 0 ? EXIT.internal : EXIT.ok, stdout: `seaworthy: baseline written to ${options.updateBaseline} (${unbaselined.length} finding${unbaselined.length === 1 ? "" : "s"} in ${baseline.entries.length} entr${baseline.entries.length === 1 ? "y" : "ies"})\n`, stderr: report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; the baseline may be incomplete\n` : "" };
+  }
 
   const text = formatReport(report, options.format, {
     readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
@@ -166,7 +202,8 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
     const counts = severityCounts(report);
     stdout = `seaworthy: ${report.findings.length === 0 ? "no findings" : `${report.findings.length} finding${report.findings.length === 1 ? "" : "s"} (${counts})`}; ${options.format} report written to ${options.out}\n`;
   }
-  const code = report.errors.length > 0 ? EXIT.internal : failing(report, options.failOn) ? EXIT.findings : EXIT.ok;
+  const failOn = options.failOn ?? config.failOn ?? "error";
+  const code = report.errors.length > 0 ? EXIT.internal : failing(report, failOn) ? EXIT.findings : EXIT.ok;
   return { code, stdout, stderr: report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; see the report\n` : "" };
 }
 
@@ -178,7 +215,7 @@ export async function run(argv: readonly string[], env: CliEnvironment = {}): Pr
     if (command === "verify") return await verify(rest, env);
     return { code: EXIT.usage, stdout: "", stderr: `Unknown command: ${command}\n\n${HELP}` };
   } catch (error) {
-    if (error instanceof UsageError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
+    if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
     return { code: EXIT.internal, stdout: "", stderr: `seaworthy: ${error instanceof Error ? error.message : String(error)}\n` };
   }
 }
