@@ -1,21 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-
-import Ajv2020 from "ajv/dist/2020.js";
 
 import { runChecks } from "../src/engine.js";
 import { buildReport } from "../src/report.js";
 import { buildSite } from "../src/site.js";
 import type { Check, Report } from "../src/types.js";
-import { makeSite } from "./helpers.js";
-
-// packages/verify/dist/tests/schema.test.js -> repository root is four levels up.
-const schemaPath = fileURLToPath(new URL("../../../../spec/report/v0.schema.json", import.meta.url));
-const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
-const Ajv = Ajv2020 as unknown as typeof Ajv2020.default;
-const validate = new Ajv({ strict: true, allErrors: true }).compile(schema);
+import { makeSite, reportErrors } from "./helpers.js";
 
 const check: Check = {
   meta: { id: "images.alt", title: "Image has no alt attribute", severity: "error", needs: ["html"], docs: "https://example.test/images.alt", standards: ["WCAG 1.1.1"] },
@@ -35,7 +25,7 @@ async function sampleReport(): Promise<Report> {
   return buildReport({ root: "dist", pages: site.pages.size, checks: [check], findings, skipped, errors });
 }
 
-const errorsOf = (value: unknown) => (validate(value) ? [] : validate.errors!.map((e) => `${e.instancePath} ${e.message}`));
+const errorsOf = reportErrors;
 
 test("a real report from the engine validates against the schema", async () => {
   assert.deepEqual(errorsOf(await sampleReport()), []);

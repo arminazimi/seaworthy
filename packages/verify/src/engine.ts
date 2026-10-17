@@ -41,7 +41,7 @@ export function validateCheckId(id: string): void {
 const SKIP_HINTS: Record<"browser" | "network", { reason: string; hint: string }> = {
   browser: {
     reason: "rendered-checks-disabled",
-    hint: "Run with --rendered to enable checks that need a browser. Install Chrome or Chromium, or run `seaworthy browser install`.",
+    hint: "Run with --rendered to enable checks that need a browser. Chrome, Chromium, or Edge must be installed.",
   },
   network: {
     reason: "network-checks-disabled",
