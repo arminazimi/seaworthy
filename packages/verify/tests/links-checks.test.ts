@@ -26,8 +26,8 @@ test("links.internal proposes an exact edit for a typo, in the style of the orig
     "docs/guide.html": PAGE('<h2 id="a">a</h2>'),
   });
   assert.equal(absolute!.fix.kind, "edit");
-  assert.deepEqual(absolute!.fix.edits, [{ file: "index.html", line: 5, action: "replace", find: "/docs/guid.html?x=1#a", replace: "/docs/guide.html?x=1#a" }]);
-  assert.deepEqual(relative!.fix.edits, [{ file: "index.html", line: 6, action: "replace", find: "docs/guid.html", replace: "docs/guide.html" }]);
+  assert.deepEqual(absolute!.fix.edits, [{ file: "index.html", line: 5, action: "replace", find: 'href="/docs/guid.html?x=1#a"', replace: 'href="/docs/guide.html?x=1#a"' }]);
+  assert.deepEqual(relative!.fix.edits, [{ file: "index.html", line: 6, action: "replace", find: 'href="docs/guid.html"', replace: 'href="docs/guide.html"' }]);
   assert.match(absolute!.fix.summary, /closest match: \/docs\/guide\.html/);
 });
 
@@ -40,7 +40,7 @@ test("links.internal says so instead of guessing when nothing is close", async (
 test("links.internal suggests the closest heading id for a broken anchor", async () => {
   const [f] = await findings(linksInternal, { "index.html": PAGE('<a href="/g.html#instal">x</a>'), "g.html": PAGE('<h2 id="install">i</h2><h2 id="usage">u</h2>') });
   assert.match(f!.message, /points to #instal, but \/g\.html has no element with that id/);
-  assert.deepEqual(f!.fix.edits.map((e) => [e.find, e.replace]), [["#instal", "#install"]]);
+  assert.deepEqual(f!.fix.edits.map((e) => [e.find, e.replace]), [['href="/g.html#instal"', 'href="/g.html#install"']]);
 });
 
 test("links.internal honors the base path when resolving", async () => {
@@ -72,7 +72,7 @@ test("assets.missing reads srcset, link rels, input images, and ignores data URI
 
 test("assets.missing suggests the closest file with the same extension, in the style of the original", async () => {
   const [f] = await findings(assetsMissing, { "index.html": PAGE('<img src="/img/logo.pn" alt="">'), "img/logo.png": "x", "img/logo.css": "x" });
-  assert.deepEqual(f!.fix.edits.map((e) => [e.find, e.replace]), [["/img/logo.pn", "/img/logo.png"]]);
+  assert.deepEqual(f!.fix.edits.map((e) => [e.find, e.replace]), [['src="/img/logo.pn"', 'src="/img/logo.png"']]);
 });
 
 test("links.base-url: one broken link is not enough to guess a base path", async () => {
@@ -88,7 +88,7 @@ test("links.base-url: links that already break for other reasons are not mistake
 test("links.base-url under a configured base path gives the exact fix", async () => {
   const out = await findings(linksBaseUrl, { "index.html": PAGE('<a href="/about.html">a</a> <a href="/repo/about.html">b</a> <a href="/repo">root</a> <a href="https://x.test/y">c</a>'), "about.html": PAGE("") }, { basePath: "/repo/" });
   assert.equal(out.length, 1);
-  assert.deepEqual(out[0]!.fix.edits.map((e) => [e.find, e.replace]), [["/about.html", "/repo/about.html"]]);
+  assert.deepEqual(out[0]!.fix.edits.map((e) => [e.find, e.replace]), [['href="/about.html"', 'href="/repo/about.html"']]);
 });
 
 // ---- links.external, against a real HTTP server on loopback -------------------------------------------------
@@ -210,4 +210,10 @@ test("srcsetUrls follows the HTML parsing rules", () => {
   assert.deepEqual(srcsetUrls("a.png (min-width: 1px, max-width: 2px) 1x, b.png 2x"), ["a.png", "b.png"], "commas inside parentheses stay in the descriptor");
   assert.deepEqual(srcsetUrls(""), []);
   assert.deepEqual(srcsetUrls(" , , "), []);
+});
+
+test("attribute edits keep the quote style, escape what needs escaping, and decline multi-line values", async () => {
+  const [single, ampersand] = await findings(linksInternal, { "index.html": PAGE(`<a href='/docs/guid.html'>a</a>\n<a href="/docs/guid.html?a=1&amp;b=2">b</a>`), "docs/guide.html": PAGE("") });
+  assert.deepEqual(single!.fix.edits.map((e) => [e.find, e.replace]), [[`href='/docs/guid.html'`, `href='/docs/guide.html'`]]);
+  assert.deepEqual(ampersand!.fix.edits.map((e) => [e.find, e.replace]), [['href="/docs/guid.html?a=1&amp;b=2"', 'href="/docs/guide.html?a=1&amp;b=2"']], "the decoded & is written back as &amp;");
 });

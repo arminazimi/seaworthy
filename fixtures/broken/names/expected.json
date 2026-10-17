@@ -1,0 +1,59 @@
+{
+  "description": "Form fields with no label (a placeholder is not a label), buttons and image inputs with no name, and links with no text or only an empty-alt image. Labels by for, by wrapping, by aria-label, SVG titles, image alt, hidden elements, and anchors without href are fine.",
+  "findings": [
+    {
+      "check": "names.label",
+      "file": "index.html",
+      "line": 9,
+      "column": 1
+    },
+    {
+      "check": "names.label",
+      "file": "index.html",
+      "line": 13,
+      "column": 54
+    },
+    {
+      "check": "names.label",
+      "file": "index.html",
+      "line": 14,
+      "column": 1
+    },
+    {
+      "check": "names.label",
+      "file": "index.html",
+      "line": 15,
+      "column": 1
+    },
+    {
+      "check": "names.button",
+      "file": "index.html",
+      "line": 17,
+      "column": 1
+    },
+    {
+      "check": "names.button",
+      "file": "index.html",
+      "line": 21,
+      "column": 1
+    },
+    {
+      "check": "names.button",
+      "file": "index.html",
+      "line": 23,
+      "column": 1
+    },
+    {
+      "check": "names.link",
+      "file": "index.html",
+      "line": 24,
+      "column": 1
+    },
+    {
+      "check": "names.link",
+      "file": "index.html",
+      "line": 25,
+      "column": 1
+    }
+  ]
+}

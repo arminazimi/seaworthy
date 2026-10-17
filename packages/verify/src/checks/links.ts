@@ -5,7 +5,7 @@ import { posix } from "node:path";
 import { type HtmlElement, type Page, type SiteGraph, attr } from "../site.js";
 import { closest } from "../text.js";
 import type { FindingDraft } from "../types.js";
-import { check, locate, meta, pagesOf, replaceEdit } from "./helpers.js";
+import { check, locate, meta, pagesOf, replaceAttribute } from "./helpers.js";
 
 const LINKING = new Set(["a", "area"]);
 
@@ -36,7 +36,7 @@ export const linksInternal = check(meta("links.internal", "Internal link points 
 
       if (target.file === undefined) {
         const near = closest(target.path, pageUrls);
-        const edit = near === undefined ? undefined : replaceEdit(page, location.line, href, hrefFor(ctx.site, page, href, near));
+        const edit = near === undefined ? undefined : replaceAttribute(page, element, "href", hrefFor(ctx.site, page, href, near));
         out.push({
           message: `Link to ${href} points to a page that does not exist in the built site.`,
           location,
@@ -54,8 +54,7 @@ export const linksInternal = check(meta("links.internal", "Internal link points 
       const destination = ctx.site.pages.get(target.file);
       if (fragment === undefined || fragment === "" || fragment.toLowerCase() === "top" || !destination || destination.ids.has(fragment)) continue;
       const near = closest(fragment, destination.ids, 2);
-      const raw = href.slice(href.indexOf("#"));
-      const edit = near === undefined ? undefined : replaceEdit(page, location.line, raw, `#${near}`);
+      const edit = near === undefined ? undefined : replaceAttribute(page, element, "href", `${href.slice(0, href.indexOf("#"))}#${near}`);
       out.push({
         message: `Link to ${href} points to #${fragment}, but ${destination.url} has no element with that id.`,
         location,
@@ -86,7 +85,7 @@ export const linksBaseUrl = check(meta("links.base-url", "Links do not match the
         if (href.startsWith(site.basePath) || `${href}/` === site.basePath) continue;
         const location = locate(page, element, "href");
         const fixed = `${site.basePath.slice(0, -1)}${href}`;
-        const edit = replaceEdit(page, location.line, href, fixed);
+        const edit = replaceAttribute(page, element, "href", fixed);
         out.push({
           message: `Link to ${href} starts at the domain root, but the site is deployed under ${site.basePath}, so it will not find this site's pages.`,
           location,

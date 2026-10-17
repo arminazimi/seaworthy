@@ -77,3 +77,17 @@ test("social.open-graph: the suggested tags complete the set", async () => {
   const { after } = await fixLoop("social", ["social.open-graph"]);
   assert.deepEqual(after, []);
 });
+
+test("images.dimensions and images.alt: edits from two checks to the same image both apply", async () => {
+  const { before, after } = await fixLoop("images", ["images.alt", "images.dimensions"]);
+  const first = before.filter((f) => f.location.line === 8);
+  assert.deepEqual(first.map((f) => f.checkId).sort(), ["images.alt", "images.dimensions"], "line 8 has both problems");
+  assert.ok(before.every((f) => f.fix.edits.length > 0), "every finding, even the multi-line tag, now has an edit");
+  assert.deepEqual(after, [], "applying every edit, in any order, leaves nothing");
+});
+
+test("names.*: the suggested aria-labels satisfy the checks", async () => {
+  const { before, after } = await fixLoop("names", ["names.label", "names.button", "names.link"]);
+  assert.ok(before.length >= 8);
+  assert.deepEqual(after, []);
+});

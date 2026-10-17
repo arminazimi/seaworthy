@@ -1,0 +1,1 @@
+{"checks": ["images.alt", "images.dimensions", "images.size"], "config": {"checks": {"images.size": {"options": {"maxBytes": 1000}}}}}
