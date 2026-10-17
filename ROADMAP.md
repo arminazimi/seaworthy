@@ -270,6 +270,7 @@ The checks that catch what breaks most often on static sites. Each check is one 
 | `check.meta` | Title, description, canonical, `lang`, viewport | free-agent | S | `verify.html-parse` |
 | `check.social` | Open Graph and Twitter card tags, image size | free-agent | S | `check.meta` |
 | `check.headings` | Heading order and a single `h1` | free-agent | XS | `verify.html-parse` |
+| `check.names` | Accessible names: form labels, button text, and link text | free-agent | S | `verify.html-parse` |
 | `check.images` | Missing `alt`, missing dimensions, oversized images | free-agent | S | `verify.html-parse` |
 | `check.a11y` | Accessibility with axe-core (rendered), mapped to report findings | strong-agent | M | `spike.browser` |
 | `check.lighthouse` | Lighthouse budgets (performance, SEO, best practices), opt-in | strong-agent | M | `spike.browser` |
