@@ -30,7 +30,7 @@ if (!existsSync(join(out, "issues.json"))) {
   process.exit(1);
 }
 
-const { phases, issues } = JSON.parse(readFileSync(join(out, "issues.json"), "utf8"));
+const { phases, issues, movedToTheme = [] } = JSON.parse(readFileSync(join(out, "issues.json"), "utf8"));
 const labels = JSON.parse(readFileSync(join(out, "labels.json"), "utf8"));
 const state = existsSync(statePath) ? JSON.parse(readFileSync(statePath, "utf8")) : {};
 state.repo ??= REPO;
@@ -38,6 +38,7 @@ state.numbers ??= {};
 state.phases ??= {};
 state.written ??= {};
 state.closed ??= {};
+state.moved ??= {};
 if (state.repo !== REPO) {
   console.error(`out/state.json belongs to ${state.repo}, not ${REPO}. Move it aside to start fresh.`);
   process.exit(1);
@@ -75,6 +76,9 @@ function resolve(body) {
 
 const newIssues = issues.filter((i) => !state.numbers[i.key]);
 const toClose = Object.keys(DONE).filter((k) => !state.closed[k]);
+const toMove = movedToTheme.filter((k) => state.numbers[k] && !state.moved[k]);
+const roadmapKeys = new Set(issues.map((i) => i.key));
+const orphaned = Object.keys(state.numbers).filter((k) => !roadmapKeys.has(k) && !movedToTheme.includes(k));
 const payload = (issue) => ({ title: issue.title, body: resolve(issue.body), labels: issue.labels, milestone: state.phases[issue.phase] });
 const digest = (p) => createHash("sha256").update(JSON.stringify(p)).digest("hex").slice(0, 16);
 
@@ -84,6 +88,8 @@ for (const p of phases) console.log(`- ensure milestone "${p.id} — ${p.title}"
 console.log(`- create ${newIssues.length} new issues (${newIssues.filter((i) => i.kind === "epic").length} epics, ${newIssues.filter((i) => i.kind === "task").length} tasks)`);
 console.log(`- sync title, body, labels, and milestone on ${issues.length} issues (unchanged ones are skipped)`);
 console.log(`- close ${toClose.length} tasks already done: ${toClose.join(", ") || "none"}`);
+console.log(`- mark ${toMove.length} issues as moved to the theme project (label, no milestone, one comment; not closed)`);
+if (orphaned.length) console.log(`- WARNING: ${orphaned.length} issues are no longer in ROADMAP.md and not marked moved: ${orphaned.join(", ")}`);
 if (!apply) {
   console.log("\nNothing was changed. Re-run with --apply after maintainer approval.");
   process.exit(0);
@@ -103,7 +109,7 @@ for (const l of labels) {
 const existingMilestones = gh([`repos/${REPO}/milestones?state=all&per_page=100`]);
 for (const p of phases) {
   const title = `${p.id} — ${p.title}`;
-  const found = existingMilestones.find((m) => m.title === title);
+  const found = existingMilestones.find((m) => m.title === title) ?? existingMilestones.find((m) => m.title.startsWith(`${p.id} — `));
   const body = { title, description: p.description, due_on: p.dueOn };
   if (found) {
     gh([`repos/${REPO}/milestones/${found.number}`, "-X", "PATCH"], body);
@@ -149,6 +155,20 @@ for (const key of toClose) {
   state.closed[key] = true;
   save();
   console.log(`✓ #${n} closed (${key})`);
+  await sleep(DELAY_MS / 2);
+}
+// 6. Issues that moved to the theme project: label them, take them out of milestones, and say so once.
+for (const key of toMove) {
+  const n = state.numbers[key];
+  const current = gh([`repos/${REPO}/issues/${n}`]);
+  const names = [...new Set([...current.labels.map((l) => l.name), "moved: theme"])];
+  gh([`repos/${REPO}/issues/${n}`, "-X", "PATCH"], { labels: names, milestone: null });
+  gh([`repos/${REPO}/issues/${n}/comments`, "-X", "POST"], {
+    body: "This item belongs to the reference theme, which is becoming its own project (see `docs/adr/0009-theme-split-and-position.md`). It is out of Seaworthy's milestones and will be transferred to the theme repository once it exists, keeping its history.",
+  });
+  state.moved[key] = true;
+  save();
+  console.log(`→ #${n} moved: theme (${key})`);
   await sleep(DELAY_MS / 2);
 }
 console.log("Done.");

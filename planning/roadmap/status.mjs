@@ -11,3 +11,39 @@ export const DONE = {
   "foundation.issue-gen": "Done in the initial commit: `planning/roadmap/` parses ROADMAP.md, validates it, and syncs issues.",
   "foundation.license": "Done in the initial commit: Apache-2.0.",
 };
+
+/**
+ * Roadmap items that moved to the theme project (ADR 0009). Their issues are labeled `moved: theme`, taken out of
+ * this repository's milestones, and transferred once the theme repository exists. Keys must no longer be in ROADMAP.md.
+ */
+export const MOVED_TO_THEME = [
+  "spike.md-twin-liquid",
+  "spike.persian-type",
+  "E-theme-tokens",
+  "theme.tokens",
+  "theme.dark",
+  "theme.config",
+  "theme.signature",
+  "theme.tokens-docs",
+  "E-theme-layouts",
+  "theme.base",
+  "theme.home",
+  "theme.doc",
+  "theme.post",
+  "theme.page",
+  "theme.code",
+  "theme.logical-css",
+  "theme.i18n",
+  "theme.persian",
+  "theme.search",
+  "E-theme-ai",
+  "theme.llms-txt",
+  "theme.md-twin",
+  "theme.jsonld",
+  "theme.copy-button",
+  "theme.action",
+  "launch2.template",
+  "launch2.directories",
+  "launch2.visual-tests",
+  "ext.presets",
+];

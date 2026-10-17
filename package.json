@@ -1,7 +1,7 @@
 {
   "name": "seaworthy-monorepo",
   "private": true,
-  "description": "Seaworthy verifies websites for agents. Monorepo for the CLI, MCP server, GitHub Action, Agent Skills, and reference theme.",
+  "description": "Seaworthy verifies websites for agents. Monorepo for the CLI, MCP server, GitHub Action, and Agent Skills.",
   "type": "module",
   "workspaces": [
     "packages/*"
