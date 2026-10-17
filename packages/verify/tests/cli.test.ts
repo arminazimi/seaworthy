@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 import { EXIT, run } from "../src/cli.js";
-import { REPORT_SPEC_VERSION, VERSION } from "../src/index.js";
+import { REPORT_SPEC_VERSION, VERSION } from "../src/version.js";
 
 test("--version prints the package version", () => {
   const result = run(["--version"]);

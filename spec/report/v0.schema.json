@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/arminazimi/seaworthy/main/spec/report/v0.schema.json",
+  "title": "Seaworthy report",
+  "description": "The report `seaworthy verify --format json` emits. spec 0 is a draft that changes without notice; it freezes as spec 1 at release.contract-freeze.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec", "tool", "root", "summary", "checks", "findings", "skipped", "errors"],
+  "properties": {
+    "spec": { "const": 0 },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": { "name": { "const": "seaworthy" }, "version": { "type": "string" } }
+    },
+    "root": { "type": "string", "description": "The folder that was verified, as given. Never an absolute path.", "not": { "pattern": "^([a-zA-Z]:)?[\\\\/]" } },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pages", "findings", "bySeverity"],
+      "properties": {
+        "pages": { "type": "integer", "minimum": 0 },
+        "findings": { "type": "integer", "minimum": 0 },
+        "bySeverity": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "error": { "type": "integer", "minimum": 1 },
+            "warning": { "type": "integer", "minimum": 1 },
+            "note": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "checks": { "type": "array", "items": { "$ref": "#/$defs/check" } },
+    "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+    "skipped": { "type": "array", "items": { "$ref": "#/$defs/skipped" } },
+    "errors": { "type": "array", "items": { "$ref": "#/$defs/error" } }
+  },
+  "$defs": {
+    "checkId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$" },
+    "severity": { "enum": ["error", "warning", "note"] },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "severity", "needs", "docs", "standards"],
+      "properties": {
+        "id": { "$ref": "#/$defs/checkId" },
+        "title": { "type": "string" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "needs": { "type": "array", "items": { "enum": ["html", "files", "browser", "network"] }, "uniqueItems": true },
+        "docs": { "type": "string" },
+        "standards": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file"],
+      "properties": {
+        "file": { "type": "string", "description": "Relative to the site root, forward slashes.", "not": { "pattern": "^([a-zA-Z]:)?[\\\\/]|\\\\" } },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "approximateLine": { "type": "boolean" },
+        "selector": { "type": "string" },
+        "snippet": { "type": "string" }
+      }
+    },
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line", "action", "find", "replace"],
+      "properties": {
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "action": { "const": "replace" },
+        "find": { "type": "string", "minLength": 1 },
+        "replace": { "type": "string" },
+        "needsInput": { "type": "boolean" }
+      }
+    },
+    "fix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "summary", "edits", "appliesTo"],
+      "properties": {
+        "kind": { "enum": ["edit", "manual"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "edits": { "type": "array", "items": { "$ref": "#/$defs/edit" } },
+        "appliesTo": { "const": "built-output" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkId", "severity", "message", "location", "fix", "fingerprint"],
+      "properties": {
+        "checkId": { "$ref": "#/$defs/checkId" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "message": { "type": "string", "minLength": 1 },
+        "location": { "$ref": "#/$defs/location" },
+        "fix": { "$ref": "#/$defs/fix" },
+        "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+      }
+    },
+    "skipped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check", "reason", "hint"],
+      "properties": { "check": { "$ref": "#/$defs/checkId" }, "reason": { "type": "string" }, "hint": { "type": "string" } }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check", "message"],
+      "properties": { "check": { "$ref": "#/$defs/checkId" }, "message": { "type": "string" } }
+    }
+  }
+}
