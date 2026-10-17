@@ -1,12 +1,27 @@
 // Public entry point for @seaworthy/verify.
-// The engine, check API, and report schema land in epic E-verify (Phase 1).
 
-import { createRequire } from "node:module";
+export { REPORT_SPEC_VERSION, VERSION } from "./version.js";
 
-const require = createRequire(import.meta.url);
-const pkg = require("../../package.json") as { version: string };
-
-export const VERSION: string = pkg.version;
-
-/** Version of the report contract this build emits. Bumped only through an RFC. */
-export const REPORT_SPEC_VERSION = 0;
+export type {
+  Check,
+  CheckContext,
+  CheckError,
+  CheckMeta,
+  Edit,
+  Finding,
+  FindingDraft,
+  Fix,
+  Location,
+  Needs,
+  Report,
+  ReportCheck,
+  Severity,
+  SkippedCheck,
+} from "./types.js";
+export { SEVERITIES } from "./types.js";
+export { attr, buildSite, positionOf } from "./site.js";
+export type { HtmlElement, LinkTarget, Page, SiteGraph } from "./site.js";
+export { fingerprint, runChecks, validateCheckId } from "./engine.js";
+export type { RunOptions, RunResult } from "./engine.js";
+export { buildReport, compareFindings, reportToJson } from "./report.js";
+export type { ReportInput } from "./report.js";

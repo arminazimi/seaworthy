@@ -1,0 +1,108 @@
+// Runs checks over a site graph and returns findings, skipped checks, and check errors.
+// A check that throws never hides the others: its error is recorded and the run continues.
+
+import { createHash } from "node:crypto";
+
+import type { Check, CheckError, CheckMeta, Finding, FindingDraft, Needs, Severity, SkippedCheck } from "./types.js";
+import type { SiteGraph } from "./site.js";
+
+export interface RunOptions {
+  site: SiteGraph;
+  checks: readonly Check[];
+  /** Opt-in capabilities. A check that needs one that is off is skipped, never silently passed. */
+  enable?: Partial<Record<Extract<Needs, "browser" | "network">, boolean>>;
+  /** Per-check options, keyed by check ID. */
+  options?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  /** Overrides each check's default severity, keyed by check ID. */
+  severity?: Readonly<Record<string, Severity>>;
+  signal?: AbortSignal;
+}
+
+export interface RunResult {
+  findings: Finding[];
+  skipped: SkippedCheck[];
+  errors: CheckError[];
+}
+
+const ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/;
+
+/**
+ * Identifies a finding without its line number, so edits above it do not change it.
+ * `key` is a stable identity such as an href, an image src, or a CSS selector.
+ */
+export function fingerprint(checkId: string, file: string, key: string): string {
+  return createHash("sha256").update([checkId, file, key].join("\u0000")).digest("hex").slice(0, 16);
+}
+
+export function validateCheckId(id: string): void {
+  if (!ID_PATTERN.test(id)) throw new Error(`invalid check ID "${id}": use lowercase "area.rule", for example "links.internal"`);
+}
+
+const SKIP_HINTS: Record<"browser" | "network", { reason: string; hint: string }> = {
+  browser: {
+    reason: "rendered-checks-disabled",
+    hint: "Run with --rendered to enable checks that need a browser. Install Chrome or Chromium, or run `seaworthy browser install`.",
+  },
+  network: {
+    reason: "network-checks-disabled",
+    hint: "Run with --network to enable checks that make network requests.",
+  },
+};
+
+async function collect(drafts: AsyncIterable<FindingDraft> | Iterable<FindingDraft>): Promise<FindingDraft[]> {
+  const out: FindingDraft[] = [];
+  for await (const draft of drafts) out.push(draft);
+  return out;
+}
+
+function toFinding(meta: CheckMeta, draft: FindingDraft, severity: Severity): Finding {
+  return {
+    checkId: meta.id,
+    severity: draft.severity ?? severity,
+    message: draft.message,
+    location: draft.location,
+    fix: { kind: draft.fix.kind, summary: draft.fix.summary, edits: draft.fix.edits ?? [], appliesTo: "built-output" },
+    fingerprint: fingerprint(meta.id, draft.location.file, draft.key),
+  };
+}
+
+export async function runChecks(options: RunOptions): Promise<RunResult> {
+  const { site, checks } = options;
+  const seen = new Set<string>();
+  for (const check of checks) {
+    validateCheckId(check.meta.id);
+    if (seen.has(check.meta.id)) throw new Error(`duplicate check ID ${check.meta.id}`);
+    seen.add(check.meta.id);
+  }
+
+  const skipped: SkippedCheck[] = [];
+  const runnable: Check[] = [];
+  for (const check of checks) {
+    const blocked = (["browser", "network"] as const).find((need) => check.meta.needs.includes(need) && !options.enable?.[need]);
+    if (blocked) skipped.push({ check: check.meta.id, ...SKIP_HINTS[blocked] });
+    else runnable.push(check);
+  }
+
+  const signal = options.signal ?? new AbortController().signal;
+  const results = await Promise.all(
+    runnable.map(async (check) => {
+      try {
+        const severity = options.severity?.[check.meta.id] ?? check.meta.severity;
+        const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal }));
+        return { findings: drafts.map((draft) => toFinding(check.meta, draft, severity)) };
+      } catch (error) {
+        return { error: { check: check.meta.id, message: error instanceof Error ? error.message : String(error) } };
+      }
+    }),
+  );
+
+  const findings: Finding[] = [];
+  const errors: CheckError[] = [];
+  for (const result of results) {
+    if ("error" in result && result.error) errors.push(result.error);
+    else if ("findings" in result && result.findings) findings.push(...result.findings);
+  }
+  skipped.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
+  errors.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
+  return { findings, skipped, errors };
+}

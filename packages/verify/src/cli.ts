@@ -4,7 +4,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { VERSION } from "./index.js";
+import { VERSION } from "./version.js";
 
 export const EXIT = {
   ok: 0,
