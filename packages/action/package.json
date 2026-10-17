@@ -1,0 +1,13 @@
+{
+  "name": "@seaworthy/action",
+  "version": "0.0.0",
+  "private": true,
+  "description": "GitHub Action for Seaworthy: verify a site on every pull request, upload SARIF, and show the badge.",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0"
+}

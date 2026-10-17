@@ -1,0 +1,41 @@
+name: Check proposal
+description: Propose a new check, or a change to an existing one.
+labels: [enhancement]
+body:
+  - type: input
+    id: id
+    attributes:
+      label: Proposed check ID
+      placeholder: "meta.canonical"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What breaks on real sites when this is wrong?
+      description: Link real examples if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: rule
+    attributes:
+      label: Exact rule
+      description: When does it pass, when does it fail? Name the standard it comes from (WCAG, schema.org, llms.txt, HTML spec).
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: Fix hint
+      description: What should an agent change to make it pass?
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: Does the check need network access?
+      options:
+        - "No"
+        - "Yes (must be opt-in)"
+    validations:
+      required: true

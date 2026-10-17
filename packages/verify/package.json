@@ -1,0 +1,36 @@
+{
+  "name": "@seaworthy/verify",
+  "version": "0.0.0",
+  "description": "Verify any built static site for agents and humans: one versioned report with locations and fix hints.",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "seaworthy": "dist/src/cli.js"
+  },
+  "files": [
+    "dist/src"
+  ],
+  "keywords": [
+    "static-site",
+    "verify",
+    "accessibility",
+    "broken-links",
+    "llms-txt",
+    "mcp",
+    "ai-agents",
+    "coding-agents",
+    "sarif"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0"
+}

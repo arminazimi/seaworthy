@@ -1,0 +1,36 @@
+name: Bug report
+description: Seaworthy reported something wrong, missed something, or crashed.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Seaworthy version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: check
+    attributes:
+      label: Check ID, if a finding is wrong
+      placeholder: "links.internal"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The smallest built site or HTML file that shows the problem, and the command you ran.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Report output
+      description: Paste the JSON report (`seaworthy verify --format json`).
+      render: json

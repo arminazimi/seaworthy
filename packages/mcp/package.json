@@ -1,0 +1,16 @@
+{
+  "name": "@seaworthy/mcp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP server for Seaworthy: verify sites, explain findings, and confirm fixes from any MCP-capable agent.",
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist/src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "Apache-2.0"
+}
