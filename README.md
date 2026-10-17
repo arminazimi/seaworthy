@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/exports/banner-dark.png">
+    <img alt="Seaworthy: verified before it sails." src="brand/exports/banner-light.png" width="100%">
+  </picture>
+</p>
+
 # Seaworthy
 
 **Ship sites agents can trust.**

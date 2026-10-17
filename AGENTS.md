@@ -14,9 +14,10 @@ Requires Node.js 22 or newer.
 
 ```bash
 npm ci              # install
-npm run check       # build, tests, roadmap validation, layout check — must pass before every PR
+npm run check       # build, tests, roadmap validation, layout and brand checks — must pass before every PR
 npm test            # tests only
 npm run roadmap:build   # regenerate the issue preview from ROADMAP.md
+npm run build:brand     # regenerate brand SVGs after editing brand/tokens.json or tools/brand/
 ```
 
 ## Repository layout
@@ -62,6 +63,8 @@ npm run roadmap:build   # regenerate the issue preview from ROADMAP.md
 | Path | Regenerate with |
 |---|---|
 | `planning/roadmap/out/` | `npm run roadmap:build` (source: `ROADMAP.md` and `planning/roadmap/briefs/`) |
+| `brand/assets/*.svg`, `brand/templates/*.svg`, `brand/seaworthy-logo-sheet.svg`, `brand/tokens.css`, `brand/export-presets.json` | `npm run build:brand` (source: `brand/tokens.json` and `tools/brand/`) |
+| `brand/assets/*.png`, `brand/exports/*.png` | `npm run export:brand` (needs Chrome or Chromium) |
 
 ## More
 

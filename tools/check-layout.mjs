@@ -16,6 +16,8 @@ const REQUIRED_FILES = [
   "CONTRIBUTING.md",
   "SECURITY.md",
   "CODE_OF_CONDUCT.md",
+  "brand/BRAND_GUIDE.md",
+  "brand/tokens.json",
   "LICENSE",
   ".github/workflows/ci.yml",
   ".github/pull_request_template.md",
