@@ -1,0 +1,27 @@
+{
+  "description": "A page with no h1, one with two, and skipped heading levels. Hidden headings and a redirect stub are ignored.",
+  "findings": [
+    {
+      "check": "headings.h1",
+      "file": "no-h1.html"
+    },
+    {
+      "check": "headings.order",
+      "file": "skip.html",
+      "line": 9,
+      "column": 1
+    },
+    {
+      "check": "headings.order",
+      "file": "skip.html",
+      "line": 11,
+      "column": 1
+    },
+    {
+      "check": "headings.h1",
+      "file": "two-h1.html",
+      "line": 9,
+      "column": 1
+    }
+  ]
+}
