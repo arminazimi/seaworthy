@@ -12,3 +12,4 @@ Each ADR has: **Status**, **Context**, **Decision**, and **Consequences**.
 | [0004](0004-cli-runtime.md) | Ship the CLI as a Node package, not a single binary | Accepted |
 | [0005](0005-headless-browser.md) | Rendered checks are opt-in and use playwright-core with a browser the user already has | Accepted |
 | [0006](0006-check-model.md) | One check API, one site graph, one report | Accepted |
+| [0007](0007-prior-art.md) | Prior art: what to reuse, wrap, or build | Accepted |
