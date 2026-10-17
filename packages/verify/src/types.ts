@@ -2,6 +2,7 @@
 // Everything here is versioned by REPORT_SPEC_VERSION and changes only through an RFC once frozen.
 
 import type { SiteGraph } from "./site.js";
+import type { SuppressedFinding } from "./suppress.js";
 
 /** SARIF levels. There is no custom severity scale. */
 export type Severity = "error" | "warning" | "note";
@@ -110,9 +111,16 @@ export interface Report {
     pages: number;
     findings: number;
     bySeverity: Partial<Record<Severity, number>>;
+    /** Findings hidden by a live suppression. They are listed in `suppressed`, with reasons. */
+    suppressed: number;
+    /** Findings accepted by the baseline. */
+    baselined: number;
+    /** Baseline entries that no longer match anything: problems that were fixed. */
+    baselineStale: number;
   };
   checks: ReportCheck[];
   findings: Finding[];
+  suppressed: SuppressedFinding[];
   skipped: SkippedCheck[];
   errors: CheckError[];
 }

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/arminazimi/seaworthy/main/spec/config/v0.schema.json",
+  "title": "Seaworthy config",
+  "description": "seaworthy.config.json. spec 0 is a draft that changes without notice; it freezes with the report format at release.contract-freeze.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "root": { "type": "string", "minLength": 1, "description": "The built site folder. Default: the first of dist, build, out, public, _site, site that exists." },
+    "failOn": { "enum": ["error", "warning", "note", "none"], "description": "Exit 1 when a finding has at least this severity. Default: error." },
+    "rendered": { "type": "boolean", "description": "Run checks that need a browser." },
+    "network": { "type": "boolean", "description": "Run checks that make network requests." },
+    "baseline": { "type": "string", "minLength": 1, "description": "Baseline file. Findings it records are accepted; only new findings are reported." },
+    "ignore": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Site-relative globs. Findings in matching files are dropped." },
+    "checks": {
+      "type": "object",
+      "description": "Per-check settings, keyed by check ID or a prefix pattern such as a11y.*. An exact ID beats a prefix.",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*(\\.([a-z][a-z0-9-]*|\\*))+$" },
+      "additionalProperties": {
+        "oneOf": [
+          { "enum": ["off", "error", "warning", "note"] },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "off": { "type": "boolean" },
+              "severity": { "enum": ["error", "warning", "note"] },
+              "options": { "type": "object" }
+            }
+          }
+        ]
+      }
+    },
+    "suppressions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check", "reason"],
+        "anyOf": [{ "required": ["file"], "properties": { "file": true } }, { "required": ["fingerprint"], "properties": { "fingerprint": true } }],
+        "properties": {
+          "check": { "type": "string", "pattern": "^[a-z][a-z0-9-]*(\\.([a-z][a-z0-9-]*|\\*))+$" },
+          "file": { "type": "string", "minLength": 1, "description": "Site-relative path or glob." },
+          "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$", "description": "The fingerprint of one finding, from a report." },
+          "reason": { "type": "string", "minLength": 3 },
+          "expires": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "Last day the suppression applies, inclusive." }
+        }
+      }
+    }
+  }
+}

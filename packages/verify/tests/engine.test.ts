@@ -110,7 +110,7 @@ test("reports are sorted and byte-identical across runs", async () => {
   assert.equal(first, await make());
   const report = JSON.parse(first);
   assert.deepEqual(report.findings.map((f: { location: { file: string; line?: number } }) => `${f.location.file}:${f.location.line ?? "-"}`), ["a.html:2", "a.html:9", "a.html:-", "b.html:5"]);
-  assert.deepEqual(report.summary, { pages: 1, findings: 4, bySeverity: { error: 4 } });
+  assert.deepEqual(report.summary, { pages: 1, findings: 4, bySeverity: { error: 4 }, suppressed: 0, baselined: 0, baselineStale: 0 });
   assert.ok(first.endsWith("}\n"));
 });
 
