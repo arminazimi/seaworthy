@@ -399,6 +399,7 @@ Verify fits into whatever stack a site already uses. Each integration is a recip
 | `int.next-export` | Next.js static export recipe | free-agent | S | `verify.cli` |
 | `int.mkdocs` | MkDocs recipe | free-agent | S | `verify.cli` |
 | `int.ci-hosts` | Recipes for GitLab CI, Netlify, Vercel, Cloudflare Pages | free-agent | S | `action.core` |
+| `int.source-map` | Map findings from built files back to source files where the generator exposes it (permalinks, front matter, source maps) | strong-agent | M | `verify.report-schema` |
 | `int.conformance` | Each example builds and verifies in CI | strong-agent | M | `int.astro` |
 
 ### Exit criteria
