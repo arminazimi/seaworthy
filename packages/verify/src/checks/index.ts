@@ -4,14 +4,19 @@ import type { Check } from "../types.js";
 import { assetsMissing } from "./assets.js";
 import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
+import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
+import { namesButton, namesLabel, namesLink } from "./names.js";
 import { socialImageUrl, socialOpenGraph } from "./social.js";
 
 export const builtInChecks: readonly Check[] = [
   assetsMissing,
   headingsH1,
   headingsOrder,
+  imagesAlt,
+  imagesDimensions,
+  imagesSize,
   linksBaseUrl,
   linksExternal,
   linksInternal,
@@ -20,6 +25,9 @@ export const builtInChecks: readonly Check[] = [
   metaLang,
   metaTitle,
   metaViewport,
+  namesButton,
+  namesLabel,
+  namesLink,
   socialImageUrl,
   socialOpenGraph,
 ];

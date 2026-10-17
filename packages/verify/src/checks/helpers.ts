@@ -1,6 +1,9 @@
 // Shared building blocks for checks: locations, text-anchored edits, and element text.
 
-import { type HtmlElement, type Page, attr, positionOf } from "../site.js";
+import { readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+import { type HtmlElement, type Page, type SiteGraph, attr, positionOf } from "../site.js";
 import type { Check, CheckMeta, Edit, Location } from "../types.js";
 
 export const DOCS_BASE = "https://github.com/arminazimi/seaworthy/blob/main/docs/checks/";
@@ -24,11 +27,12 @@ export function lineText(page: Page, line: number): string | undefined {
   return page.source.split(/\r?\n/)[line - 1];
 }
 
-/** A replace edit, only when `find` is on that line of the source; otherwise undefined, never a guess. */
+/** A replace edit, only when `find` is on that line of the source exactly once; otherwise undefined, never a guess. */
 export function replaceEdit(page: Page, line: number | undefined, find: string, replace: string, needsInput = false): Edit | undefined {
   if (line === undefined || find === "") return undefined;
   const text = lineText(page, line);
-  if (text === undefined || !text.includes(find)) return undefined;
+  // The text must occur exactly once on the line, so the edit can never land on a different element.
+  if (text === undefined || text.indexOf(find) === -1 || text.indexOf(find) !== text.lastIndexOf(find)) return undefined;
   return { file: page.file, line, action: "replace", find, replace, ...(needsInput ? { needsInput: true } : {}) };
 }
 
@@ -90,4 +94,60 @@ export function withAttribute(tag: string, name: string, value: string): string 
   const end = /\s*\/?>$/.exec(tag);
   if (!end) return undefined;
   return `${tag.slice(0, end.index)} ${name}="${value}"${end[0]}`;
+}
+
+/** The bytes and size of a site file given its root-relative URL path, or undefined when it is missing. */
+export function readSiteFile(site: SiteGraph, urlPath: string): { bytes: Buffer; size: number } | undefined {
+  if (!site.files.has(urlPath)) return undefined;
+  const path = join(site.root, ...urlPath.slice(1).split("/"));
+  try {
+    return { bytes: readFileSync(path), size: statSync(path).size };
+  } catch {
+    return undefined;
+  }
+}
+
+/** The element's ancestors, nearest first. */
+export function ancestors(element: HtmlElement): HtmlElement[] {
+  const out: HtmlElement[] = [];
+  let node = element.parentNode as (HtmlElement | null);
+  while (node && "tagName" in node) {
+    out.push(node);
+    node = node.parentNode as HtmlElement | null;
+  }
+  return out;
+}
+
+/** The exact source text of one attribute of an element (for example `src="/a.png"`) and the line it is on. */
+function rawAttribute(page: Page, element: HtmlElement, name: string): { text: string; line: number } | undefined {
+  const at = element.sourceCodeLocation?.attrs?.[name];
+  return at ? { text: page.source.slice(at.startOffset, at.endOffset), line: at.startLine } : undefined;
+}
+
+/**
+ * An edit that adds attributes to an element by inserting them right after its first existing attribute
+ * (or after the tag name when it has none). Anchoring on an attribute that other edits do not change means
+ * edits from different checks to the same element still apply in any order.
+ */
+export function addAttributes(page: Page, element: HtmlElement, additions: Record<string, string>, needsInput = false): Edit | undefined {
+  const text = Object.entries(additions).map(([name, value]) => ` ${name}="${value}"`).join("");
+  const first = element.attrs[0];
+  const raw = first ? rawAttribute(page, element, first.name) : undefined;
+  if (raw) return replaceEdit(page, raw.line, raw.text, `${raw.text}${text}`, needsInput);
+  const tag = element.sourceCodeLocation?.startTag;
+  return tag ? replaceEdit(page, tag.startLine, `<${element.tagName}`, `<${element.tagName}${text}`, needsInput) : undefined;
+}
+
+/**
+ * An edit that sets an attribute to a new value by replacing the attribute's whole source text, such as
+ * `href="/a.html"` to `href="/b.html"`. The old text includes the name and quotes, so it is far more specific
+ * than the bare value (which can also appear inside another link). The original quote style is kept.
+ */
+export function replaceAttribute(page: Page, element: HtmlElement, name: string, value: string): Edit | undefined {
+  const raw = rawAttribute(page, element, name);
+  const eq = raw?.text.indexOf("=") ?? -1;
+  if (!raw || eq < 0) return undefined;
+  const quote = raw.text[eq + 1] === "'" ? "'" : '"';
+  const escaped = value.replace(/&/g, "&amp;").replace(quote === '"' ? /"/g : /'/g, quote === '"' ? "&quot;" : "&#39;");
+  return replaceEdit(page, raw.line, raw.text, `${raw.text.slice(0, eq)}=${quote}${escaped}${quote}`);
 }

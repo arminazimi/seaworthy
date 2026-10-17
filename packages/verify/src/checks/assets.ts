@@ -5,7 +5,7 @@ import { posix } from "node:path";
 import { type HtmlElement, type Page, attr } from "../site.js";
 import { closest } from "../text.js";
 import type { FindingDraft } from "../types.js";
-import { check, locate, meta, pagesOf, replaceEdit } from "./helpers.js";
+import { check, locate, meta, pagesOf, replaceAttribute } from "./helpers.js";
 
 /** Which attributes load a file, per element. `link` is handled separately because only some rels load one. */
 const LOADING: Record<string, readonly string[]> = {
@@ -81,7 +81,9 @@ export const assetsMissing = check(meta("assets.missing", "A page loads a file t
       const extension = posix.extname(target.path);
       // Prefer a file of the same type; fall back to any file when the typo is in the extension itself.
       const near = closest(target.path, files.filter((f) => posix.extname(f) === extension)) ?? closest(target.path, files);
-      const edit = near === undefined ? undefined : replaceEdit(page, location.line, url, ctx.site.basePath !== "/" && url.startsWith("/") ? `${ctx.site.basePath.slice(0, -1)}${near}` : url.startsWith("/") ? near : posix.relative(posix.dirname(page.url), near));
+      const suggestion = near === undefined ? undefined : ctx.site.basePath !== "/" && url.startsWith("/") ? `${ctx.site.basePath.slice(0, -1)}${near}` : url.startsWith("/") ? near : posix.relative(posix.dirname(page.url), near);
+      const whole = attr(element, attribute) ?? "";
+      const edit = suggestion === undefined ? undefined : replaceAttribute(page, element, attribute, whole.replace(url, () => suggestion));
       out.push({
         message: `<${element.tagName}> loads ${url}, which is not in the built site.`,
         location,

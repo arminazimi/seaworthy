@@ -1,0 +1,41 @@
+{
+  "description": "An image with no alt and no size, one missing only height, one missing only width, a multi-line tag with no alt, and one over the size budget. Decorative alt, role=presentation, aria-hidden, aria-label, an inline-sized image, and a remote image are fine.",
+  "findings": [
+    {
+      "check": "images.alt",
+      "file": "index.html",
+      "line": 8,
+      "column": 1
+    },
+    {
+      "check": "images.dimensions",
+      "file": "index.html",
+      "line": 8,
+      "column": 1
+    },
+    {
+      "check": "images.dimensions",
+      "file": "index.html",
+      "line": 9,
+      "column": 1
+    },
+    {
+      "check": "images.dimensions",
+      "file": "index.html",
+      "line": 10,
+      "column": 1
+    },
+    {
+      "check": "images.alt",
+      "file": "index.html",
+      "line": 18,
+      "column": 1
+    },
+    {
+      "check": "images.size",
+      "file": "index.html",
+      "line": 22,
+      "column": 6
+    }
+  ]
+}
