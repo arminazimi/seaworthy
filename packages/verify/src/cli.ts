@@ -38,7 +38,7 @@ Arguments:
   dir                  Built site folder. Default: the first of ${DEFAULT_FOLDERS.join(", ")} that exists.
 
 Options:
-  --format <format>    pretty (default), json, or markdown
+  --format <format>    pretty (default), json, markdown, or sarif
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
   --rendered           Run checks that need a browser
@@ -155,7 +155,9 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const result = await runChecks({ site, checks, enable: { browser: options.rendered, network: options.network } });
   const report = buildReport({ root: rootLabel(cwd, folder), pages: site.pages.size, checks, findings: result.findings, skipped: result.skipped, errors: result.errors });
 
-  const text = formatReport(report, options.format);
+  const text = formatReport(report, options.format, {
+    readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
+  });
   let stdout = text;
   if (options.out !== undefined) {
     const target = resolve(cwd, options.out);

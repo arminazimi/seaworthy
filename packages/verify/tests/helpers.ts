@@ -5,7 +5,10 @@ import { after } from "node:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { createRequire } from "node:module";
+
 import Ajv2020 from "ajv/dist/2020.js";
+import Ajv6 from "ajv6";
 
 const made: string[] = [];
 
@@ -34,4 +37,16 @@ const validator = new Ajv({ strict: true, allErrors: true }).compile(reportSchem
 /** Returns schema violations of a report, or an empty list when it conforms. */
 export function reportErrors(value: unknown): string[] {
   return validator(value) ? [] : validator.errors!.map((e) => `${e.instancePath} ${e.message}`);
+}
+
+// SARIF 2.1.0 is validated against the official schema (draft-04) shipped by @microsoft/jest-sarif, with ajv 6.
+const nodeRequire = createRequire(import.meta.url);
+const sarifSchemaPath = join(dirname(nodeRequire.resolve("@microsoft/jest-sarif/package.json")), "lib", "schemas", "sarif-2.1.0-rtm.5.json");
+const ajv6 = new Ajv6({ schemaId: "auto", allErrors: true, unknownFormats: "ignore" });
+ajv6.addMetaSchema(nodeRequire("ajv6/lib/refs/json-schema-draft-04.json"));
+const sarifValidator = ajv6.compile(JSON.parse(readFileSync(sarifSchemaPath, "utf8")));
+
+/** Returns violations of the official SARIF 2.1.0 schema, or an empty list when the log conforms. */
+export function sarifErrors(value: unknown): string[] {
+  return sarifValidator(value) ? [] : (sarifValidator.errors ?? []).map((e) => `${e.dataPath} ${e.message}`);
 }

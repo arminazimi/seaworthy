@@ -25,3 +25,6 @@ export { fingerprint, runChecks, validateCheckId } from "./engine.js";
 export type { RunOptions, RunResult } from "./engine.js";
 export { buildReport, compareFindings, reportToJson } from "./report.js";
 export type { ReportInput } from "./report.js";
+export { FORMATS, formatReport } from "./formats/index.js";
+export type { Format, FormatContext } from "./formats/index.js";
+export { formatSarif, toSarif } from "./formats/sarif.js";
