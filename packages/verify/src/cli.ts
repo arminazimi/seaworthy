@@ -189,7 +189,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
 
   const label = rootLabel(cwd, folder);
-  const site = buildSite(folder);
+  const site = buildSite(folder, config.basePath === undefined ? {} : { basePath: config.basePath });
   let saveCache: (() => void) | undefined;
   let changed: Set<string> | undefined;
   if (options.changedSince !== undefined) changed = changedSinceRef(folder, options.changedSince).files;

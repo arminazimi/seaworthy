@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { matchesCheck } from "./glob.js";
+import { closest } from "./text.js";
 import { SEVERITIES, type Check, type Severity } from "./types.js";
 
 export const CONFIG_FILE = "seaworthy.config.json";
@@ -27,6 +28,8 @@ export interface ConfigSuppression {
 
 export interface Config {
   root?: string;
+  /** Where the site is deployed, such as `/repo/` for a GitHub project page. Default `/`. */
+  basePath?: string;
   failOn?: Severity | "none";
   rendered?: boolean;
   network?: boolean;
@@ -40,20 +43,12 @@ export interface Config {
 
 export class ConfigError extends Error {}
 
-const TOP_LEVEL = ["$schema", "root", "failOn", "rendered", "network", "checks", "ignore", "suppressions", "baseline"];
+const TOP_LEVEL = ["$schema", "root", "basePath", "failOn", "rendered", "network", "checks", "ignore", "suppressions", "baseline"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-function distance(a: string, b: string): number {
-  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array<number>(b.length).fill(0)]);
-  for (let j = 1; j <= b.length; j++) d[0]![j] = j;
-  for (let i = 1; i <= a.length; i++)
-    for (let j = 1; j <= b.length; j++) d[i]![j] = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
-  return d[a.length]![b.length]!;
-}
-
 function suggest(word: string, options: readonly string[]): string {
-  const best = options.map((o) => [o, distance(word, o)] as const).sort((a, b) => a[1] - b[1])[0];
-  return best && best[1] <= 3 ? ` Did you mean "${best[0]}"?` : "";
+  const best = closest(word, options);
+  return best === undefined ? "" : ` Did you mean "${best}"?`;
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -69,6 +64,7 @@ export function parseConfig(raw: unknown, source: string, knownCheckIds: readonl
 
   const config: Config = { checks: {}, ignore: [], suppressions: [] };
   if (raw.root !== undefined) typeof raw.root === "string" && raw.root !== "" ? (config.root = raw.root) : bad("root", `must be a folder path string, got ${show(raw.root)}`);
+  if (raw.basePath !== undefined) typeof raw.basePath === "string" && /^\/?[A-Za-z0-9._~%/-]*$/.test(raw.basePath) ? (config.basePath = raw.basePath) : bad("basePath", `must be a URL path such as "/repo/", got ${show(raw.basePath)}`);
   if (raw.failOn !== undefined) {
     if (typeof raw.failOn === "string" && [...SEVERITIES, "none"].includes(raw.failOn)) config.failOn = raw.failOn as Severity | "none";
     else bad("failOn", `got ${show(raw.failOn)}; allowed values: error, warning, note, none`);

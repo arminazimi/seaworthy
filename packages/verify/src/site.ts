@@ -32,6 +32,8 @@ export interface SiteGraph {
   readonly pages: ReadonlyMap<string, Page>;
   /** Root-relative URL paths of every file in the site, for example `/logo.png`. */
   readonly files: ReadonlySet<string>;
+  /** The path the site is deployed under, such as `/repo/`, or `/` when it is served from the root. */
+  readonly basePath: string;
   /** Classifies a link and, for internal links, finds the file it serves. */
   resolveLink(fromUrl: string, href: string): LinkTarget;
   /** The page served at a URL path (`/docs/`, `/docs`, `/docs/guide`, `/docs/guide.html`), if any. */
@@ -73,6 +75,12 @@ export function positionOf(element: HtmlElement, attributeName?: string): { line
   return { line: source.startLine, column: source.startCol };
 }
 
+/** `repo`, `/repo`, and `/repo/` all become `/repo/`; empty or `/` become `/`. */
+export function normalizeBasePath(basePath: string | undefined): string {
+  const trimmed = (basePath ?? "").trim().replace(/^\/+|\/+$/g, "");
+  return trimmed === "" ? "/" : `/${trimmed}/`;
+}
+
 function safeDecode(path: string): string {
   try {
     return decodeURIComponent(path);
@@ -82,8 +90,9 @@ function safeDecode(path: string): string {
 }
 
 /** Builds the site graph for a folder of built output. Throws if the folder does not exist. */
-export function buildSite(rootDirectory: string): SiteGraph {
+export function buildSite(rootDirectory: string, options: { basePath?: string } = {}): SiteGraph {
   const root = resolve(rootDirectory);
+  const basePath = normalizeBasePath(options.basePath);
   if (!statSync(root).isDirectory()) throw new Error(`${rootDirectory} is not a directory`);
 
   const allFiles = walk(root).map((file) => ({ file, rel: file.slice(root.length + 1).split(sep).join("/") }));
@@ -100,6 +109,8 @@ export function buildSite(rootDirectory: string): SiteGraph {
     for (const element of elements) {
       const id = attr(element, "id");
       if (id) ids.add(id);
+      const name = element.tagName === "a" ? attr(element, "name") : undefined; // legacy named anchors still work
+      if (name) ids.add(name);
     }
     pages.set(`/${rel}`, { url: `/${rel}`, file: rel, source, elements, ids });
   }
@@ -114,6 +125,7 @@ export function buildSite(rootDirectory: string): SiteGraph {
     root,
     pages,
     files,
+    basePath,
     pageFor(path) {
       const file = lookup(path);
       return file ? pages.get(file) : undefined;
@@ -126,7 +138,10 @@ export function buildSite(rootDirectory: string): SiteGraph {
       const beforeHash = hash === -1 ? trimmed : trimmed.slice(0, hash);
       const fragment = hash === -1 ? undefined : safeDecode(trimmed.slice(hash + 1));
       const pathPart = safeDecode(beforeHash.split("?")[0] ?? "");
-      const path = pathPart === "" ? fromUrl : pathPart.startsWith("/") ? posix.normalize(pathPart) : posix.normalize(posix.join(posix.dirname(fromUrl), pathPart));
+      const absolute = pathPart.startsWith("/") ? posix.normalize(pathPart) : undefined;
+      // Under a base path, root-absolute links such as /repo/a.html are served from the site folder as /a.html.
+      const stripped = absolute !== undefined && basePath !== "/" && (absolute.startsWith(basePath) || absolute === basePath.slice(0, -1)) ? `/${absolute.slice(basePath.length)}` : absolute;
+      const path = pathPart === "" ? fromUrl : stripped ?? posix.normalize(posix.join(posix.dirname(fromUrl), pathPart));
       return { kind: "internal", href, path, fragment, file: lookup(path) };
     },
   };

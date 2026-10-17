@@ -1,0 +1,29 @@
+{
+  "description": "A typo in a page link, a link to a missing anchor, a relative typo, and an anchor typo. Extensionless links, directory links, #top, #, named anchors, external links, and mailto links are all fine.",
+  "findings": [
+    {
+      "check": "links.internal",
+      "file": "index.html",
+      "line": 5,
+      "column": 46
+    },
+    {
+      "check": "links.internal",
+      "file": "index.html",
+      "line": 5,
+      "column": 88
+    },
+    {
+      "check": "links.internal",
+      "file": "index.html",
+      "line": 9,
+      "column": 7
+    },
+    {
+      "check": "links.internal",
+      "file": "index.html",
+      "line": 9,
+      "column": 50
+    }
+  ]
+}

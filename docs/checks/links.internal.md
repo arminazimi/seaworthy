@@ -1,0 +1,35 @@
+# links.internal
+
+An internal link points to a page or an anchor that does not exist in the built site.
+
+## Why it matters
+
+A broken link sends a reader or an agent to an error page, and a broken anchor silently lands at the top of the page instead of the section the link promised. Search engines treat broken internal links as a quality problem, and they are the most common regression when pages are renamed.
+
+## What it checks
+
+Every `<a href>` and `<area href>` that points inside the site is resolved the way a static host serves it: the exact file, `/dir/` or `/dir` to its `index.html`, and an extensionless URL to `.html`. Relative paths, query strings, percent-encoding, and the configured `basePath` are handled. The check fails when:
+
+- no file serves the target, or
+- the link has a fragment (`#install`) and the target page has no element with that `id` (or a legacy `<a name>`).
+
+`#`, `#top`, `mailto:`, `tel:`, `javascript:`, and external links are skipped; `links.external` covers external ones.
+
+## How to fix
+
+```html
+<!-- before: typo in the page name -->
+<a href="/docs/guid.html">Guide</a>
+<!-- after -->
+<a href="/docs/guide.html">Guide</a>
+```
+
+The report suggests the closest existing page (or heading id) and, when it can, gives an exact text edit. **Fix it in the source** (the Markdown or template that produced the link), not in the built file. If the page was renamed on purpose, add a redirect or update every link to it.
+
+## Options
+
+None.
+
+## Standards
+
+None.
