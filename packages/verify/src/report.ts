@@ -14,6 +14,8 @@ export interface ReportInput {
   suppressed?: readonly SuppressedFinding[];
   baselined?: number;
   baselineStale?: number;
+  /** Set under --changed: how many files changed. */
+  changedFiles?: number;
   skipped?: readonly SkippedCheck[];
   errors?: readonly CheckError[];
 }
@@ -43,7 +45,7 @@ export function buildReport(input: ReportInput): Report {
     spec: REPORT_SPEC_VERSION,
     tool: { name: "seaworthy", version: VERSION },
     root: input.root,
-    summary: { pages: input.pages, findings: findings.length, bySeverity, suppressed: (input.suppressed ?? []).length, baselined: input.baselined ?? 0, baselineStale: input.baselineStale ?? 0 },
+    summary: { pages: input.pages, findings: findings.length, bySeverity, suppressed: (input.suppressed ?? []).length, baselined: input.baselined ?? 0, baselineStale: input.baselineStale ?? 0, ...(input.changedFiles === undefined ? {} : { changedFiles: input.changedFiles }) },
     checks: input.checks
       .map((c) => ({ id: c.meta.id, title: c.meta.title, severity: c.meta.severity, needs: [...c.meta.needs], docs: c.meta.docs, standards: [...c.meta.standards] }))
       .sort((a, b) => compare(a.id, b.id)),

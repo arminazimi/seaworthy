@@ -36,3 +36,6 @@ export { BaselineError, applyBaseline, createBaseline, readBaseline, writeBaseli
 export type { Baseline, BaselineEntry } from "./baseline.js";
 export { verifySite } from "./verify.js";
 export type { VerifyOptions, VerifyResult } from "./verify.js";
+export { builtInChecks } from "./checks/index.js";
+export { SUPPRESSION_CHECKS } from "./suppress.js";
+export { CACHE_FILE, ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js";

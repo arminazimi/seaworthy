@@ -29,6 +29,8 @@ export interface CheckContext {
   /** Options for this check from the config file. */
   readonly options: Readonly<Record<string, unknown>>;
   readonly signal: AbortSignal;
+  /** Set under --changed: site-relative files that changed. Expensive checks may limit themselves to these. */
+  readonly changed?: ReadonlySet<string>;
 }
 
 export interface Check {
@@ -117,6 +119,8 @@ export interface Report {
     baselined: number;
     /** Baseline entries that no longer match anything: problems that were fixed. */
     baselineStale: number;
+    /** Present under --changed: findings are limited to files that changed. */
+    changedFiles?: number;
   };
   checks: ReportCheck[];
   findings: Finding[];
