@@ -98,3 +98,9 @@ test("security.*: the suggested edits add noopener and switch to https", async (
   assert.ok(before.every((f) => f.fix.edits.length > 0));
   assert.deepEqual(after, []);
 });
+
+test("a11y.tabindex: the suggested edits restore the natural focus order", async () => {
+  const { before, after } = await fixLoop("a11y-tabindex", ["a11y.tabindex"]);
+  assert.equal(before.length, 3);
+  assert.deepEqual(after, []);
+});
