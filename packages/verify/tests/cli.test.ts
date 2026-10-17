@@ -154,7 +154,8 @@ test("the built binary runs as a process, finds real problems, and uses exit cod
   const bin = fileURLToPath(new URL("../src/cli.js", import.meta.url));
   assert.equal(execFileSync(process.execPath, [bin, "--version"], { encoding: "utf8" }), `${VERSION}\n`);
 
-  const clean = makeSite({ "index.html": '<!doctype html><title>t</title><a href="/about.html">a</a>', "about.html": "<!doctype html><title>a</title>" });
+  // The repository's own clean fixture: the real binary with every real check must accept a correct site.
+  const clean = fileURLToPath(new URL("../../../../fixtures/clean/minimal/site", import.meta.url));
   const ok = spawnSync(process.execPath, [bin, "verify", clean], { encoding: "utf8" });
   assert.equal(ok.status, EXIT.ok);
   assert.match(ok.stdout, /No findings\./);

@@ -1,0 +1,77 @@
+{
+  "description": "Pages missing every document tag, pages with empty or invalid values, a viewport that blocks zoom, and a redirect stub that must be skipped. good.html is fully correct.",
+  "findings": [
+    {
+      "check": "meta.lang",
+      "file": "bad-lang.html",
+      "line": 2,
+      "column": 7
+    },
+    {
+      "check": "meta.lang",
+      "file": "bare.html",
+      "line": 2,
+      "column": 1
+    },
+    {
+      "check": "meta.canonical",
+      "file": "bare.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "meta.description",
+      "file": "bare.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "meta.title",
+      "file": "bare.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "meta.viewport",
+      "file": "bare.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "meta.lang",
+      "file": "empty-values.html",
+      "line": 2,
+      "column": 7
+    },
+    {
+      "check": "meta.title",
+      "file": "empty-values.html",
+      "line": 5,
+      "column": 3
+    },
+    {
+      "check": "meta.description",
+      "file": "empty-values.html",
+      "line": 6,
+      "column": 3
+    },
+    {
+      "check": "meta.viewport",
+      "file": "empty-values.html",
+      "line": 7,
+      "column": 25
+    },
+    {
+      "check": "meta.canonical",
+      "file": "empty-values.html",
+      "line": 8,
+      "column": 25
+    },
+    {
+      "check": "meta.viewport",
+      "file": "no-zoom.html",
+      "line": 7,
+      "column": 25
+    }
+  ]
+}
