@@ -9,3 +9,4 @@ Each ADR has: **Status**, **Context**, **Decision**, and **Consequences**.
 | [0001](0001-verify-first.md) | Verify is the core product; the theme is a reference implementation | Accepted |
 | [0002](0002-monorepo-layout.md) | One monorepo with npm workspaces | Accepted |
 | [0003](0003-roadmap-as-source.md) | `ROADMAP.md` is the source of truth for planned work | Accepted |
+| [0004](0004-cli-runtime.md) | Ship the CLI as a Node package, not a single binary | Accepted |
