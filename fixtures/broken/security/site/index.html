@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Security</title>
+</head>
+<body>
+<a href="https://example.test/a" target="_blank">no rel</a>
+<a href="https://example.test/b" target="_blank" rel="noopener">fine</a>
+<a href="https://example.test/c" target="_blank" rel="nofollow">rel without noopener</a>
+<a href="/about.html" target="_blank">internal, fine</a>
+<a href="http://example.test/plain">plain-http navigation is not mixed content</a>
+<img src="http://cdn.example.test/a.png" alt="mixed">
+<img src="http://localhost:3000/dev.png" alt="local, fine">
+<script src="http://cdn.example.test/app.js"></script>
+<link rel="stylesheet" href="http://cdn.example.test/site.css">
+<img srcset="data:image/gif;base64,AAAA 1x, http://cdn.example.test/b.png 2x" alt="srcset">
+<form action="http://forms.example.test/submit"></form>
+</body>
+</html>

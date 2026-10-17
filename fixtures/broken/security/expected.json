@@ -1,0 +1,47 @@
+{
+  "description": "External links opening new tabs without noopener, and plain-HTTP images, scripts, stylesheets, srcset candidates, and form actions. noopener links, internal links, plain-HTTP navigation links, localhost, and data URIs are fine.",
+  "findings": [
+    {
+      "check": "security.target-blank",
+      "file": "index.html",
+      "line": 8,
+      "column": 34
+    },
+    {
+      "check": "security.target-blank",
+      "file": "index.html",
+      "line": 10,
+      "column": 34
+    },
+    {
+      "check": "security.mixed-content",
+      "file": "index.html",
+      "line": 13,
+      "column": 6
+    },
+    {
+      "check": "security.mixed-content",
+      "file": "index.html",
+      "line": 15,
+      "column": 9
+    },
+    {
+      "check": "security.mixed-content",
+      "file": "index.html",
+      "line": 16,
+      "column": 24
+    },
+    {
+      "check": "security.mixed-content",
+      "file": "index.html",
+      "line": 17,
+      "column": 6
+    },
+    {
+      "check": "security.mixed-content",
+      "file": "index.html",
+      "line": 18,
+      "column": 7
+    }
+  ]
+}

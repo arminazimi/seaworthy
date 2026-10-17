@@ -1,0 +1,17 @@
+{
+  "description": "A sitemap index lists a sitemap that does not exist, and the sitemap it does reach lists a missing page.",
+  "findings": [
+    {
+      "check": "sitemap.entries",
+      "file": "sitemap-pages.xml",
+      "line": 4,
+      "column": 8
+    },
+    {
+      "check": "sitemap.entries",
+      "file": "sitemap.xml",
+      "line": 4,
+      "column": 12
+    }
+  ]
+}

@@ -91,3 +91,10 @@ test("names.*: the suggested aria-labels satisfy the checks", async () => {
   assert.ok(before.length >= 8);
   assert.deepEqual(after, []);
 });
+
+test("security.*: the suggested edits add noopener and switch to https", async () => {
+  const { before, after } = await fixLoop("security", ["security.target-blank", "security.mixed-content"]);
+  assert.equal(before.length, 7);
+  assert.ok(before.every((f) => f.fix.edits.length > 0));
+  assert.deepEqual(after, []);
+});
