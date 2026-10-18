@@ -156,6 +156,16 @@ export function addAttributes(page: Page, element: HtmlElement, additions: Recor
   return tag ? replaceEdit(page, tag.startLine, `<${element.tagName}`, `<${element.tagName}${text}`, needsInput) : undefined;
 }
 
+/** An edit that renames an attribute, keeping its value. The new name replaces the exact name as written in the source. */
+export function renameAttribute(page: Page, element: HtmlElement, name: string, newName: string): Edit | undefined {
+  const raw = rawAttribute(page, element, name);
+  if (!raw) return undefined;
+  const eq = raw.text.indexOf("=");
+  const written = eq < 0 ? raw.text : raw.text.slice(0, eq);
+  // Anchor on "name=" so a value that repeats the name cannot be mistaken for it.
+  return replaceEdit(page, raw.line, eq < 0 ? written : `${written}=`, eq < 0 ? newName : `${newName}=`);
+}
+
 /**
  * An edit that sets an attribute to a new value by replacing the attribute's whole source text, such as
  * `href="/a.html"` to `href="/b.html"`. The old text includes the name and quotes, so it is far more specific

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -121,4 +121,31 @@ test("a11y.aria-roles flags unknown and abstract roles and roles HTML does not a
   assert.deepEqual(result.findings.map((f) => [f.location.line, f.severity]), [[4, "error"], [5, "error"], [9, "warning"], [12, "warning"]]);
   assert.match(result.findings[0]!.message, /Did you mean "button"\?/);
   assert.match(result.findings[1]!.message, /abstract role/);
+});
+
+test("a11y.aria-attributes flags unknown names and invalid values, with exact edits for typos and casing", async () => {
+  const body = [
+    '<div aria-lable="Save">typo</div>',
+    '<div aria-foo="1">unknown</div>',
+    '<button aria-expanded="True">case</button>',
+    '<button aria-expanded="yes">word</button>',
+    '<button aria-expanded="">empty</button>',
+    '<div aria-live="loud">token</div>',
+    '<div role="heading" aria-level="0">int</div>',
+    '<div role="heading" aria-level="2">ok</div>',
+    '<div role="slider" aria-valuenow="1.5" aria-valuemin="0" aria-valuemax="x">num</div>',
+    '<div aria-relevant="additions text">ok</div>',
+    '<div aria-relevant="additions bogus">tokens</div>',
+    '<button aria-pressed="mixed" aria-current="page" aria-label="">ok</button>',
+    '<div ARIA-HIDDEN="true">uppercase name</div>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yAriaAttributes] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 5, 6, 7, 8, 9, 10, 12, 14]);
+  const edits = result.findings.map((f) => f.fix.edits.map((e) => [e.find, e.replace]));
+  assert.deepEqual(edits[0], [["aria-lable=", "aria-label="]]);
+  assert.deepEqual(edits[1], []);
+  assert.deepEqual(edits[2], [['aria-expanded="True"', 'aria-expanded="true"']]);
+  assert.deepEqual(edits[3], [], "yes is ambiguous, so there is no edit");
+  assert.match(result.findings[0]!.message, /Did you mean aria-label\?/);
 });
