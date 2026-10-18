@@ -312,3 +312,57 @@ export const a11yAutocomplete = check(meta("a11y.autocomplete", "autocomplete va
   }
   return out;
 });
+
+export const a11yTableHeaders = check(meta("a11y.table-headers", "Data table has no header cells, or headers points at a cell that is not in it", "error", ["WCAG 1.3.1"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    const tables = page.elements.filter((e) => e.tagName === "table");
+    tables.forEach((table, index) => {
+      if (isHidden(table)) return;
+      const role = attr(table, "role")?.trim().toLowerCase();
+      if (role === "presentation" || role === "none") return; // a layout table, by the author's own word
+      const inside = descendants(table).filter((e) => !ancestorsBefore(e, table).some((a) => a.tagName === "table"));
+      const rows = inside.filter((e) => e.tagName === "tr");
+      const cells = inside.filter((e) => e.tagName === "td" || e.tagName === "th");
+      const columns = Math.max(0, ...rows.map((row) => cells.filter((c) => c.parentNode === row).length));
+      const name = attr(table, "id") ?? `table-${index + 1}`;
+      if (rows.length >= 2 && columns >= 2 && !cells.some((c) => c.tagName === "th")) {
+        out.push({
+          message: `This table has ${rows.length} rows and ${columns} columns but no header cells (<th>). Screen reader users hear each value without knowing which column or row it belongs to.`,
+          location: locate(page, table),
+          fix: {
+            kind: "manual",
+            summary: 'Make the cells that label columns <th scope="col"> and the cells that label rows <th scope="row">. If the table is only for layout, use CSS grid or flexbox instead, or add role="presentation".',
+            edits: [],
+          },
+          key: `${name}:no-header`,
+        });
+      }
+      const ids = new Set(cells.map((c) => attr(c, "id")).filter((id): id is string => !!id));
+      for (const cell of cells) {
+        const raw = attr(cell, "headers");
+        if (raw === undefined) continue;
+        const missing = raw.split(/\s+/).filter((id) => id !== "" && !ids.has(id));
+        if (missing.length === 0) continue;
+        out.push({
+          message: `headers="${raw.trim()}" points at ${missing.length === 1 ? "an id" : "ids"} that ${missing.length === 1 ? "is" : "are"} not on a cell of this table: ${missing.join(", ")}.`,
+          location: locate(page, cell, "headers"),
+          fix: {
+            kind: "manual",
+            summary: "Give each header cell this cell refers to an id, and list those ids in headers. Or drop headers and use scope on the <th> cells, which is enough for simple tables.",
+            edits: [],
+          },
+          key: `${name}:${missing.join(" ")}`,
+        });
+      }
+    });
+  }
+  return out;
+});
+
+/** The element's ancestors up to, but not including, the given one. */
+function ancestorsBefore(element: Parameters<typeof ancestors>[0], stop: Parameters<typeof ancestors>[0]) {
+  const chain = ancestors(element);
+  const at = chain.indexOf(stop);
+  return at === -1 ? chain : chain.slice(0, at);
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tables</title>
+</head>
+<body>
+<main>
+<h1>Tables</h1>
+<table>
+  <tr><td>Plan</td><td>Price</td></tr>
+  <tr><td>Basic</td><td>$5</td></tr>
+</table>
+<table>
+  <tr><th id="plan">Plan</th><th id="price">Price</th></tr>
+  <tr><td headers="plan">Basic</td><td headers="price cost">$5</td></tr>
+</table>
+<table>
+  <tr><th scope="col">Plan</th><th scope="col">Price</th></tr>
+  <tr><th scope="row">Basic</th><td>$5</td></tr>
+</table>
+<table role="presentation">
+  <tr><td>Left</td><td>Right</td></tr>
+  <tr><td>Footer</td><td></td></tr>
+</table>
+<table><tr><td>One row</td><td>is not a data table</td></tr></table>
+</main>
+</body>
+</html>
