@@ -1,0 +1,8 @@
+{
+  "description": "Line 2 has a value that is not yes or no and a signal that does not exist; line 4 lists search twice; line 6 has a Content-Usage value that is not y or n (a note, because AIPREF is a draft). Lines 3 and 5 are well-formed.",
+  "findings": [
+    { "check": "readability.content-signals", "file": "robots.txt", "line": 2, "column": 1 },
+    { "check": "readability.content-signals", "file": "robots.txt", "line": 4, "column": 1 },
+    { "check": "readability.content-signals", "file": "robots.txt", "line": 6, "column": 1 }
+  ]
+}

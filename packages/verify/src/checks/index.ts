@@ -11,7 +11,7 @@ import { metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } fro
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
-import { readabilityAiRobots, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
+import { readabilityAiRobots, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
 import { socialImageUrl, socialOpenGraph } from "./social.js";
 
 export const builtInChecks: readonly Check[] = [
@@ -47,6 +47,7 @@ export const builtInChecks: readonly Check[] = [
   namesLabel,
   namesLink,
   readabilityAiRobots,
+  readabilityContentSignals,
   readabilityJsonld,
   readabilityLlmsTxt,
   readabilityMdAlternates,
