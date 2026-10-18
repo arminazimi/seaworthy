@@ -4,7 +4,7 @@ import { type HtmlElement, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { looksLikeHtml, parseJson, positionIn, siteText } from "./files.js";
 import { nearest } from "./aria-data.js";
-import { check, firstElement, locate, meta, pagesOf } from "./helpers.js";
+import { check, descendants, documentLocation, firstElement, isRedirectStub, locate, meta, pagesOf, textOf } from "./helpers.js";
 import { robotsGroups } from "./sitemap.js";
 
 const MARKDOWN_LINK = /^\s*[-*+]\s+\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)(?::\s.*|\s*)$/;
@@ -259,6 +259,37 @@ export const readabilityAiRobots = check(meta("readability.ai-robots", "robots.t
       location: { file: "robots.txt", line: rule?.line ?? 1, column: 1 },
       fix: { kind: "manual", summary: "Allow the retrieval crawlers you want, for example User-agent: OAI-SearchBot with Allow: /, or remove the blanket Disallow: /. You can still block training crawlers such as GPTBot and ClaudeBot.", edits: [] },
       key: "blocked-with-llms-txt",
+    });
+  }
+  return out;
+});
+
+const APP_ROOTS = new Set(["root", "app", "__next", "__nuxt", "svelte", "q-app", "outlet", "main-app"]);
+
+export const readabilitySsrContent = check(meta("readability.ssr-content", "Page content only appears after JavaScript runs", "warning", ["agent-readability spec"], ["html"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const body = firstElement(page, "body");
+    if (!body) continue;
+    const words = wordsOf(visibleText(body)).size;
+    if (words >= 10) continue;
+    const scripts = page.elements.filter((e) => e.tagName === "script" && ((attr(e, "src") ?? "").trim() !== "" || textOf(e).trim() !== "") && !/json|ld\+json|importmap|speculationrules/i.test(attr(e, "type") ?? ""));
+    if (scripts.length === 0) continue; // a short static page is not a rendering problem
+    const emptyRoot = page.elements.find((e) => APP_ROOTS.has(attr(e, "id") ?? "") && textOf(e).trim() === "" && !descendants(e).some((d) => ["img", "svg", "picture", "video", "canvas"].includes(d.tagName)));
+    const noscript = page.elements.find((e) => e.tagName === "noscript" && /javascript/i.test(textOf(e)));
+    const bareBody = !descendants(body).some((e) => !["script", "style", "noscript", "template", "link", "meta"].includes(e.tagName));
+    if (!emptyRoot && !noscript && !bareBody) continue; // little text, but something is there: an image page, a canvas, a short note
+    const at = emptyRoot ?? noscript;
+    out.push({
+      message: `The HTML has ${words === 0 ? "no readable text" : `only ${words} words`} but loads ${scripts.length} script${scripts.length === 1 ? "" : "s"}${emptyRoot ? ` and ends with an empty <${emptyRoot.tagName} id="${attr(emptyRoot, "id")}">` : ""}. The content seems to be created in the browser, so agents, crawlers, and link previews that do not run JavaScript see an empty page.`,
+      location: at ? locate(page, at) : documentLocation(page),
+      fix: {
+        kind: "manual",
+        summary: "Render the page's content into the HTML at build time (static site generation, or server-side rendering) so the built file contains the text. Client-side code can still take over afterward.",
+        edits: [],
+      },
+      key: "client-rendered",
     });
   }
   return out;

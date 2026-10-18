@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { readabilityAiRobots, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates } from "../src/checks/readability.js";
+import { readabilityAiRobots, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -145,4 +145,37 @@ test("readability.ai-robots flags llms.txt next to a robots.txt that blocks the 
   assert.deepEqual(await run({ "robots.txt": closed }, [readabilityAiRobots]), [], "without a guide there is no contradiction");
   const reopened = `${closed}\nUser-agent: OAI-SearchBot\nAllow: /\n`;
   assert.deepEqual(await run({ "robots.txt": reopened, "llms.txt": "# S\n" }, [readabilityAiRobots]), [], "one open retrieval crawler is enough");
+});
+
+const shell = (body: string, head = "") => `<!doctype html>\n<html lang="en"><head><title>t</title>${head}</head>\n<body>${body}</body></html>`;
+const MODULE = '<script type="module" src="/app.js"></script>';
+
+test("readability.ssr-content flags an empty application root and a no-JavaScript warning", async () => {
+  const findings = await run(
+    {
+      "spa.html": shell(`<div id="root"></div>${MODULE}`),
+      "next.html": shell(`<div id="__next">  </div><script>window.boot()</script>`),
+      "noscript.html": shell(`<noscript>You need to enable JavaScript to run this app.</noscript><div class="x"></div>${MODULE}`),
+      "blank.html": shell(MODULE),
+    },
+    [readabilitySsrContent],
+  );
+  assert.deepEqual(findings.map((f) => f.location.file), ["blank.html", "next.html", "noscript.html", "spa.html"]);
+  assert.match(findings[3]!.message, /empty <div id="root">/);
+});
+
+test("readability.ssr-content leaves rendered pages, short static pages, and redirect stubs alone", async () => {
+  const text = "Seaworthy checks built sites before they are deployed so agents can trust what they publish every time.";
+  const findings = await run(
+    {
+      "ssr.html": shell(`<div id="root"><main><h1>Title</h1><p>${text}</p></main></div>${MODULE}`),
+      "hydrated.html": shell(`<div id="root"><img src="/a.png" alt=""></div>${MODULE}`),
+      "short.html": shell("<p>Back soon.</p>"),
+      "static-empty.html": shell('<div id="root"></div>'),
+      "ldjson.html": shell('<p>Hi</p><script type="application/ld+json">{"@type":"Thing"}</script>'),
+      "redirect.html": '<!doctype html><html lang="en"><head><title>r</title><meta http-equiv="refresh" content="0; url=/ssr.html"></head><body><script src="/x.js"></script></body></html>',
+    },
+    [readabilitySsrContent],
+  );
+  assert.deepEqual(findings, []);
 });
