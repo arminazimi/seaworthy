@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates } from "../src/checks/readability.js";
+import { readabilityAiRobots, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -120,4 +120,29 @@ test("readability.jsonld notes missing recommended fields and warns on dates tha
   assert.match(findings[0]!.message, /datePublished "18 October 2026"/);
   assert.match(findings[1]!.message, /missing author/);
   assert.match(findings[2]!.message, /missing itemListElement/);
+});
+
+test("readability.ai-robots accepts clear rules, including blocking training crawlers", async () => {
+  const robots = "User-agent: GPTBot\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /\n\nUser-agent: OAI-SearchBot\nAllow: /\n\nUser-agent: *\nDisallow: /private/\n";
+  assert.deepEqual(await run({ "robots.txt": robots, "llms.txt": "# S\n" }, [readabilityAiRobots]), []);
+  assert.deepEqual(await run({}, [readabilityAiRobots]), [], "no robots.txt, nothing to say");
+});
+
+test("readability.ai-robots reports contradictory rules and misspelled crawler names", async () => {
+  const robots = "User-agent: GPTBot\nDisallow: /\nAllow: /\n\nUser-agent: ClaudBot\nDisallow: /\n\nUser-agent: Googlebot\nDisallow: /tmp/\n\nUser-agent: ChatGPT-User\nDisallow: /\nDisallow:\n";
+  const findings = await run({ "robots.txt": robots }, [readabilityAiRobots]);
+  assert.deepEqual(findings.map((f) => f.location.line), [2, 5, 12]);
+  assert.match(findings[0]!.message, /Disallow: \/ and Allow: \//);
+  assert.match(findings[1]!.message, /Did you mean "claudebot"\?/);
+  assert.match(findings[2]!.message, /empty Disallow/);
+});
+
+test("readability.ai-robots flags llms.txt next to a robots.txt that blocks the crawlers that would read it", async () => {
+  const closed = "User-agent: *\nDisallow: /\n";
+  const [finding] = await run({ "robots.txt": closed, "llms.txt": "# S\n" }, [readabilityAiRobots]);
+  assert.equal(finding!.location.line, 2);
+  assert.match(finding!.message, /publishes llms\.txt/);
+  assert.deepEqual(await run({ "robots.txt": closed }, [readabilityAiRobots]), [], "without a guide there is no contradiction");
+  const reopened = `${closed}\nUser-agent: OAI-SearchBot\nAllow: /\n`;
+  assert.deepEqual(await run({ "robots.txt": reopened, "llms.txt": "# S\n" }, [readabilityAiRobots]), [], "one open retrieval crawler is enough");
 });

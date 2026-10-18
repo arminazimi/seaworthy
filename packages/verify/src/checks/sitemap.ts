@@ -63,10 +63,17 @@ export const sitemapEntries = check(meta("sitemap.entries", "Sitemap lists a pag
   return out;
 });
 
+export interface RobotsGroup {
+  agents: string[];
+  /** Line of each `User-agent` line, in the same order as `agents`. */
+  agentLines: number[];
+  rules: { type: "allow" | "disallow"; value: string; line: number }[];
+}
+
 /** Groups of robots.txt: the user agents and the directives under them, with line numbers. */
-function robotsGroups(text: string): { agents: string[]; rules: { type: "allow" | "disallow"; value: string; line: number }[] }[] {
-  const groups: { agents: string[]; rules: { type: "allow" | "disallow"; value: string; line: number }[] }[] = [];
-  let current: (typeof groups)[number] | undefined;
+export function robotsGroups(text: string): RobotsGroup[] {
+  const groups: RobotsGroup[] = [];
+  let current: RobotsGroup | undefined;
   let lastWasAgent = false;
   text.split(/\r?\n/).forEach((raw, i) => {
     const line = raw.replace(/#.*/, "").trim();
@@ -75,8 +82,9 @@ function robotsGroups(text: string): { agents: string[]; rules: { type: "allow" 
     const field = (match[1] as string).toLowerCase();
     const value = (match[2] as string).trim();
     if (field === "user-agent") {
-      if (!current || !lastWasAgent) groups.push((current = { agents: [], rules: [] }));
+      if (!current || !lastWasAgent) groups.push((current = { agents: [], agentLines: [], rules: [] }));
       current.agents.push(value.toLowerCase());
+      current.agentLines.push(i + 1);
       lastWasAgent = true;
       return;
     }

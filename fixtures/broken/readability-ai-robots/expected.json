@@ -1,0 +1,8 @@
+{
+  "description": "GPT-Bot is a misspelling of GPTBot; the ClaudeBot group says both Disallow: / and Allow: /; and User-agent: * blocks everything while the site publishes llms.txt, so no retrieval crawler can read it. The Googlebot group is fine.",
+  "findings": [
+    { "check": "readability.ai-robots", "file": "robots.txt", "line": 1, "column": 1 },
+    { "check": "readability.ai-robots", "file": "robots.txt", "line": 5, "column": 1 },
+    { "check": "readability.ai-robots", "file": "robots.txt", "line": 12, "column": 1 }
+  ]
+}
