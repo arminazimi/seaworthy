@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
-import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
+import { markdownNegotiationCheck, readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -305,4 +305,50 @@ test("readability.a2a-card reports each missing required field and each incomple
   }
   const empty = (await run({ [A2A]: JSON.stringify({ ...goodCard, supportedInterfaces: [] }) }, [readabilityA2aCard])).map((f) => f.message);
   assert.match(empty[0]!, /cannot be empty/);
+});
+
+function fakeFetch(responder: (url: string, accept: string) => { type: string; vary?: string; status?: number }): { fetch: typeof fetch; calls: string[] } {
+  const calls: string[] = [];
+  const impl = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    calls.push(url);
+    const answer = responder(url, String((init?.headers as Record<string, string> | undefined)?.accept ?? ""));
+    const headers: Record<string, string> = { "content-type": answer.type, ...(answer.vary ? { vary: answer.vary } : {}) };
+    return new Response("body", { status: answer.status ?? 200, headers });
+  }) as typeof fetch;
+  return { fetch: impl, calls };
+}
+const withCanonical = (origin: string) => `<!doctype html><html lang="en"><head><title>t</title><link rel="canonical" href="${origin}/"></head><body><main><h1>t</h1></main></body></html>`;
+
+test("readability.markdown-negotiation is skipped without --network and asks for the deployed address when it has none", async () => {
+  const site = buildSite(makeSite({ "index.html": withCanonical("https://x.test") }));
+  const skipped = await runChecks({ site, checks: [markdownNegotiationCheck()] });
+  assert.deepEqual(skipped.findings, []);
+  assert.equal(skipped.skipped.length, 1);
+  const bare = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE })), checks: [markdownNegotiationCheck(fakeFetch(() => ({ type: "text/html" })).fetch)], enable: { network: true } });
+  assert.deepEqual(bare.findings.map((f) => f.severity), ["note"]);
+  assert.match(bare.findings[0]!.message, /deployed address/);
+});
+
+test("readability.markdown-negotiation asks for Markdown and judges the answer", async () => {
+  const { fetch, calls } = fakeFetch((url, accept) => (accept === "text/markdown" && url.endsWith("/docs/") ? { type: "text/markdown; charset=utf-8", vary: "Accept" } : url.endsWith("/other.html") ? { type: "text/markdown" } : { type: "text/html; charset=utf-8" }));
+  const site = buildSite(makeSite({ "index.html": withCanonical("https://x.test"), "docs/index.html": PAGE, "other.html": PAGE }));
+  const result = await runChecks({ site, checks: [markdownNegotiationCheck(fetch)], enable: { network: true } });
+  assert.deepEqual(calls, ["https://x.test/", "https://x.test/docs/", "https://x.test/other.html"]);
+  assert.deepEqual(result.findings.map((f) => [f.location.file, f.severity]), [["index.html", "warning"], ["other.html", "note"]]);
+  assert.match(result.findings[0]!.message, /with text\/html, not Markdown/);
+  assert.match(result.findings[1]!.message, /not Vary: Accept/);
+});
+
+test("readability.markdown-negotiation honors baseUrl and the page limit, skips pages that are not deployed, and notes unreachable hosts", async () => {
+  const { fetch, calls } = fakeFetch((url) => (url.includes("missing") ? { type: "text/html", status: 404 } : { type: "text/markdown", vary: "accept" }));
+  const site = buildSite(makeSite({ "index.html": PAGE, "a.html": PAGE, "missing.html": PAGE, "z.html": PAGE }));
+  const result = await runChecks({ site, checks: [markdownNegotiationCheck(fetch)], enable: { network: true }, options: { "readability.markdown-negotiation": { baseUrl: "https://example.org/base", pages: 3 } } });
+  assert.deepEqual(result.findings, []);
+  assert.deepEqual(calls, ["https://example.org/base/", "https://example.org/base/a.html", "https://example.org/base/missing.html"]);
+  const down = (async () => {
+    throw new Error("offline");
+  }) as typeof fetch;
+  const offline = await runChecks({ site: buildSite(makeSite({ "index.html": withCanonical("https://x.test") })), checks: [markdownNegotiationCheck(down)], enable: { network: true } });
+  assert.deepEqual(offline.findings.map((f) => f.severity), ["note"]);
 });

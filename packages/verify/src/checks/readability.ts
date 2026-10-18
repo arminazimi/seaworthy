@@ -1,7 +1,7 @@
 // readability.*: can agents and AI search read this site? See spec/agent-readability/v1.md.
 
 import { type HtmlElement, attr } from "../site.js";
-import type { FindingDraft } from "../types.js";
+import type { Check, FindingDraft } from "../types.js";
 import { createHash } from "node:crypto";
 
 import { locateJsonString, looksLikeHtml, parseJson, positionIn, siteText } from "./files.js";
@@ -588,3 +588,71 @@ export const readabilityA2aCard = check(meta("readability.a2a-card", "A2A agent 
   }
   return out;
 });
+
+interface NegotiationOptions {
+  /** The deployed address of the site, for example https://example.com. Default: the origin of the home page's canonical link. */
+  baseUrl?: string;
+  /** How many pages to try, home page first. */
+  pages: number;
+  timeoutMs: number;
+}
+const NEGOTIATION_DEFAULTS: NegotiationOptions = { pages: 5, timeoutMs: 10_000 };
+
+/** Opt-in (needs the network): a deployed page should answer `Accept: text/markdown` with Markdown. */
+export function markdownNegotiationCheck(fetchImpl: typeof fetch = (...args) => fetch(...args)): Check {
+  return check(meta("readability.markdown-negotiation", "Deployed page does not answer Accept: text/markdown with Markdown", "warning", ["Markdown for Agents"], ["html", "network"]), async function* (ctx) {
+    const options = { ...NEGOTIATION_DEFAULTS, ...ctx.options } as NegotiationOptions;
+    const pages = pagesOf(ctx);
+    if (pages.length === 0) return;
+    const home = pages.find((p) => p.url === "/index.html") ?? pages[0]!;
+    let base = typeof options.baseUrl === "string" ? options.baseUrl.trim() : "";
+    if (base === "") {
+      const canonical = home.elements.find((e) => e.tagName === "link" && /(^|\s)canonical(\s|$)/i.test(attr(e, "rel") ?? ""));
+      try {
+        // The canonical link names the origin; the site's base path says where under it the site is deployed.
+        base = new URL(attr(canonical ?? home.elements[0]!, "href") ?? "").origin + ctx.site.basePath.replace(/\/+$/, "");
+      } catch {
+        base = "";
+      }
+    }
+    if (base === "") {
+      yield {
+        message: "This check needs the deployed address of the site, and the home page has no absolute canonical link to take it from.",
+        location: { file: home.file },
+        severity: "note",
+        fix: { kind: "manual", summary: 'Set it in seaworthy.config.json: "checks": { "readability.markdown-negotiation": { "options": { "baseUrl": "https://example.com" } } }', edits: [] },
+        key: "no-base-url",
+      };
+      return;
+    }
+    const sample = [home, ...pages.filter((p) => p !== home)].slice(0, Math.max(1, options.pages));
+    for (const page of sample) {
+      const url = `${base.replace(/\/+$/, "")}${page.url.replace(/index\.html$/, "")}`;
+      try {
+        const response = await fetchImpl(url, { redirect: "follow", signal: AbortSignal.timeout(options.timeoutMs), headers: { accept: "text/markdown", "user-agent": "seaworthy (markdown negotiation)" } });
+        const type = (response.headers.get("content-type") ?? "").toLowerCase();
+        if (!response.ok) continue; // a page that is not deployed is a different problem
+        if (!type.includes("text/markdown")) {
+          yield {
+            message: `${url} answers Accept: text/markdown with ${type.split(";")[0] || "no content type"}, not Markdown. Agents that ask for Markdown get the full HTML page instead.`,
+            location: { file: page.file },
+            fix: { kind: "manual", summary: "Make the host or a middleware return the page's Markdown with Content-Type: text/markdown when the request prefers it (and Vary: Accept). Cloudflare's Markdown for Agents does this without code changes.", edits: [] },
+            key: `html:${page.url}`,
+          };
+        } else if (!/\baccept\b/i.test(response.headers.get("vary") ?? "")) {
+          yield {
+            message: `${url} returns Markdown for Accept: text/markdown but not Vary: Accept, so a cache may serve the Markdown to browsers or the HTML to agents.`,
+            location: { file: page.file },
+            severity: "note",
+            fix: { kind: "manual", summary: "Add Vary: Accept to the response.", edits: [] },
+            key: `vary:${page.url}`,
+          };
+        }
+      } catch {
+        yield { message: `${url} could not be reached, so its Markdown answer was not checked.`, location: { file: page.file }, severity: "note", fix: { kind: "manual", summary: "Deploy the site, or fix baseUrl, then run again.", edits: [] }, key: `unreachable:${page.url}` };
+      }
+    }
+  });
+}
+
+export const readabilityMarkdownNegotiation = markdownNegotiationCheck();
