@@ -12,7 +12,8 @@ export const SARIF_FINGERPRINT_KEY = "seaworthy/v1";
 
 /** Locations are relative to where verify ran (the repository root in CI): the report root joined with the file. */
 export function sarifUri(report: Report, file: string): string {
-  return report.root === "." ? file : `${report.root.replace(/^\.\//, "")}/${file}`;
+  const path = report.root === "." ? file : `${report.root.replace(/^\.\//, "")}/${file}`;
+  return path.split("/").map(encodeURIComponent).join("/");
 }
 
 function fixesFor(report: Report, finding: Finding, context: SarifContext): object[] {
