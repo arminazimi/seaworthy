@@ -477,3 +477,56 @@ export const readabilityApiCatalog = check(meta("readability.api-catalog", "API 
   }
   return out;
 });
+
+const MCP_CARD_PATHS = ["/.well-known/mcp/server-card.json", "/.well-known/mcp.json", "/.well-known/mcp/server-cards.json"];
+
+/** Whether a card names where the server can be reached: a transport, a list of remotes, or a URL. */
+function hasEndpoint(card: Json): boolean {
+  const transport = card["transport"];
+  const remotes = card["remotes"];
+  return (
+    (typeof transport === "string" && transport !== "") ||
+    (isObject(transport) && ["url", "endpoint"].some((k) => typeof transport[k] === "string" && transport[k] !== "")) ||
+    (Array.isArray(remotes) && remotes.some((r) => isObject(r) && typeof r["url"] === "string" && r["url"] !== "")) ||
+    (typeof card["url"] === "string" && card["url"] !== "") ||
+    (typeof card["endpoint"] === "string" && card["endpoint"] !== "")
+  );
+}
+
+export const readabilityMcpCard = check(meta("readability.mcp-card", "MCP Server Card is invalid or incomplete", "warning", ["MCP Server Card (draft, SEP-1649 / SEP-2127)"], ["files"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const path of MCP_CARD_PATHS) {
+    const text = siteText(ctx.site, path);
+    if (text === undefined) continue;
+    const file = path.slice(1);
+    const fail = (message: string, location: { file: string; line?: number; column?: number }, summary: string, key: string): void => {
+      out.push({ message: `${message} (The MCP Server Card is still a draft, so details may change.)`, location, fix: { kind: "manual", summary, edits: [] }, key });
+    };
+    const parsed = parseJson(text);
+    if (!parsed.ok) {
+      fail(`The MCP Server Card does not parse: ${parsed.message}.`, { file, ...(parsed.line ? { line: parsed.line, column: parsed.column ?? 1 } : {}) }, "Fix the JSON syntax.", "parse");
+      continue;
+    }
+    const root = parsed.value;
+    const cards = Array.isArray(root) ? root : isObject(root) && Array.isArray(root["cards"]) ? (root["cards"] as unknown[]) : isObject(root) && Array.isArray(root["serverCards"]) ? (root["serverCards"] as unknown[]) : [root];
+    cards.forEach((card, i) => {
+      const label = cards.length > 1 ? ` (card ${i + 1})` : "";
+      const where = { file, line: 1, column: 1 };
+      if (!isObject(card)) {
+        fail(`The MCP Server Card${label} is not a JSON object.`, where, "A card is an object with serverInfo, a transport, and capabilities.", `shape:${i}`);
+        return;
+      }
+      const info = card["serverInfo"];
+      const name = isObject(info) ? info["name"] : undefined;
+      const version = isObject(info) ? info["version"] : undefined;
+      if (!isObject(info) || typeof name !== "string" || name === "" || typeof version !== "string" || version === "") {
+        const missing = !isObject(info) ? "serverInfo" : [typeof name !== "string" || name === "" ? "name" : "", typeof version !== "string" || version === "" ? "version" : ""].filter(Boolean).join(" and ");
+        fail(`The MCP Server Card${label} has no ${isObject(info) ? `serverInfo.${missing}` : "serverInfo"}.`, where, 'Add "serverInfo": { "name": "my-server", "version": "1.0.0" }.', `serverInfo:${i}`);
+      }
+      if (!hasEndpoint(card)) {
+        fail(`The MCP Server Card${label} does not say where the server can be reached.`, where, 'Add "transport": { "type": "streamable-http", "url": "https://example.com/mcp" }.', `transport:${i}`);
+      }
+    });
+  }
+  return out;
+});
