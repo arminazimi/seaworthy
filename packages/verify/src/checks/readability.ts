@@ -2,7 +2,7 @@
 
 import { type HtmlElement, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import { looksLikeHtml, positionIn, siteText } from "./files.js";
+import { looksLikeHtml, parseJson, positionIn, siteText } from "./files.js";
 import { check, firstElement, locate, meta, pagesOf } from "./helpers.js";
 
 const MARKDOWN_LINK = /^\s*[-*+]\s+\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)(?::\s.*|\s*)$/;
@@ -109,6 +109,86 @@ export const readabilityMdAlternates = check(meta("readability.md-alternates", "
           fix: { kind: "manual", summary: "Regenerate the Markdown copy from the same source as the page, so an agent that reads it gets the same content.", edits: [] },
           key: `mismatch:${href}`,
         });
+      }
+    }
+  }
+  return out;
+});
+
+type Json = Record<string, unknown>;
+const isObject = (value: unknown): value is Json => typeof value === "object" && value !== null && !Array.isArray(value);
+const present = (value: unknown): boolean => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && value.length === 0);
+
+/** The fields consumers need most for each schema.org type that sites commonly publish. */
+const RECOMMENDED: Readonly<Record<string, readonly string[]>> = {
+  Article: ["headline", "datePublished", "author"],
+  NewsArticle: ["headline", "datePublished", "author"],
+  BlogPosting: ["headline", "datePublished", "author"],
+  TechArticle: ["headline", "datePublished", "author"],
+  Organization: ["name", "url"],
+  WebSite: ["name", "url"],
+  Person: ["name"],
+  Product: ["name"],
+  SoftwareApplication: ["name"],
+  BreadcrumbList: ["itemListElement"],
+  FAQPage: ["mainEntity"],
+  Event: ["name", "startDate", "location"],
+  Course: ["name", "description"],
+  HowTo: ["name", "step"],
+};
+const DATE_FIELDS = ["datePublished", "dateModified", "startDate", "endDate"];
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+/** Every node of a JSON-LD document: the root, array members, and `@graph` members. */
+function nodesOf(value: unknown, out: Json[] = []): Json[] {
+  if (Array.isArray(value)) value.forEach((v) => nodesOf(v, out));
+  else if (isObject(value)) {
+    if (Array.isArray(value["@graph"])) nodesOf(value["@graph"], out);
+    const { "@graph": _graph, ...rest } = value;
+    if (Object.keys(rest).some((k) => k !== "@context")) out.push(rest);
+  }
+  return out;
+}
+
+export const readabilityJsonld = check(meta("readability.jsonld", "JSON-LD does not parse or lacks fields consumers need", "warning", ["JSON-LD 1.1", "schema.org"], ["files"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const script of page.elements.filter((e) => e.tagName === "script" && (attr(e, "type") ?? "").trim().toLowerCase() === "application/ld+json")) {
+      const text = (script.childNodes as { nodeName: string; value?: string; sourceCodeLocation?: { startLine: number; startCol: number } }[]).find((n) => n.nodeName === "#text");
+      const location = locate(page, script);
+      const body = text?.value ?? "";
+      if (body.trim() === "") {
+        out.push({ message: "A JSON-LD script is empty.", location, fix: { kind: "manual", summary: "Put the JSON-LD object in the script, or remove it.", edits: [] }, key: "empty" });
+        continue;
+      }
+      const parsed = parseJson(body);
+      if (!parsed.ok) {
+        const where = text?.sourceCodeLocation && parsed.line ? { file: page.file, line: text.sourceCodeLocation.startLine + parsed.line - 1, column: parsed.line === 1 ? text.sourceCodeLocation.startCol + (parsed.column ?? 1) - 1 : (parsed.column ?? 1) } : location;
+        out.push({ message: `The JSON-LD does not parse: ${parsed.message}.`, location: where, fix: { kind: "manual", summary: "Fix the JSON syntax (check commas, quotes, and brackets). Search engines and AI tools discard JSON-LD they cannot parse.", edits: [] }, key: "parse" });
+        continue;
+      }
+      const root = parsed.value;
+      const hasContext = (isObject(root) && present(root["@context"])) || (Array.isArray(root) && root.every((n) => isObject(n) && present(n["@context"])));
+      if (!hasContext) {
+        out.push({ message: 'The JSON-LD has no "@context", so consumers do not know it uses schema.org.', location, fix: { kind: "manual", summary: 'Add "@context": "https://schema.org" at the top level.', edits: [] }, key: "context" });
+      }
+      for (const node of nodesOf(root)) {
+        const types = (Array.isArray(node["@type"]) ? node["@type"] : [node["@type"]]).filter((t): t is string => typeof t === "string");
+        if (types.length === 0) {
+          out.push({ message: 'A JSON-LD item has no "@type".', location, fix: { kind: "manual", summary: 'Say what the item is, for example "@type": "Article".', edits: [] }, key: `no-type:${Object.keys(node).slice(0, 3).join(",")}` });
+          continue;
+        }
+        for (const field of DATE_FIELDS) {
+          const value = node[field];
+          if (typeof value === "string" && !ISO_DATE.test(value.trim())) {
+            out.push({ message: `${types[0]} has ${field} "${value}", which is not an ISO 8601 date such as 2026-10-18 or 2026-10-18T09:30:00Z.`, location, fix: { kind: "manual", summary: `Write ${field} as an ISO 8601 date.`, edits: [] }, key: `date:${types[0]}:${field}` });
+          }
+        }
+        const wanted = [...new Set(types.flatMap((t) => RECOMMENDED[t] ?? []))];
+        const missing = wanted.filter((field) => !present(node[field]));
+        if (missing.length > 0) {
+          out.push({ message: `${types.join(", ")} is missing ${missing.join(", ")}. Consumers use ${missing.length === 1 ? "it" : "them"} to describe the page.`, location, severity: "note", fix: { kind: "manual", summary: `Add ${missing.join(", ")} to the ${types[0]} item, or drop the item if you cannot fill ${missing.length === 1 ? "it" : "them"}.`, edits: [] }, key: `missing:${types.join(",")}:${missing.join(",")}` });
+        }
       }
     }
   }

@@ -1,0 +1,9 @@
+{
+  "description": "broken.html has a trailing comma. nocontext.html has no @context. dates.html has a datePublished in a human format (warning) and no author (note). ok.html is a complete Article.",
+  "findings": [
+    { "check": "readability.jsonld", "file": "broken.html", "line": 6, "column": 89 },
+    { "check": "readability.jsonld", "file": "dates.html", "line": 6, "column": 3 },
+    { "check": "readability.jsonld", "file": "dates.html", "line": 6, "column": 3 },
+    { "check": "readability.jsonld", "file": "nocontext.html", "line": 6, "column": 3 }
+  ]
+}
