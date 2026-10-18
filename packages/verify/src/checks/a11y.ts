@@ -407,3 +407,53 @@ export const a11yLandmarks = check(meta("a11y.landmarks", "Page does not have ex
   }
   return out;
 });
+
+type Element = ReturnType<typeof pagesOf>[number]["elements"][number];
+
+/** True when an ancestor labels the group of controls: a fieldset with a legend, or a group/radiogroup with an ARIA name. */
+function groupLabelled(input: Element): boolean {
+  return ancestors(input).some((a) => {
+    const named = (attr(a, "aria-label") ?? "").trim() !== "" || (attr(a, "aria-labelledby") ?? "").trim() !== "";
+    if (a.tagName === "fieldset") {
+      const legend = (a.childNodes as Element[]).find((c) => "tagName" in c && c.tagName === "legend");
+      return named || (legend !== undefined && textOf(legend) !== "");
+    }
+    const role = attr(a, "role")?.trim().toLowerCase();
+    return (role === "radiogroup" || role === "group") && named;
+  });
+}
+
+export const a11yRadioGroups = check(meta("a11y.radio-groups", "Radio buttons or checkboxes that belong together have no group label", "error", ["WCAG 1.3.1", "WCAG 3.3.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    const groups = new Map<string, Element[]>();
+    for (const input of page.elements) {
+      if (input.tagName !== "input" || isHidden(input)) continue;
+      const type = (attr(input, "type") ?? "").trim().toLowerCase();
+      const name = (attr(input, "name") ?? "").trim();
+      if ((type !== "radio" && type !== "checkbox") || name === "") continue;
+      const form = ancestors(input).find((a) => a.tagName === "form");
+      const scope = form ? page.elements.indexOf(form) : -1;
+      const key = `${scope}|${type}|${name}`;
+      groups.set(key, [...(groups.get(key) ?? []), input]);
+    }
+    for (const inputs of groups.values()) {
+      if (inputs.length < 2) continue;
+      const bare = inputs.find((i) => !groupLabelled(i));
+      if (!bare) continue;
+      const type = (attr(bare, "type") ?? "").trim().toLowerCase();
+      const name = attr(bare, "name")!.trim();
+      out.push({
+        message: `${inputs.length} ${type === "radio" ? "radio buttons" : "checkboxes"} named "${name}" form a group, but no <fieldset> with a <legend> (or a labelled group) names it. Screen reader users hear each option without the question it answers.`,
+        location: locate(page, bare),
+        fix: {
+          kind: "manual",
+          summary: `Wrap the options in <fieldset><legend>The question</legend> ... </fieldset>, or in an element with role="${type === "radio" ? "radiogroup" : "group"}" and an aria-labelledby that points at the question text.`,
+          edits: [],
+        },
+        key: `${type}:${name}`,
+      });
+    }
+  }
+  return out;
+});
