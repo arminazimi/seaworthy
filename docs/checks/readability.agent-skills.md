@@ -1,0 +1,50 @@
+# readability.agent-skills
+
+The Agent Skills index at `/.well-known/agent-skills/index.json` is invalid, or lists a skill that is not in the site or whose digest does not match.
+
+## Why it matters
+
+An Agent Skills index tells coding agents which skills a site publishes (a `SKILL.md` file or an archive) and where to download them. A client that finds a broken entry skips it or, if the digest does not match the file, refuses it as tampered with. A site that advertises skills and serves a broken index loses the benefit with no visible error. The format is an Internet-style draft (Agent Skills Discovery 0.2.0, published 2026-01-17 and updated 2026-03-12), so this check is a warning at most.
+
+## What it checks
+
+Only when the index exists:
+
+- **Does not parse**, or is not an object with a `skills` array.
+- **`$schema`** missing (clients then read it as the older v0.1.0) or not the 0.2.0 schema URL.
+- **Each skill** needs `name`, `type`, `description`, `url`, and `digest`, all non-empty text.
+  - `name`: 1 to 64 characters of lowercase letters, digits, and single hyphens, with no hyphen at either end; each name once.
+  - `type`: `skill-md` or `archive`.
+  - `description`: at most 1024 characters.
+  - `digest`: `sha256:` followed by 64 lowercase hex digits.
+- **`url` into this site** (path-absolute or relative to the index) must name a file in the built site, and when the digest is well-formed it must equal the SHA-256 of that file's bytes. Links to other sites are not fetched.
+
+Unknown extra fields are ignored, as the draft says clients do.
+
+## How to fix
+
+```json
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "format-code",
+      "type": "skill-md",
+      "description": "Formats code in this project's style.",
+      "url": "/skills/format-code/SKILL.md",
+      "digest": "sha256:<64 hex digits>"
+    }
+  ]
+}
+```
+
+Compute the digest from the file you publish, after any build step that changes it: `shasum -a 256 skills/format-code/SKILL.md`. Generators should write it, never a person. Some static hosts skip folders that start with a dot; make sure `.well-known` is published (on Jekyll, add it to `include:`). There is no automatic edit, because the report cannot know which entry is wrong.
+
+## Options
+
+None.
+
+## Standards
+
+- [Agent Skills Discovery RFC, v0.2.0](https://github.com/cloudflare/agent-skills-discovery-rfc) (draft)
+- [Agent-readability spec](../../spec/agent-readability/v1.md)

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "lint",
+      "type": "skill-md",
+      "description": "Runs the linter.",
+      "url": "/skills/lint/SKILL.md",
+      "digest": "sha256:7b01e1f667fdaa28f198034f069b5c4c2bc7f6bb815bc30fa3af77cba67c788e"
+    },
+    {
+      "name": "stale",
+      "type": "skill-md",
+      "description": "Its file changed.",
+      "url": "/skills/stale/SKILL.md",
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "removed",
+      "type": "skill-md",
+      "description": "Its file is gone.",
+      "url": "/skills/removed/SKILL.md",
+      "digest": "sha256:7b01e1f667fdaa28f198034f069b5c4c2bc7f6bb815bc30fa3af77cba67c788e"
+    },
+    {
+      "name": "Bad_Name",
+      "type": "archive",
+      "description": "The name is not valid.",
+      "url": "/skills/lint/SKILL.md",
+      "digest": "sha256:7b01e1f667fdaa28f198034f069b5c4c2bc7f6bb815bc30fa3af77cba67c788e"
+    }
+  ]
+}
