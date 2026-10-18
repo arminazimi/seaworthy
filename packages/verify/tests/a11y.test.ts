@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yMediaCaptions, a11yRadioGroups, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yMediaCaptions, a11yRadioGroups, a11ySkipLink, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -273,4 +273,26 @@ test("a11y.media-captions wants captions on sound video and no autoplay with sou
   assert.deepEqual(result.findings.map((f) => f.location.line), [4, 7, 8, 10, 11]);
   assert.match(result.findings[3]!.message, /starts playing on its own/);
   assert.ok(result.findings.every((f) => f.severity === "error" && f.fix.kind === "manual"));
+});
+
+test("a11y.skip-link wants an early link that reaches the main content when navigation comes first", async () => {
+  const page = (body: string) => `<!doctype html>\n<html lang="en"><head><title>t</title></head>\n<body>\n${body}\n</body></html>\n`;
+  const nav = '<nav><a href="/a">A</a> <a href="/b">B</a> <a href="/c">C</a></nav>';
+  const site = makeSite({
+    "good.html": page(`<a href="#main">Skip to main content</a>\n${nav}\n<main id="main"><h1>x</h1></main>`),
+    "wrapper.html": page(`<a href="#content">Skip</a>\n${nav}\n<div id="content"><main><h1>x</h1></main></div>`),
+    "inside.html": page(`<a href="#top">Skip to content</a>\n${nav}\n<main><h1 id="top">x</h1></main>`),
+    "missing.html": page(`${nav}\n<main><h1>x</h1></main>`),
+    "dead.html": page(`<a href="#gone">Skip to content</a>\n${nav}\n<main><h1>x</h1></main>`),
+    "outside.html": page(`<a href="#menu">Skip to content</a>\n<nav id="menu"><a href="/a">A</a> <a href="/b">B</a></nav>\n<main><h1>x</h1></main>`),
+    "late.html": page(`<nav><a href="/a">A</a> <a href="/b">B</a> <a href="/c">C</a></nav>\n<a href="#main">Skip to main</a>\n<main id="main"><h1>x</h1></main>`),
+    "short.html": page('<nav><a href="/a">A</a> <a href="/b">B</a></nav>\n<main><h1>x</h1></main>'),
+    "nomain.html": page(nav),
+  });
+  const result = await runChecks({ site: buildSite(site), checks: [a11ySkipLink] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.file), ["dead.html", "late.html", "missing.html", "outside.html"]);
+  assert.match(result.findings[0]!.message, /no element has that id/);
+  assert.match(result.findings[3]!.message, /outside <main>/);
+  assert.match(result.findings[2]!.message, /3 links before the main content/);
 });

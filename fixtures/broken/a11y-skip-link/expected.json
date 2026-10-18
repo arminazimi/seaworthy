@@ -1,0 +1,7 @@
+{
+  "description": "missing.html has three navigation links before the content and no skip link; dead.html has a skip link to #gone, which no element has. good.html has a skip link to the id of the main element.",
+  "findings": [
+    { "check": "a11y.skip-link", "file": "dead.html", "line": 8, "column": 22 },
+    { "check": "a11y.skip-link", "file": "missing.html", "line": 8, "column": 1 }
+  ]
+}
