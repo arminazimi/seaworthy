@@ -1,0 +1,12 @@
+User-agent: GPT-Bot
+Disallow: /private/
+
+User-agent: ClaudeBot
+Disallow: /
+Allow: /
+
+User-agent: Googlebot
+Disallow: /tmp/
+
+User-agent: *
+Disallow: /

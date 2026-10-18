@@ -3,7 +3,9 @@
 import { type HtmlElement, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { looksLikeHtml, parseJson, positionIn, siteText } from "./files.js";
+import { nearest } from "./aria-data.js";
 import { check, firstElement, locate, meta, pagesOf } from "./helpers.js";
+import { robotsGroups } from "./sitemap.js";
 
 const MARKDOWN_LINK = /^\s*[-*+]\s+\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)(?::\s.*|\s*)$/;
 
@@ -191,6 +193,73 @@ export const readabilityJsonld = check(meta("readability.jsonld", "JSON-LD does 
         }
       }
     }
+  }
+  return out;
+});
+
+/** Crawlers that fetch pages for AI products, lower-cased as they appear in a User-agent line. */
+const TRAINING_BOTS = ["gptbot", "claudebot", "anthropic-ai", "google-extended", "ccbot", "bytespider", "applebot-extended", "meta-externalagent", "cohere-ai", "diffbot", "omgilibot", "ai2bot", "amazonbot", "timpibot", "imagesiftbot"];
+/** Crawlers that fetch a page because a person asked an AI tool a question; blocking them removes the site from those answers. */
+const RETRIEVAL_BOTS = ["oai-searchbot", "chatgpt-user", "claude-user", "claude-searchbot", "perplexitybot", "perplexity-user", "duckassistbot", "mistralai-user", "meta-externalfetcher"];
+const AI_BOTS = new Set([...TRAINING_BOTS, ...RETRIEVAL_BOTS, "claude-web"]);
+/** User agents that are real and not AI crawlers, so they are never mistaken for a misspelling of one. */
+const OTHER_BOTS = new Set(["*", "googlebot", "googlebot-image", "googlebot-news", "bingbot", "slurp", "duckduckbot", "baiduspider", "yandexbot", "yandex", "applebot", "facebookexternalhit", "twitterbot", "linkedinbot", "semrushbot", "ahrefsbot", "mj12bot", "dotbot", "petalbot", "sogou", "exabot", "ia_archiver", "adsbot-google", "mediapartners-google", "apis-google", "googleother", "msnbot", "seznambot", "naverbot", "pinterestbot", "slackbot", "telegrambot", "whatsapp", "discordbot"]);
+
+type Access = "blocked" | "open";
+
+export const readabilityAiRobots = check(meta("readability.ai-robots", "robots.txt rules for AI crawlers contradict each other or the site", "warning", ["RFC 9309"], ["files"]), (ctx) => {
+  const text = siteText(ctx.site, "/robots.txt");
+  if (text === undefined) return [];
+  const out: FindingDraft[] = [];
+  const groups = robotsGroups(text);
+  const fullyBlocked = (g: (typeof groups)[number]): boolean => g.rules.some((r) => r.type === "disallow" && r.value === "/") && !g.rules.some((r) => r.type === "allow" && r.value !== "");
+  const accessFor = (agent: string): Access => {
+    const group = groups.find((g) => g.agents.includes(agent)) ?? groups.find((g) => g.agents.includes("*"));
+    return group && fullyBlocked(group) ? "blocked" : "open";
+  };
+  groups.forEach((group) => {
+    const named = group.agents.filter((a) => AI_BOTS.has(a));
+    // Contradictory rules in a group that names an AI crawler.
+    if (named.length > 0) {
+      for (const rule of group.rules.filter((r) => r.type === "disallow")) {
+        const clash = group.rules.find((r) => r.type === "allow" && r.value === rule.value && rule.value !== "");
+        const emptyAndAll = rule.value === "/" && group.rules.some((r) => r.type === "disallow" && r.value === "");
+        if (clash || emptyAndAll) {
+          out.push({
+            message: `The rules for ${named.join(", ")} say both Disallow: ${rule.value} and ${clash ? `Allow: ${rule.value}` : "an empty Disallow (allow everything)"}. Crawlers settle this differently, so the result is unpredictable.`,
+            location: { file: "robots.txt", line: rule.line, column: 1 },
+            fix: { kind: "manual", summary: "Keep one. To block these crawlers use only Disallow: /; to allow them use an empty Disallow: or no rule.", edits: [] },
+            key: `clash:${named.join(",")}:${rule.value}`,
+          });
+          break;
+        }
+      }
+    }
+    // A user agent that looks like a misspelled AI crawler.
+    group.agents.forEach((agent, i) => {
+      if (AI_BOTS.has(agent) || OTHER_BOTS.has(agent)) return;
+      const guess = nearest(agent, AI_BOTS);
+      if (guess) {
+        out.push({
+          message: `robots.txt names the crawler "${agent}", which is not a known AI crawler. Did you mean "${guess}"? A misspelled name is ignored, so the rules under it do not apply to any crawler.`,
+          location: { file: "robots.txt", line: group.agentLines[i] ?? 1, column: 1 },
+          fix: { kind: "manual", summary: `Use the name the crawler publishes, for example "${guess}". Names are matched without regard to case.`, edits: [] },
+          key: `typo:${agent}`,
+        });
+      }
+    });
+  });
+  // The site publishes a guide for agents and shuts out the crawlers that read it for people.
+  const publishesGuide = siteText(ctx.site, "/llms.txt") !== undefined || siteText(ctx.site, "/llms-full.txt") !== undefined;
+  if (publishesGuide && RETRIEVAL_BOTS.every((bot) => accessFor(bot) === "blocked")) {
+    const blocker = groups.find((g) => g.agents.includes("*") && fullyBlocked(g));
+    const rule = blocker?.rules.find((r) => r.type === "disallow" && r.value === "/");
+    out.push({
+      message: "The site publishes llms.txt for AI tools, but robots.txt blocks every crawler that fetches pages for them (OAI-SearchBot, ChatGPT-User, PerplexityBot, and the others). They cannot read the guide, or anything else.",
+      location: { file: "robots.txt", line: rule?.line ?? 1, column: 1 },
+      fix: { kind: "manual", summary: "Allow the retrieval crawlers you want, for example User-agent: OAI-SearchBot with Allow: /, or remove the blanket Disallow: /. You can still block training crawlers such as GPTBot and ClaudeBot.", edits: [] },
+      key: "blocked-with-llms-txt",
+    });
   }
   return out;
 });

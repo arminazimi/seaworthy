@@ -1,0 +1,3 @@
+# AI robots
+
+> A site with a guide for AI tools.
