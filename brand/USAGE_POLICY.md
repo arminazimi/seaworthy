@@ -1,6 +1,6 @@
 # Seaworthy name and logo: use policy
 
-**Status:** draft for the maintainer to approve (task `brand.policy`, issue #184).
+**Status:** Accepted (2026-10-18). Task `brand.policy`, issue #184.
 
 The Seaworthy source code is licensed under Apache-2.0, which lets you use, change, and share the code. Section 6 of that license does not grant any right to the project's name or logo. This policy says what you may do with them without asking.
 
@@ -17,7 +17,7 @@ The Seaworthy source code is licensed under Apache-2.0, which lets you use, chan
 - **Name your product, company, domain, package, or account** Seaworthy, or something confusingly close to it (`seaworthy-pro`, `getseaworthy`, `seaworthy.ai`), where it would suggest that it is the official project or endorsed by it.
 - **Change the mark**: no recoloring outside the approved variants, stretching, adding effects, or combining it with another logo into a new one. Use the files in `brand/assets/` as they are (see `BRAND_GUIDE.md`).
 - **Suggest endorsement**: no "official", "certified by Seaworthy", or "Seaworthy approved" unless the project has agreed to it.
-- **Sell merchandise** or paid services under the name or logo.
+- **Sell merchandise** (shirts, stickers, mugs, and the like) with the name or logo, for profit or not. Only the maintainers may. Free stickers for a talk or a meetup are fine if you ask first.
 
 ## Forks and redistributions
 
