@@ -97,6 +97,36 @@
           "type": "integer",
           "minimum": 0,
           "description": "Present under --changed: findings are limited to files that changed."
+        },
+        "readability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "score",
+            "checks",
+            "passed",
+            "withFindings"
+          ],
+          "description": "Present when a readability check applied to the site: how many of the applicable agent-readability checks came out clean. A count, not a quality judgment.",
+          "properties": {
+            "score": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "checks": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "passed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "withFindings": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
         }
       }
     },

@@ -3,7 +3,7 @@
 
 import { REPORT_SPEC_VERSION, VERSION } from "./version.js";
 import type { SuppressedFinding } from "./suppress.js";
-import { SEVERITIES, type Check, type CheckError, type Finding, type Report, type SkippedCheck } from "./types.js";
+import { SEVERITIES, type Check, type CheckError, type Finding, type Readability, type Report, type SkippedCheck } from "./types.js";
 
 export interface ReportInput {
   /** The folder that was verified, as the user gave it. Must be relative. */
@@ -16,6 +16,7 @@ export interface ReportInput {
   baselineStale?: number;
   /** Set under --changed: how many files changed. */
   changedFiles?: number;
+  readability?: Readability;
   skipped?: readonly SkippedCheck[];
   errors?: readonly CheckError[];
 }
@@ -45,7 +46,7 @@ export function buildReport(input: ReportInput): Report {
     spec: REPORT_SPEC_VERSION,
     tool: { name: "seaworthy", version: VERSION },
     root: input.root,
-    summary: { pages: input.pages, findings: findings.length, bySeverity, suppressed: (input.suppressed ?? []).length, baselined: input.baselined ?? 0, baselineStale: input.baselineStale ?? 0, ...(input.changedFiles === undefined ? {} : { changedFiles: input.changedFiles }) },
+    summary: { pages: input.pages, findings: findings.length, bySeverity, suppressed: (input.suppressed ?? []).length, baselined: input.baselined ?? 0, baselineStale: input.baselineStale ?? 0, ...(input.changedFiles === undefined ? {} : { changedFiles: input.changedFiles }), ...(input.readability === undefined ? {} : { readability: input.readability }) },
     checks: input.checks
       .map((c) => ({ id: c.meta.id, title: c.meta.title, severity: c.meta.severity, needs: [...c.meta.needs], docs: c.meta.docs, standards: [...c.meta.standards] }))
       .sort((a, b) => compare(a.id, b.id)),
