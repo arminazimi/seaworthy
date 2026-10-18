@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { readabilityLlmsTxt } from "../src/checks/readability.js";
+import { readabilityLlmsTxt, readabilityMdAlternates } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -46,4 +46,37 @@ test("readability.llms-txt honors the base path when resolving links", async () 
   const site = buildSite(makeSite({ "index.html": PAGE, "llms.txt": "# S\n\n## D\n\n- [A](/repo/a.md)\n", "a.md": "x" }), { basePath: "/repo/" });
   const result = await runChecks({ site, checks: [readabilityLlmsTxt] });
   assert.deepEqual(result.findings, []);
+});
+
+const ARTICLE = "Seaworthy checks built sites before they are deployed so that agents can trust what they publish. Every finding names a file, a line, and a fix that can be applied and verified again. Reports are stable across runs and carry fingerprints for baselines.";
+const withAlt = (href: string, body = ARTICLE) => `<!doctype html><html lang="en"><head><title>t</title><link rel="alternate" type="text/markdown" href="${href}"></head><body><main><h1>Title</h1><p>${body}</p></main></body></html>`;
+
+test("readability.md-alternates accepts a Markdown copy of the same content", async () => {
+  const markdown = `# Title\n\n${ARTICLE}\n`;
+  assert.deepEqual(await run({ "p.html": withAlt("/p.md"), "p.md": markdown }, [readabilityMdAlternates]), []);
+});
+
+test("readability.md-alternates reports a missing copy, an HTML copy, an empty href, and a different document", async () => {
+  const findings = await run(
+    {
+      "missing.html": withAlt("/nope.md"),
+      "html.html": withAlt("/h.md"),
+      "h.md": "<!doctype html><title>404</title>",
+      "empty.html": withAlt(""),
+      "other.html": withAlt("/o.md"),
+      "o.md": "# Cooking\n\nChop the onions finely, then fry them slowly in butter until golden. Add garlic, stock, and a little salt; simmer for twenty minutes.",
+      "short.html": withAlt("/s.md", "Too short."),
+      "s.md": "# Unrelated\n\nAnything at all.",
+      "external.html": withAlt("https://other.test/x.md"),
+    },
+    [readabilityMdAlternates],
+  );
+  assert.deepEqual(findings.map((f) => f.location.file), ["empty.html", "html.html", "missing.html", "other.html"]);
+  assert.match(findings[3]!.message, /shares only \d+% of the words/);
+});
+
+test("readability.md-alternates ignores script text and other languages' words fairly", async () => {
+  const persian = "این سایت پیش از انتشار بررسی می‌شود تا ایجنت‌ها بتوانند به محتوای آن اعتماد کنند و هر یافته فایل و خط و راه اصلاح مشخصی دارد که می‌توان آن را اجرا کرد و دوباره بررسی نمود";
+  const page = `<!doctype html><html lang="fa"><head><title>t</title><link rel="alternate" type="text/markdown" href="/f.md"></head><body><main><p>${persian}</p><script>var unrelated = "alpha beta gamma delta epsilon zeta theta iota kappa lambda";</script></main></body></html>`;
+  assert.deepEqual(await run({ "f.html": page, "f.md": `# عنوان\n\n${persian}\n` }, [readabilityMdAlternates]), []);
 });

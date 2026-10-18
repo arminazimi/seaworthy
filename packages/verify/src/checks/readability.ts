@@ -1,8 +1,9 @@
 // readability.*: can agents and AI search read this site? See spec/agent-readability/v1.md.
 
+import { type HtmlElement, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { looksLikeHtml, positionIn, siteText } from "./files.js";
-import { check, meta } from "./helpers.js";
+import { check, firstElement, locate, meta, pagesOf } from "./helpers.js";
 
 const MARKDOWN_LINK = /^\s*[-*+]\s+\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)(?::\s.*|\s*)$/;
 
@@ -50,6 +51,66 @@ export const readabilityLlmsTxt = check(meta("readability.llms-txt", "llms.txt i
   const full = siteText(ctx.site, "/llms-full.txt");
   if (full !== undefined && (full.trim() === "" || looksLikeHtml(full))) {
     out.push({ message: full.trim() === "" ? "llms-full.txt is empty." : "llms-full.txt is an HTML page, not Markdown.", location: { file: "llms-full.txt" }, fix: { kind: "manual", summary: "Put the full text of your key pages in it as Markdown, or remove the file.", edits: [] }, key: "full" });
+  }
+  return out;
+});
+
+const SKIPPED_TEXT = new Set(["script", "style", "template", "noscript"]);
+
+/** The words in an element that a reader would see, skipping scripts and styles. */
+function visibleText(element: HtmlElement): string {
+  const parts: string[] = [];
+  const visit = (node: { nodeName: string; childNodes?: unknown[]; value?: string }): void => {
+    if (SKIPPED_TEXT.has(node.nodeName)) return;
+    if (node.nodeName === "#text" && node.value) parts.push(node.value);
+    for (const child of (node.childNodes ?? []) as (typeof node)[]) visit(child);
+  };
+  visit(element as unknown as Parameters<typeof visit>[0]);
+  return parts.join(" ");
+}
+
+/** Distinct words of four or more letters or digits, lower-cased: enough to compare two renderings of the same text. */
+const wordsOf = (text: string): Set<string> => new Set((text.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? []));
+
+export const readabilityMdAlternates = check(meta("readability.md-alternates", "Markdown alternate is missing or does not match the page", "warning", ["llmstxt.org"], ["files"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    const links = page.elements.filter((e) => e.tagName === "link" && /(^|\s)alternate(\s|$)/i.test(attr(e, "rel") ?? "") && (attr(e, "type") ?? "").trim().toLowerCase() === "text/markdown");
+    for (const link of links) {
+      const href = (attr(link, "href") ?? "").trim();
+      const location = locate(page, link, "href");
+      if (href === "") {
+        out.push({ message: "A Markdown alternate link has no href.", location, fix: { kind: "manual", summary: 'Set href to the Markdown copy of this page, for example href="/docs/guide.md".', edits: [] }, key: "empty-href" });
+        continue;
+      }
+      const target = ctx.site.resolveLink(page.url, href);
+      if (target.kind !== "internal") continue; // another site's copy is not ours to check
+      if (target.file === undefined) {
+        out.push({ message: `The page says its Markdown copy is ${href}, but the built site has no such file.`, location, fix: { kind: "manual", summary: "Build the Markdown copy at that address, or remove the link. Agents that follow it get an error instead of the page.", edits: [] }, key: `missing:${href}` });
+        continue;
+      }
+      const markdown = siteText(ctx.site, target.file);
+      if (markdown === undefined) continue;
+      if (looksLikeHtml(markdown)) {
+        out.push({ message: `${href} is an HTML page, not Markdown.`, location, fix: { kind: "manual", summary: "Serve real Markdown at that address.", edits: [] }, key: `html:${href}` });
+        continue;
+      }
+      const container = firstElement(page, "main") ?? firstElement(page, "body");
+      const pageWords = container ? wordsOf(visibleText(container)) : new Set<string>();
+      if (pageWords.size < 20) continue; // too little text to compare
+      const mdWords = wordsOf(markdown);
+      let shared = 0;
+      for (const word of pageWords) if (mdWords.has(word)) shared++;
+      const share = shared / pageWords.size;
+      if (share < 0.5) {
+        out.push({
+          message: `${href} shares only ${Math.round(share * 100)}% of the words on this page, so it looks like a different document.`,
+          location,
+          fix: { kind: "manual", summary: "Regenerate the Markdown copy from the same source as the page, so an agent that reads it gets the same content.", edits: [] },
+          key: `mismatch:${href}`,
+        });
+      }
+    }
   }
   return out;
 });
