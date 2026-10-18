@@ -30,3 +30,9 @@ export function parseJson(text: string): { ok: true; value: unknown } | { ok: fa
 
 /** Whether text looks like an HTML document, which is what a server's "not found" fallback page usually is. */
 export const looksLikeHtml = (text: string): boolean => /^\s*(<!doctype\s+html|<html[\s>])/i.test(text);
+
+/** Where a JSON string value first appears at or after `from`, as the file position of its opening quote; line 1 when it is not found. */
+export function locateJsonString(file: string, text: string, value: string, from = 0): { file: string; line: number; column: number } {
+  const at = text.indexOf(JSON.stringify(value), from);
+  return { file, ...positionIn(text, at < 0 ? 0 : at) };
+}

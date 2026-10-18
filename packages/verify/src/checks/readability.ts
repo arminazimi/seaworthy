@@ -2,9 +2,11 @@
 
 import { type HtmlElement, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import { looksLikeHtml, parseJson, positionIn, siteText } from "./files.js";
+import { createHash } from "node:crypto";
+
+import { locateJsonString, looksLikeHtml, parseJson, positionIn, siteText } from "./files.js";
 import { nearest } from "./aria-data.js";
-import { check, descendants, documentLocation, firstElement, isRedirectStub, locate, meta, pagesOf, textOf } from "./helpers.js";
+import { check, descendants, documentLocation, firstElement, isRedirectStub, locate, meta, pagesOf, readSiteFile, textOf } from "./helpers.js";
 import { robotsGroups } from "./sitemap.js";
 
 const MARKDOWN_LINK = /^\s*[-*+]\s+\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)(?::\s.*|\s*)$/;
@@ -341,6 +343,81 @@ export const readabilityContentSignals = check(meta("readability.content-signals
         fix: { kind: "manual", summary: isSignal ? "Use: Content-Signal: search=yes, ai-input=yes, ai-train=no (each signal at most once, each value yes or no)." : "Use name=y or name=n pairs, for example: Content-Usage: train-ai=n. Check the current draft before relying on other names.", edits: [] },
         key: `${match[1]}:${problems.join("|")}`,
       });
+    }
+  });
+  return out;
+});
+
+const SKILLS_INDEX = "/.well-known/agent-skills/index.json";
+const SKILLS_SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
+const SKILL_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const DIGEST = /^sha256:[0-9a-f]{64}$/;
+
+export const readabilityAgentSkills = check(meta("readability.agent-skills", "Agent Skills index is invalid or lists a skill that is not in the site", "warning", ["Agent Skills Discovery 0.2.0 (draft)"], ["files"]), (ctx) => {
+  const text = siteText(ctx.site, SKILLS_INDEX);
+  if (text === undefined) return [];
+  const file = SKILLS_INDEX.slice(1);
+  const out: FindingDraft[] = [];
+  const fail = (message: string, location: { file: string; line?: number; column?: number }, summary: string, key: string): void => {
+    out.push({ message, location, fix: { kind: "manual", summary, edits: [] }, key });
+  };
+  const parsed = parseJson(text);
+  if (!parsed.ok) {
+    fail(`The Agent Skills index does not parse: ${parsed.message}.`, { file, ...(parsed.line ? { line: parsed.line, column: parsed.column ?? 1 } : {}) }, "Fix the JSON syntax.", "parse");
+    return out;
+  }
+  const root = parsed.value;
+  if (!isObject(root) || !Array.isArray(root["skills"])) {
+    fail('The Agent Skills index must be a JSON object with a "skills" array.', { file, line: 1, column: 1 }, `Use the shape { "$schema": "${SKILLS_SCHEMA}", "skills": [ ... ] }.`, "shape");
+    return out;
+  }
+  if (typeof root["$schema"] !== "string") {
+    fail('The index has no "$schema". Clients treat it as the older v0.1.0 format.', { file, line: 1, column: 1 }, `Add "$schema": "${SKILLS_SCHEMA}".`, "no-schema");
+  } else if (root["$schema"] !== SKILLS_SCHEMA) {
+    fail(`The index names the schema ${root["$schema"]}, which this check does not know (it follows 0.2.0). Clients may refuse to read it.`, locateJsonString(file, text, root["$schema"]), `Use "${SKILLS_SCHEMA}" or update Seaworthy.`, "unknown-schema");
+  }
+  const seen = new Set<string>();
+  let cursor = 0;
+  (root["skills"] as unknown[]).forEach((entry, i) => {
+    if (!isObject(entry)) {
+      fail(`Skill ${i + 1} is not an object.`, { file, line: 1, column: 1 }, "Each skill is an object with name, type, description, url, and digest.", `entry:${i}`);
+      return;
+    }
+    const name = typeof entry["name"] === "string" ? entry["name"] : `#${i + 1}`;
+    const where = typeof entry["name"] === "string" ? locateJsonString(file, text, entry["name"], cursor) : { file, line: 1, column: 1 };
+    if (typeof entry["name"] === "string") cursor = text.indexOf(JSON.stringify(entry["name"]), cursor) + 1;
+    for (const field of ["name", "type", "description", "url", "digest"]) {
+      if (typeof entry[field] !== "string" || entry[field] === "") fail(`Skill "${name}" has no ${field}.`, where, `Every skill needs name, type, description, url, and digest.`, `missing:${name}:${field}`);
+    }
+    if (typeof entry["name"] === "string" && (!SKILL_NAME.test(entry["name"]) || entry["name"].length > 64)) {
+      fail(`The skill name "${entry["name"]}" is not valid. Names are 1 to 64 lowercase letters, digits, and single hyphens, with no hyphen at either end.`, where, "Rename it, for example to my-skill.", `name:${name}`);
+    }
+    if (typeof entry["name"] === "string") {
+      if (seen.has(entry["name"])) fail(`The skill name "${entry["name"]}" is listed twice.`, where, "Each skill name appears once.", `dup:${name}`);
+      seen.add(entry["name"]);
+    }
+    if (typeof entry["type"] === "string" && entry["type"] !== "skill-md" && entry["type"] !== "archive") {
+      fail(`Skill "${name}" has type "${entry["type"]}". Clients skip anything other than "skill-md" and "archive".`, where, 'Use "skill-md" for a single SKILL.md file or "archive" for a bundle.', `type:${name}`);
+    }
+    if (typeof entry["description"] === "string" && entry["description"].length > 1024) {
+      fail(`The description of skill "${name}" is ${entry["description"].length} characters; the limit is 1024.`, where, "Shorten it.", `description:${name}`);
+    }
+    if (typeof entry["digest"] === "string" && !DIGEST.test(entry["digest"])) {
+      fail(`The digest of skill "${name}" is not "sha256:" followed by 64 lowercase hex digits.`, where, "Write it as sha256:<hex>, computed over the raw bytes of the file.", `digest-format:${name}`);
+    }
+    if (typeof entry["url"] === "string" && entry["url"] !== "") {
+      const target = ctx.site.resolveLink(SKILLS_INDEX, entry["url"]);
+      if (target.kind === "internal") {
+        if (target.file === undefined) {
+          fail(`Skill "${name}" points at ${entry["url"]}, which is not in the built site.`, where, "Publish the skill file at that address, or fix the url.", `missing-file:${name}`);
+        } else if (typeof entry["digest"] === "string" && DIGEST.test(entry["digest"])) {
+          const bytes = readSiteFile(ctx.site, target.file)?.bytes;
+          const actual = bytes ? `sha256:${createHash("sha256").update(bytes).digest("hex")}` : undefined;
+          if (actual && actual !== entry["digest"]) {
+            fail(`The digest of skill "${name}" does not match ${entry["url"]}: the file is ${actual}. Clients refuse a skill whose bytes differ from its digest.`, where, `Recompute it: shasum -a 256 <file>, and write sha256:<hex> as the digest.`, `digest-mismatch:${name}`);
+          }
+        }
+      }
     }
   });
   return out;

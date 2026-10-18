@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { test } from "node:test";
 
-import { readabilityAiRobots, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
+import { readabilityAgentSkills, readabilityAiRobots, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -192,4 +193,53 @@ test("readability.content-signals reports unknown signals, bad values, duplicate
   assert.deepEqual(findings.map((f) => [f.location.line, f.severity]), [[2, "warning"], [3, "warning"], [4, "warning"], [5, "note"], [6, "note"]]);
   assert.match(findings[0]!.message, /ai-train must be yes or no, not "maybe"; "ai-inputs" is not a content signal/);
   assert.match(findings[2]!.message, /search appears twice/);
+});
+
+const SCHEMA = "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
+const sha = (text: string) => `sha256:${createHash("sha256").update(text).digest("hex")}`;
+const index = (skills: unknown[], schema: string | null = SCHEMA) => JSON.stringify({ ...(schema ? { $schema: schema } : {}), skills }, null, 2);
+const skill = (over: Record<string, unknown> = {}) => ({ name: "format-code", type: "skill-md", description: "Formats code.", url: "/skills/format-code/SKILL.md", digest: sha("# skill\n"), ...over });
+const INDEX = ".well-known/agent-skills/index.json";
+
+test("readability.agent-skills accepts a valid index whose files and digests match", async () => {
+  const files = { [INDEX]: index([skill(), skill({ name: "second", url: "../../skills/format-code/SKILL.md" })]), "skills/format-code/SKILL.md": "# skill\n" };
+  assert.deepEqual(await run(files, [readabilityAgentSkills]), []);
+  assert.deepEqual(await run({}, [readabilityAgentSkills]), [], "no index, nothing to say");
+});
+
+test("readability.agent-skills reports a bad shape, schema, names, types, files, and digests", async () => {
+  const files = {
+    [INDEX]: index(
+      [
+        skill({ name: "Bad_Name" }),
+        skill({ name: "weird-type", type: "zip" }),
+        skill({ name: "gone", url: "/skills/gone/SKILL.md" }),
+        skill({ name: "stale", digest: sha("old") }),
+        skill({ name: "short-digest", digest: "sha256:abc" }),
+        skill({ name: "nodesc", description: "" }),
+        skill({ name: "format-code" }),
+        skill({ name: "format-code" }),
+      ],
+      "https://example.test/other.json",
+    ),
+    "skills/format-code/SKILL.md": "# skill\n",
+  };
+  const findings = await run(files, [readabilityAgentSkills]);
+  const messages = findings.map((f) => f.message);
+  assert.ok(messages.some((m) => /names the schema https:\/\/example\.test\/other\.json/.test(m)));
+  assert.ok(messages.some((m) => /"Bad_Name" is not valid/.test(m)));
+  assert.ok(messages.some((m) => /type "zip"/.test(m)));
+  assert.ok(messages.some((m) => /"gone" points at \/skills\/gone\/SKILL\.md/.test(m)));
+  assert.ok(messages.some((m) => /digest of skill "stale" does not match/.test(m)));
+  assert.ok(messages.some((m) => /digest of skill "short-digest" is not/.test(m)));
+  assert.ok(messages.some((m) => /"nodesc" has no description/.test(m)));
+  assert.ok(messages.some((m) => /"format-code" is listed twice/.test(m)));
+  assert.ok(findings.every((f) => f.severity === "warning" && f.location.file === INDEX));
+});
+
+test("readability.agent-skills reports invalid JSON, a wrong shape, and a missing schema", async () => {
+  assert.match((await run({ [INDEX]: "{ not json" }, [readabilityAgentSkills]))[0]!.message, /does not parse/);
+  assert.match((await run({ [INDEX]: "[]" }, [readabilityAgentSkills]))[0]!.message, /object with a "skills" array/);
+  const old = await run({ [INDEX]: index([], null) }, [readabilityAgentSkills]);
+  assert.match(old[0]!.message, /no "\$schema"/);
 });

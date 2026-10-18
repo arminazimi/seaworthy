@@ -1,0 +1,8 @@
+{
+  "description": "The skill named stale has a digest that does not match its file; removed points at a file that is not in the site; Bad_Name is not a valid skill name. The lint entry is correct.",
+  "findings": [
+    { "check": "readability.agent-skills", "file": ".well-known/agent-skills/index.json", "line": 12, "column": 15 },
+    { "check": "readability.agent-skills", "file": ".well-known/agent-skills/index.json", "line": 19, "column": 15 },
+    { "check": "readability.agent-skills", "file": ".well-known/agent-skills/index.json", "line": 26, "column": 15 }
+  ]
+}
