@@ -1,0 +1,36 @@
+# readability.content-signals
+
+A `Content-Signal` or `Content-Usage` line in `robots.txt` is malformed.
+
+## Why it matters
+
+Two mechanisms let a site say in `robots.txt` what AI systems may do with its content. **Content Signals** adds a `Content-Signal:` line with three yes-or-no signals: `search` (build a search index), `ai-input` (use the content as input to an AI answer), and `ai-train` (train or fine-tune a model). **AIPREF** is an IETF effort whose draft adds a `Content-Usage:` line with its own vocabulary. A line that is misspelled or has a value other than the allowed ones is ignored, and the site's wishes are then not stated at all, even though the file appears to state them.
+
+## What it checks
+
+When `robots.txt` exists:
+
+- **`Content-Signal:`** (warning): the line has no value; a name other than `search`, `ai-input`, `ai-train`; a value other than `yes` or `no`; a signal listed twice; or an entry that is not `name=value`. Names and values are not case sensitive.
+- **`Content-Usage:`** (note only, because AIPREF is still an Internet-Draft): no value; an entry that is not `name=y` or `name=n`; the same name twice. A leading path, as the draft allows (`Content-Usage: /docs/ train-ai=n`), is accepted. The names are not validated, because the vocabulary is still changing.
+
+A `robots.txt` without these lines is not reported: they are optional. The check does not decide whether your choices make sense.
+
+## How to fix
+
+```text
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+```
+
+List each signal at most once and write the value as `yes` or `no`. There is no automatic edit, because the choice is yours.
+
+## Options
+
+None.
+
+## Standards
+
+- [Content Signals](https://contentsignals.org/)
+- [IETF AIPREF working group](https://datatracker.ietf.org/wg/aipref/about/) (Internet-Drafts, still changing)
+- [RFC 9309: Robots Exclusion Protocol](https://www.rfc-editor.org/rfc/rfc9309)
+- [Agent-readability spec](../../spec/agent-readability/v1.md)

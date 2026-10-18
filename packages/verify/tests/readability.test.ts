@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { readabilityAiRobots, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
+import { readabilityAiRobots, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -178,4 +178,18 @@ test("readability.ssr-content leaves rendered pages, short static pages, and red
     [readabilitySsrContent],
   );
   assert.deepEqual(findings, []);
+});
+
+test("readability.content-signals accepts well-formed Content-Signal and Content-Usage lines", async () => {
+  const robots = "User-agent: *\nContent-Signal: search=yes, ai-input=yes, ai-train=no\nContent-Usage: train-ai=n\nContent-Usage: /docs/ train-ai=n, search=y\nContent-signal: AI-Train=NO\n";
+  assert.deepEqual(await run({ "robots.txt": robots }, [readabilityContentSignals]), []);
+  assert.deepEqual(await run({}, [readabilityContentSignals]), []);
+});
+
+test("readability.content-signals reports unknown signals, bad values, duplicates, and empty lines", async () => {
+  const robots = "User-agent: *\nContent-Signal: search=yes, ai-train=maybe, ai-inputs=yes\nContent-Signal:\nContent-Signal: search=yes, search=no\nContent-Usage: train-ai=never\nContent-Usage: train-ai\n";
+  const findings = await run({ "robots.txt": robots }, [readabilityContentSignals]);
+  assert.deepEqual(findings.map((f) => [f.location.line, f.severity]), [[2, "warning"], [3, "warning"], [4, "warning"], [5, "note"], [6, "note"]]);
+  assert.match(findings[0]!.message, /ai-train must be yes or no, not "maybe"; "ai-inputs" is not a content signal/);
+  assert.match(findings[2]!.message, /search appears twice/);
 });

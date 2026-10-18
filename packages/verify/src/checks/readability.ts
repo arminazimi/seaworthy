@@ -294,3 +294,54 @@ export const readabilitySsrContent = check(meta("readability.ssr-content", "Page
   }
   return out;
 });
+
+const SIGNALS = ["search", "ai-input", "ai-train"];
+
+export const readabilityContentSignals = check(meta("readability.content-signals", "Content-Signal or Content-Usage line in robots.txt is malformed", "warning", ["Content Signals", "IETF AIPREF (draft)"], ["files"]), (ctx) => {
+  const text = siteText(ctx.site, "/robots.txt");
+  if (text === undefined) return [];
+  const out: FindingDraft[] = [];
+  text.split(/\r?\n/).forEach((raw, i) => {
+    const line = raw.replace(/#.*/, "").trim();
+    const match = /^(content-signal|content-usage)\s*:\s*(.*)$/i.exec(line);
+    if (!match) return;
+    const location = { file: "robots.txt", line: i + 1, column: 1 };
+    const isSignal = (match[1] as string).toLowerCase() === "content-signal";
+    const members = (match[2] as string).split(",").map((m) => m.trim()).filter(Boolean);
+    if (members.length === 0) {
+      out.push({ message: `The ${match[1]} line has no value.`, location, severity: isSignal ? "warning" : "note", fix: { kind: "manual", summary: isSignal ? "Write it as: Content-Signal: search=yes, ai-input=yes, ai-train=no" : "Write it as a list of name=y or name=n pairs, for example: Content-Usage: train-ai=n", edits: [] }, key: `empty:${match[1]}` });
+      return;
+    }
+    const problems: string[] = [];
+    const seen = new Set<string>();
+    members.forEach((member, index) => {
+      // AIPREF allows a leading path before the preferences; a signal never does.
+      const pair = !isSignal && index === 0 ? member.replace(/^\/\S*\s+/, "") : member;
+      const parts = /^([A-Za-z][A-Za-z0-9-]*)\s*=\s*(\S*)$/.exec(pair);
+      if (!parts) {
+        problems.push(`"${member}" is not a name=value pair`);
+        return;
+      }
+      const name = (parts[1] as string).toLowerCase();
+      const value = (parts[2] as string).toLowerCase();
+      if (seen.has(name)) problems.push(`${name} appears twice`);
+      seen.add(name);
+      if (isSignal) {
+        if (!SIGNALS.includes(name)) problems.push(`"${name}" is not a content signal (use ${SIGNALS.join(", ")})`);
+        else if (value !== "yes" && value !== "no") problems.push(`${name} must be yes or no, not "${parts[2]}"`);
+      } else if (value !== "y" && value !== "n") {
+        problems.push(`${name} must be y or n, not "${parts[2]}"`);
+      }
+    });
+    if (problems.length > 0) {
+      out.push({
+        message: `The ${match[1]} line is malformed: ${problems.join("; ")}.${isSignal ? "" : " AIPREF is still an Internet-Draft, so this is only a note."}`,
+        location,
+        severity: isSignal ? "warning" : "note",
+        fix: { kind: "manual", summary: isSignal ? "Use: Content-Signal: search=yes, ai-input=yes, ai-train=no (each signal at most once, each value yes or no)." : "Use name=y or name=n pairs, for example: Content-Usage: train-ai=n. Check the current draft before relying on other names.", edits: [] },
+        key: `${match[1]}:${problems.join("|")}`,
+      });
+    }
+  });
+  return out;
+});
