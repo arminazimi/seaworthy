@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -197,4 +197,23 @@ test("a11y.autocomplete accepts the autofill grammar and flags everything else",
   assert.match(result.findings[2]!.message, /only be used before tel, email, or impp/);
   assert.match(result.findings[3]!.message, /cannot be combined/);
   assert.match(result.findings[4]!.message, /wrong place/);
+});
+
+test("a11y.table-headers flags data tables without header cells and headers that point nowhere", async () => {
+  const body = [
+    "<table><tr><td>a</td><td>b</td></tr><tr><td>1</td><td>2</td></tr></table>",
+    "<table><tr><th>a</th><th>b</th></tr><tr><td>1</td><td>2</td></tr></table>",
+    '<table role="presentation"><tr><td>a</td><td>b</td></tr><tr><td>1</td><td>2</td></tr></table>',
+    "<table><tr><td>only one row</td><td>x</td></tr></table>",
+    "<table><tr><td>a</td></tr><tr><td>one column</td></tr></table>",
+    "<table hidden><tr><td>a</td><td>b</td></tr><tr><td>1</td><td>2</td></tr></table>",
+    '<table><tr><th id="h1">a</th><th id="h2">b</th></tr><tr><td headers="h1">1</td><td headers="h2 h3">2</td></tr></table>',
+    "<table><tr><th>outer</th><td><table><tr><td>x</td><td>y</td></tr><tr><td>z</td><td>w</td></tr></table></td></tr></table>",
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yTableHeaders] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 10, 11]);
+  assert.match(result.findings[0]!.message, /2 rows and 2 columns/);
+  assert.match(result.findings[1]!.message, /h3/);
+  assert.match(result.findings[2]!.message, /^This table has 2 rows/, "the nested table is judged on its own cells");
 });
