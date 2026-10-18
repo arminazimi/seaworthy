@@ -1,0 +1,8 @@
+{
+  "description": "llms.txt links to /docs/removed.md, which is not in the site, and has a list entry with no link. An entry to another site, a link that resolves, prose before the first section, and an Optional section are fine. llms-full.txt is empty.",
+  "findings": [
+    { "check": "readability.llms-txt", "file": "llms-full.txt" },
+    { "check": "readability.llms-txt", "file": "llms.txt", "line": 10, "column": 1 },
+    { "check": "readability.llms-txt", "file": "llms.txt", "line": 11, "column": 1 }
+  ]
+}
