@@ -1,8 +1,10 @@
 {
-  "description": "Missing, empty and whitespace-only iframe titles are reported; a descriptive title is accepted.",
+  "description": "Visible, non-presentational iframes need a title or accessible ARIA name; blank and unresolved labels are reported.",
   "findings": [
     { "check": "a11y.iframe-title", "file": "index.html", "line": 5, "column": 1 },
     { "check": "a11y.iframe-title", "file": "index.html", "line": 6, "column": 9 },
-    { "check": "a11y.iframe-title", "file": "index.html", "line": 7, "column": 9 }
+    { "check": "a11y.iframe-title", "file": "index.html", "line": 7, "column": 9 },
+    { "check": "a11y.iframe-title", "file": "index.html", "line": 16, "column": 1 },
+    { "check": "a11y.iframe-title", "file": "index.html", "line": 17, "column": 1 }
   ]
 }

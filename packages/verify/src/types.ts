@@ -104,6 +104,16 @@ export interface CheckError {
 
 export interface ReportCheck extends CheckMeta {}
 
+/** The agent-readability summary: a count of how many applicable readability checks came out clean. */
+export interface Readability {
+  /** Share of applicable checks with no finding, as a whole number from 0 to 100. */
+  score: number;
+  /** Checks that applied to this site. */
+  checks: number;
+  passed: number;
+  withFindings: number;
+}
+
 export interface Report {
   spec: number;
   tool: { name: "seaworthy"; version: string };
@@ -121,6 +131,8 @@ export interface Report {
     baselineStale: number;
     /** Present under --changed: findings are limited to files that changed. */
     changedFiles?: number;
+    /** Present when a readability check applied to the site. */
+    readability?: Readability;
   };
   checks: ReportCheck[];
   findings: Finding[];

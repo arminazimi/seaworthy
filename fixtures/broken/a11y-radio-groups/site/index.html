@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Form groups</title>
+</head>
+<body>
+<main>
+<h1>Form groups</h1>
+<form action="/order" method="post">
+<label><input type="radio" name="size" value="s"> Small</label>
+<label><input type="radio" name="size" value="m"> Medium</label>
+<fieldset>
+  <legend>Colour</legend>
+  <label><input type="radio" name="colour" value="r"> Red</label>
+  <label><input type="radio" name="colour" value="b"> Blue</label>
+</fieldset>
+<fieldset>
+  <label><input type="checkbox" name="extra" value="g"> Gift wrap</label>
+  <label><input type="checkbox" name="extra" value="c"> Card</label>
+</fieldset>
+<p id="plan-q">Plan</p>
+<div role="radiogroup" aria-labelledby="plan-q">
+  <label><input type="radio" name="plan" value="a"> Annual</label>
+  <label><input type="radio" name="plan" value="m"> Monthly</label>
+</div>
+<label><input type="checkbox" name="terms" value="y"> I agree to the terms</label>
+</form>
+</main>
+</body>
+</html>

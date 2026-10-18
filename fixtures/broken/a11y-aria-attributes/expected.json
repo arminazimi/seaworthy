@@ -1,0 +1,10 @@
+{
+  "description": "A misspelled aria-lable, aria-expanded=yes, aria-pressed=True (wrong case), aria-live=loud, and aria-level=0. Valid tokens, a valid level, an empty aria-label, and progressbar values are fine.",
+  "findings": [
+    { "check": "a11y.aria-attributes", "file": "index.html", "line": 10, "column": 9 },
+    { "check": "a11y.aria-attributes", "file": "index.html", "line": 11, "column": 9 },
+    { "check": "a11y.aria-attributes", "file": "index.html", "line": 13, "column": 9 },
+    { "check": "a11y.aria-attributes", "file": "index.html", "line": 14, "column": 6 },
+    { "check": "a11y.aria-attributes", "file": "index.html", "line": 15, "column": 21 }
+  ]
+}

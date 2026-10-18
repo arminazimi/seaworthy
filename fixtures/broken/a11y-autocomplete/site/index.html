@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Autocomplete</title>
+</head>
+<body>
+<main>
+<h1>Autocomplete</h1>
+<form action="/join" method="post">
+<label>First name <input name="first" autocomplete="firstname"></label>
+<label>Given <input name="given" autocomplete="given-nme"></label>
+<label>Zip <input name="zip" autocomplete="work postal-code"></label>
+<label>Email <input name="email" autocomplete="on email"></label>
+<label>Email <input name="email2" autocomplete="email"></label>
+<label>Phone <input name="tel" autocomplete="section-a shipping home tel"></label>
+<label>City <input name="city" autocomplete="off"></label>
+<input type="hidden" name="token" autocomplete="nonsense">
+</form>
+</main>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Minimal site
+
+> A small, correct site that every Seaworthy check must accept.
+
+## Pages
+
+- [Home](/): the front page
+- [About](/about.html): what this site is
+- [Guide](/docs/guide.html): the install steps

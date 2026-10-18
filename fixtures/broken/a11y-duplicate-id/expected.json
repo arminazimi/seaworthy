@@ -1,0 +1,7 @@
+{
+  "description": "The second id=email input and the second id=top heading repeat an earlier id on the same page. Empty ids and the same ids on another page are not reported.",
+  "findings": [
+    { "check": "a11y.duplicate-id", "file": "index.html", "line": 13, "column": 8 },
+    { "check": "a11y.duplicate-id", "file": "index.html", "line": 14, "column": 5 }
+  ]
+}

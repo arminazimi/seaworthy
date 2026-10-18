@@ -99,6 +99,7 @@ test("locations are repository-relative and always carry a line", async () => {
   assert.deepEqual(byRule("a11y.color-contrast").region, { startLine: 1 }, "no line anchors to the top of the file");
   assert.equal(sarifUri({ root: "." } as Report, "docs/a.html"), "docs/a.html");
   assert.equal(sarifUri({ root: "./out" } as Report, "a.html"), "out/a.html");
+  assert.equal(sarifUri({ root: "." } as Report, "docs/a#b?c%20.html"), "docs/a%23b%3Fc%2520.html");
 });
 
 test("edits become SARIF fixes with the exact region of the text", async () => {

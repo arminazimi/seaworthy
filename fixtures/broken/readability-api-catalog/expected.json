@@ -1,0 +1,7 @@
+{
+  "description": "The first entry links to /status.json, which is not in the site (its other links are fine: /openapi.json exists and the docs link is on another site). The second entry has no anchor.",
+  "findings": [
+    { "check": "readability.api-catalog", "file": ".well-known/api-catalog", "line": 1, "column": 1 },
+    { "check": "readability.api-catalog", "file": ".well-known/api-catalog", "line": 7, "column": 28 }
+  ]
+}

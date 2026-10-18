@@ -1,0 +1,8 @@
+{
+  "description": "lang=french, lang=en_US, and a one-letter lang are not language codes. fr, pt-BR, fa, and an empty lang (unknown language) are fine.",
+  "findings": [
+    { "check": "a11y.lang-parts", "file": "index.html", "line": 11, "column": 13 },
+    { "check": "a11y.lang-parts", "file": "index.html", "line": 12, "column": 4 },
+    { "check": "a11y.lang-parts", "file": "index.html", "line": 16, "column": 4 }
+  ]
+}

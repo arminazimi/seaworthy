@@ -1,0 +1,7 @@
+{
+  "description": "A two-by-two table made only of td cells, and a cell whose headers lists the id cost that no cell has. A table with th cells, a presentation table, and a one-row table are fine.",
+  "findings": [
+    { "check": "a11y.table-headers", "file": "index.html", "line": 10, "column": 1 },
+    { "check": "a11y.table-headers", "file": "index.html", "line": 16, "column": 40 }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "description": "A menu link, a close button, and a carousel with a link and a button sit inside aria-hidden content and can still be tabbed to. A decorative span, a link with tabindex=-1, content that is also hidden, and a disabled button or link without href are fine.",
+  "findings": [
+    { "check": "a11y.hidden-focusable", "file": "index.html", "line": 10, "column": 19 },
+    { "check": "a11y.hidden-focusable", "file": "index.html", "line": 12, "column": 19 },
+    { "check": "a11y.hidden-focusable", "file": "index.html", "line": 13, "column": 23 }
+  ]
+}

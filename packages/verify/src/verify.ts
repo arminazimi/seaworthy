@@ -7,6 +7,7 @@ import { type Config, resolveChecks } from "./config.js";
 import { runChecks } from "./engine.js";
 import { matchesGlob } from "./glob.js";
 import { buildReport } from "./report.js";
+import { readabilitySummary } from "./readability-score.js";
 import { type SiteGraph, buildSite } from "./site.js";
 import { SUPPRESSION_CHECKS, applySuppressions, fromConfig, parseInlineSuppressions } from "./suppress.js";
 import type { Check, Finding, Report } from "./types.js";
@@ -65,12 +66,15 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
   const baseline = options.baseline ? applyBaseline(unbaselined, options.baseline) : { findings: unbaselined, baselined: 0, stale: 0 };
   // The baseline is applied to everything first, so entries for unchanged files are not counted as stale.
   const reported = options.changed ? baseline.findings.filter((f) => options.changed!.has(f.location.file)) : baseline.findings;
+  const skippedIds = new Set(run.skipped.map((x) => x.check));
+  const readability = readabilitySummary(site, resolved.checks.map((c) => c.meta.id).filter((id) => !skippedIds.has(id)), baseline.findings);
   const report = buildReport({
     root: options.rootLabel,
     pages: site.pages.size,
     checks: [...resolved.checks, ...SUPPRESSION_CHECKS],
     findings: reported,
     ...(options.changed ? { changedFiles: options.changed.size } : {}),
+    ...(readability ? { readability } : {}),
     suppressed: suppression.suppressed,
     baselined: baseline.baselined,
     baselineStale: baseline.stale,

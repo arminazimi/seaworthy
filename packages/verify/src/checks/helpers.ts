@@ -118,6 +118,24 @@ export function ancestors(element: HtmlElement): HtmlElement[] {
   return out;
 }
 
+/** Every element below this one, in document order. */
+export function descendants(element: HtmlElement): HtmlElement[] {
+  const out: HtmlElement[] = [];
+  const visit = (node: { childNodes?: unknown[] }): void => {
+    for (const child of (node.childNodes ?? []) as (HtmlElement & { childNodes?: unknown[] })[]) {
+      if ("tagName" in child) out.push(child);
+      visit(child);
+    }
+  };
+  visit(element);
+  return out;
+}
+
+/** True when the element, or anything inside it, is hidden from people and assistive technology. */
+export function isHidden(element: HtmlElement): boolean {
+  return [element, ...ancestors(element)].some((e) => attr(e, "hidden") !== undefined || attr(e, "aria-hidden")?.trim().toLowerCase() === "true");
+}
+
 /** The exact source text of one attribute of an element (for example `src="/a.png"`) and the line it is on. */
 function rawAttribute(page: Page, element: HtmlElement, name: string): { text: string; line: number } | undefined {
   const at = element.sourceCodeLocation?.attrs?.[name];
@@ -136,6 +154,16 @@ export function addAttributes(page: Page, element: HtmlElement, additions: Recor
   if (raw) return replaceEdit(page, raw.line, raw.text, `${raw.text}${text}`, needsInput);
   const tag = element.sourceCodeLocation?.startTag;
   return tag ? replaceEdit(page, tag.startLine, `<${element.tagName}`, `<${element.tagName}${text}`, needsInput) : undefined;
+}
+
+/** An edit that renames an attribute, keeping its value. The new name replaces the exact name as written in the source. */
+export function renameAttribute(page: Page, element: HtmlElement, name: string, newName: string): Edit | undefined {
+  const raw = rawAttribute(page, element, name);
+  if (!raw) return undefined;
+  const eq = raw.text.indexOf("=");
+  const written = eq < 0 ? raw.text : raw.text.slice(0, eq);
+  // Anchor on "name=" so a value that repeats the name cannot be mistaken for it.
+  return replaceEdit(page, raw.line, eq < 0 ? written : `${written}=`, eq < 0 ? newName : `${newName}=`);
 }
 
 /**

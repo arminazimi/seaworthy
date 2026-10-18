@@ -1,0 +1,8 @@
+{
+  "description": "about.html points to /about.md, which does not exist; guide.html points to a Markdown file about cooking; html.html points to a file that is an HTML page. index.html has a matching copy.",
+  "findings": [
+    { "check": "readability.md-alternates", "file": "about.html", "line": 6, "column": 46 },
+    { "check": "readability.md-alternates", "file": "guide.html", "line": 6, "column": 46 },
+    { "check": "readability.md-alternates", "file": "html.html", "line": 6, "column": 46 }
+  ]
+}
