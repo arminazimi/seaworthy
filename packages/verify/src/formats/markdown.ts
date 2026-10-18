@@ -1,7 +1,7 @@
 // Markdown report for pull request comments and agent chats. Capped so it fits a GitHub comment.
 
 import type { Report } from "../types.js";
-import { describeLocation, severityCounts } from "./pretty.js";
+import { describeLocation, readabilityLine, severityCounts } from "./pretty.js";
 
 export const MAX_MARKDOWN_ROWS = 50;
 
@@ -20,6 +20,8 @@ export function formatMarkdown(report: Report): string {
   if (report.summary.suppressed > 0) notes.push(`${report.summary.suppressed} suppressed on purpose.`);
   if (report.summary.baselined > 0) notes.push(`${report.summary.baselined} accepted by the baseline.`);
   if (report.summary.baselineStale > 0) notes.push(`${report.summary.baselineStale} baseline ${report.summary.baselineStale === 1 ? "entry" : "entries"} fixed: run \`--update-baseline\` to prune.`);
+  const readability = readabilityLine(report);
+  if (readability) notes.push(readability);
   if (notes.length > 0) out.push(notes.join(" "), "");
 
   if (total > 0) {

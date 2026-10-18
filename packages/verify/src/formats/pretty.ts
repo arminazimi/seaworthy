@@ -13,6 +13,12 @@ export function severityCounts(report: Report): string {
   return parts.join(", ");
 }
 
+/** One line for the agent-readability summary, or undefined when the report has none. */
+export function readabilityLine(report: Report): string | undefined {
+  const r = report.summary.readability;
+  return r ? `Agent readability: ${r.score}/100 (${r.passed} of ${plural(r.checks, "applicable check")} clean).` : undefined;
+}
+
 export function describeLocation(finding: Finding): string {
   const { line, column } = finding.location;
   if (line === undefined) return "-";
@@ -50,6 +56,8 @@ export function formatPretty(report: Report): string {
   if (report.summary.suppressed > 0) out.push(`${plural(report.summary.suppressed, "finding")} suppressed on purpose (see "suppressed" in the JSON report).`);
   if (report.summary.baselined > 0) out.push(`${plural(report.summary.baselined, "finding")} accepted by the baseline.`);
   if (report.summary.baselineStale > 0) out.push(`${plural(report.summary.baselineStale, "baseline entry")} no longer match anything: fixed. Run --update-baseline to prune.`);
+  const readability = readabilityLine(report);
+  if (readability) out.push(readability);
   const files = new Set(report.findings.map((f) => f.location.file)).size;
   out.push(report.findings.length === 0 ? "No findings." : `${plural(report.findings.length, "finding")} in ${plural(files, "file")}: ${severityCounts(report)}.`);
   return out.join("\n") + "\n";
