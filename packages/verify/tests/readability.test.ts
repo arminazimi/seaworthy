@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
-import { readabilityAgentSkills, readabilityAiRobots, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
+import { readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -242,4 +242,26 @@ test("readability.agent-skills reports invalid JSON, a wrong shape, and a missin
   assert.match((await run({ [INDEX]: "[]" }, [readabilityAgentSkills]))[0]!.message, /object with a "skills" array/);
   const old = await run({ [INDEX]: index([], null) }, [readabilityAgentSkills]);
   assert.match(old[0]!.message, /no "\$schema"/);
+});
+
+const CATALOG = ".well-known/api-catalog";
+const linkset = (...entries: unknown[]) => JSON.stringify({ linkset: entries }, null, 2);
+
+test("readability.api-catalog accepts a linkset whose local links exist", async () => {
+  const catalog = linkset({ anchor: "https://example.test/api", "service-desc": [{ href: "/openapi.json", type: "application/openapi+json" }], "service-doc": [{ href: "https://example.test/docs" }], status: [{ href: "/status.json" }] });
+  assert.deepEqual(await run({ [CATALOG]: catalog, "openapi.json": "{}", "status.json": "{}" }, [readabilityApiCatalog]), []);
+  assert.deepEqual(await run({}, [readabilityApiCatalog]), []);
+});
+
+test("readability.api-catalog reports non-JSON, a wrong shape, missing anchors and hrefs, and links to files that are not there", async () => {
+  assert.match((await run({ [CATALOG]: "<https://x.test/api>; rel=\"service-desc\"" }, [readabilityApiCatalog]))[0]!.message, /not JSON/);
+  assert.match((await run({ [CATALOG]: "[]" }, [readabilityApiCatalog]))[0]!.message, /"linkset" array/);
+  assert.match((await run({ [CATALOG]: linkset() }, [readabilityApiCatalog]))[0]!.message, /lists no APIs/);
+  const findings = await run({ [`${CATALOG}.json`]: linkset({ "service-desc": [{ href: "/openapi.json" }] }, { anchor: "https://example.test/b", "service-desc": [{ type: "x" }], "service-doc": { href: "/d" }, status: [{ href: "/gone.json" }] }) }, [readabilityApiCatalog]);
+  const messages = findings.map((f) => f.message);
+  assert.ok(messages.some((m) => /no anchor/.test(m)));
+  assert.ok(messages.some((m) => /target has no href/.test(m)));
+  assert.ok(messages.some((m) => /"service-doc" must be an array/.test(m)));
+  assert.ok(messages.some((m) => /\/gone\.json, which is not in the built site/.test(m)));
+  assert.ok(messages.some((m) => /\/openapi\.json, which is not in the built site/.test(m)));
 });

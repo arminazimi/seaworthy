@@ -422,3 +422,58 @@ export const readabilityAgentSkills = check(meta("readability.agent-skills", "Ag
   });
   return out;
 });
+
+const API_CATALOG_PATHS = ["/.well-known/api-catalog", "/.well-known/api-catalog.json"];
+
+export const readabilityApiCatalog = check(meta("readability.api-catalog", "API catalog is not a valid linkset or links to files that are not in the site", "warning", ["RFC 9727", "RFC 9264"], ["files"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const path of API_CATALOG_PATHS) {
+    const text = siteText(ctx.site, path);
+    if (text === undefined) continue;
+    const file = path.slice(1);
+    const fail = (message: string, location: { file: string; line?: number; column?: number }, summary: string, key: string): void => {
+      out.push({ message, location, fix: { kind: "manual", summary, edits: [] }, key });
+    };
+    const parsed = parseJson(text);
+    if (!parsed.ok) {
+      fail(`The API catalog is not JSON: ${parsed.message}. This check reads the JSON form of a linkset (application/linkset+json), not the text form.`, { file, ...(parsed.line ? { line: parsed.line, column: parsed.column ?? 1 } : {}) }, "Serve a linkset in JSON: { \"linkset\": [ { \"anchor\": \"https://example.com/api\", \"service-desc\": [ { \"href\": \"/openapi.json\" } ] } ] }", "parse");
+      continue;
+    }
+    const root = parsed.value;
+    if (!isObject(root) || !Array.isArray(root["linkset"])) {
+      fail('The API catalog must be a JSON object with a "linkset" array (RFC 9264).', { file, line: 1, column: 1 }, 'Wrap the entries as { "linkset": [ ... ] }.', "shape");
+      continue;
+    }
+    if (root["linkset"].length === 0) fail("The API catalog lists no APIs.", { file, line: 1, column: 1 }, "Add an entry for each public API, or remove the file.", "empty");
+    let cursor = 0;
+    root["linkset"].forEach((context: unknown, i: number) => {
+      if (!isObject(context)) {
+        fail(`Entry ${i + 1} of the linkset is not an object.`, { file, line: 1, column: 1 }, "Each entry is an object with an anchor and link relations.", `entry:${i}`);
+        return;
+      }
+      const anchor = typeof context["anchor"] === "string" ? context["anchor"] : undefined;
+      const where = anchor ? locateJsonString(file, text, anchor, cursor) : { file, line: 1, column: 1 };
+      if (anchor) cursor = text.indexOf(JSON.stringify(anchor), cursor) + 1;
+      if (!anchor) fail(`Entry ${i + 1} of the linkset has no anchor, the URL of the API it describes.`, where, 'Add "anchor": "https://example.com/api".', `no-anchor:${i}`);
+      for (const [relation, targets] of Object.entries(context)) {
+        if (relation === "anchor") continue;
+        if (!Array.isArray(targets)) {
+          fail(`"${relation}" must be an array of link targets.`, where, `Write "${relation}": [ { "href": "..." } ].`, `not-array:${i}:${relation}`);
+          continue;
+        }
+        for (const target of targets as unknown[]) {
+          const href = isObject(target) && typeof target["href"] === "string" ? target["href"] : undefined;
+          if (!href) {
+            fail(`A "${relation}" target has no href.`, where, 'Every link target needs "href".', `no-href:${i}:${relation}`);
+            continue;
+          }
+          const resolved = ctx.site.resolveLink(`/${path.slice(1)}`, href);
+          if (resolved.kind === "internal" && resolved.file === undefined) {
+            fail(`The catalog links to ${href}, which is not in the built site.`, locateJsonString(file, text, href, cursor > 0 ? cursor - 1 : 0), "Publish the file at that address, or fix the link.", `missing:${href}`);
+          }
+        }
+      }
+    });
+  }
+  return out;
+});
