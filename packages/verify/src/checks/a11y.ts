@@ -2,6 +2,7 @@
 
 import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
+import { ABSTRACT_ROLES, ALLOWED_ROLES, ROLES, nearestRole } from "./aria-data.js";
 import { ancestors, check, descendants, isHidden, locate, meta, pagesOf, replaceAttribute, textOf } from "./helpers.js";
 
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
@@ -152,6 +153,52 @@ export const a11yHiddenFocusable = check(meta("a11y.hidden-focusable", "Focusabl
         },
         key: `${element.tagName}:${attr(element, "id") ?? first.tagName}:${hidden.length}`,
       });
+    }
+  }
+  return out;
+});
+
+export const a11yAriaRoles = check(meta("a11y.aria-roles", "role value is unknown, abstract, or not allowed on the element", "error", ["WCAG 4.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      const raw = attr(element, "role");
+      if (raw === undefined) continue;
+      const tokens = raw.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      if (tokens.length === 0) continue;
+      const location = locate(page, element, "role");
+      const used = tokens.find((t) => ROLES.has(t)); // the first token a browser understands is the one it uses
+      if (!used) {
+        const abstract = tokens.find((t) => ABSTRACT_ROLES.has(t));
+        const guess = abstract ? undefined : nearestRole(tokens[0]!);
+        out.push({
+          message: abstract
+            ? `role="${raw.trim()}" is an abstract role. Abstract roles are for the ARIA specification only and browsers ignore them.`
+            : `role="${raw.trim()}" is not a role in WAI-ARIA 1.2, so browsers ignore it${guess ? `. Did you mean "${guess}"?` : "."}`,
+          location,
+          fix: {
+            kind: "manual",
+            summary: abstract ? "Use a concrete role such as button, region, or list, or remove the attribute." : `Use a role from WAI-ARIA 1.2${guess ? `, probably role="${guess}"` : ""}, or remove the attribute. A native element such as <button> or <nav> needs no role.`,
+            edits: [],
+          },
+          key: `${element.tagName}:${tokens.join(" ")}`,
+        });
+        continue;
+      }
+      const allowed = ALLOWED_ROLES[element.tagName];
+      if (allowed && !allowed.has(used)) {
+        out.push({
+          message: `role="${used}" is not allowed on <${element.tagName}>. Browsers may ignore it or announce the element wrongly.`,
+          location,
+          severity: "warning",
+          fix: {
+            kind: "manual",
+            summary: `Use the native element for this role (for example <${used === "button" ? "button" : "a"}>), or put the role on a <div> or <span>. Allowed on <${element.tagName}>: ${[...allowed].join(", ")}.`,
+            edits: [],
+          },
+          key: `${element.tagName}:${used}`,
+        });
+      }
     }
   }
   return out;

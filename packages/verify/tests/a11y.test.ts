@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaReferences, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -98,4 +98,27 @@ test("a11y.hidden-focusable reports aria-hidden content a keyboard can still rea
   assert.deepEqual(result.findings.map((f) => f.location.line), [4, 5, 6, 9, 11]);
   assert.match(result.findings[2]!.message, /hides 2 focusable elements/);
   assert.ok(result.findings.every((f) => f.severity === "error" && f.fix.kind === "manual"));
+});
+
+test("a11y.aria-roles flags unknown and abstract roles and roles HTML does not allow on the element", async () => {
+  const body = [
+    '<div role="buton">typo</div>',
+    '<div role="widget">abstract</div>',
+    '<div role="button">fine</div>',
+    '<div role="foo button">fallback to a known role</div>',
+    '<div role="BUTTON">case does not matter</div>',
+    '<h2 role="button">not allowed</h2>',
+    '<nav role="navigation">implicit</nav>',
+    '<ul role="menu"><li role="menuitem">ok</li></ul>',
+    '<li role="button">no</li>',
+    '<div role="doc-toc">module role</div>',
+    '<div role="">empty</div>',
+    '<span role="img" aria-label="x"></span>',
+    '<button role="tab">ok</button>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yAriaRoles] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => [f.location.line, f.severity]), [[4, "error"], [5, "error"], [9, "warning"], [12, "warning"]]);
+  assert.match(result.findings[0]!.message, /Did you mean "button"\?/);
+  assert.match(result.findings[1]!.message, /abstract role/);
 });
