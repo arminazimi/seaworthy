@@ -1,4 +1,5 @@
 // WAI-ARIA 1.2 data used by the a11y.aria-* checks: role names and the roles HTML allows on a few common elements.
+// Also the small edit-distance helper that the "did you mean" hints share.
 
 export const ABSTRACT_ROLES: ReadonlySet<string> = new Set(["command", "composite", "input", "landmark", "range", "roletype", "section", "sectionhead", "select", "structure", "widget", "window"]);
 
@@ -33,7 +34,7 @@ export function nearestRole(token: string): string | undefined {
   return nearest(token, ROLES);
 }
 
-function nearest(token: string, names: Iterable<string>): string | undefined {
+export function nearest(token: string, names: Iterable<string>): string | undefined {
   let best: { name: string; distance: number } | undefined;
   for (const name of names) {
     const distance = editDistance(token, name);

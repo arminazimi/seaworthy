@@ -1,7 +1,7 @@
 // Built-in checks. Each check lives in its own file and is registered here, in ID order.
 
 import type { Check } from "../types.js";
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTabindex } from "./a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTabindex } from "./a11y.js";
 import { assetsMissing } from "./assets.js";
 import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
@@ -17,6 +17,7 @@ export const builtInChecks: readonly Check[] = [
   a11yAriaAttributes,
   a11yAriaReferences,
   a11yAriaRoles,
+  a11yAutocomplete,
   a11yDuplicateId,
   a11yEmptyHeadings,
   a11yHiddenFocusable,
