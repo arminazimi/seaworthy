@@ -1,0 +1,16 @@
+# Example Docs
+
+> Guides for Example.
+
+Notes before the first section are prose and are not checked.
+
+## Guides
+
+- [Getting started](/docs/start.md): install and first run
+- [Removed page](/docs/removed.md): this page no longer exists
+- Configuration reference
+- [Config](https://example.test/config): a link to another site is not followed
+
+## Optional
+
+- [Changelog](/docs/start.md)
