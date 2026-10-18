@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { readabilityLlmsTxt, readabilityMdAlternates } from "../src/checks/readability.js";
+import { readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -79,4 +79,45 @@ test("readability.md-alternates ignores script text and other languages' words f
   const persian = "این سایت پیش از انتشار بررسی می‌شود تا ایجنت‌ها بتوانند به محتوای آن اعتماد کنند و هر یافته فایل و خط و راه اصلاح مشخصی دارد که می‌توان آن را اجرا کرد و دوباره بررسی نمود";
   const page = `<!doctype html><html lang="fa"><head><title>t</title><link rel="alternate" type="text/markdown" href="/f.md"></head><body><main><p>${persian}</p><script>var unrelated = "alpha beta gamma delta epsilon zeta theta iota kappa lambda";</script></main></body></html>`;
   assert.deepEqual(await run({ "f.html": page, "f.md": `# عنوان\n\n${persian}\n` }, [readabilityMdAlternates]), []);
+});
+
+const ld = (json: string) => `<!doctype html>\n<html lang="en"><head><title>t</title>\n<script type="application/ld+json">${json}</script>\n</head><body><main><h1>t</h1></main></body></html>`;
+
+test("readability.jsonld accepts complete items, @graph documents, and arrays", async () => {
+  const article = '{"@context":"https://schema.org","@type":"Article","headline":"H","datePublished":"2026-10-18","author":{"@type":"Person","name":"A"}}';
+  const graph = '{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"S","url":"https://x.test/"},{"@type":["Organization","Brand"],"name":"O","url":"https://x.test/"}]}';
+  assert.deepEqual(await run({ "a.html": ld(article), "g.html": ld(graph), "r.html": ld(`[${article}]`) }, [readabilityJsonld]), []);
+});
+
+test("readability.jsonld reports parse errors with a position inside the script, a missing context, and a missing type", async () => {
+  const findings = await run(
+    {
+      "bad.html": ld('{"@context":"https://schema.org",\n"@type":"Article",}'),
+      "empty.html": ld("  "),
+      "nocontext.html": ld('{"@type":"Article","headline":"H","datePublished":"2026-10-18","author":"A"}'),
+      "notype.html": ld('{"@context":"https://schema.org","name":"x"}'),
+    },
+    [readabilityJsonld],
+  );
+  assert.deepEqual(findings.map((f) => f.location.file), ["bad.html", "empty.html", "nocontext.html", "notype.html"]);
+  assert.match(findings[0]!.message, /does not parse/);
+  assert.equal(findings[0]!.location.line, 4, "the error is on the second line of the JSON, which is line 4 of the file");
+  assert.match(findings[1]!.message, /empty/);
+  assert.match(findings[2]!.message, /no "@context"/);
+  assert.match(findings[3]!.message, /no "@type"/);
+});
+
+test("readability.jsonld notes missing recommended fields and warns on dates that are not ISO 8601", async () => {
+  const findings = await run(
+    {
+      "a.html": ld('{"@context":"https://schema.org","@type":"BlogPosting","headline":"H","datePublished":"18 October 2026"}'),
+      "b.html": ld('{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[]}'),
+      "c.html": ld('{"@context":"https://schema.org","@type":"Thing","name":"unknown types are not judged"}'),
+    },
+    [readabilityJsonld],
+  );
+  assert.deepEqual(findings.map((f) => [f.location.file, f.severity]), [["a.html", "warning"], ["a.html", "note"], ["b.html", "note"]]);
+  assert.match(findings[0]!.message, /datePublished "18 October 2026"/);
+  assert.match(findings[1]!.message, /missing author/);
+  assert.match(findings[2]!.message, /missing itemListElement/);
 });
