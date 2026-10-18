@@ -1,0 +1,7 @@
+{
+  "description": "The size radio buttons have no group label, and the extra checkboxes sit in a fieldset that has no legend. A fieldset with a legend, a radiogroup named by aria-labelledby, and a single checkbox are fine.",
+  "findings": [
+    { "check": "a11y.radio-groups", "file": "index.html", "line": 11, "column": 8 },
+    { "check": "a11y.radio-groups", "file": "index.html", "line": 19, "column": 10 }
+  ]
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yRadioGroups, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -234,4 +234,23 @@ test("a11y.landmarks wants one visible main on every page that has content", asy
   assert.deepEqual(result.findings.map((f) => [f.location.file, f.location.line]), [["none.html", 2], ["two.html", 5]]);
   assert.match(result.findings[0]!.message, /no <main> landmark/);
   assert.match(result.findings[1]!.message, /2 visible main landmarks/);
+});
+
+test("a11y.radio-groups needs a fieldset legend or a labelled group around controls that share a name", async () => {
+  const body = [
+    '<input type="radio" name="size" id="s"><input type="radio" name="size" id="m">',
+    '<fieldset><legend>Colour</legend><input type="radio" name="colour"><input type="radio" name="colour"></fieldset>',
+    '<fieldset><input type="checkbox" name="topic"><input type="checkbox" name="topic"></fieldset>',
+    '<div role="radiogroup" aria-labelledby="q"><input type="radio" name="plan"><input type="radio" name="plan"></div>',
+    '<div role="group"><input type="checkbox" name="extras"><input type="checkbox" name="extras"></div>',
+    '<input type="radio" name="single">',
+    '<input type="checkbox" name="solo"><input type="checkbox" name="other">',
+    '<form><input type="radio" name="size"></form><form><input type="radio" name="size"></form>',
+    '<fieldset><legend> </legend><input type="radio" name="blank"><input type="radio" name="blank"></fieldset>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yRadioGroups] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 6, 8, 12]);
+  assert.match(result.findings[0]!.message, /2 radio buttons named "size"/);
+  assert.match(result.findings[1]!.message, /2 checkboxes named "topic"/);
 });
