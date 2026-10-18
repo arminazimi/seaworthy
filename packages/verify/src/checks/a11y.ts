@@ -495,3 +495,40 @@ export const a11yMediaCaptions = check(meta("a11y.media-captions", "Video has no
   }
   return out;
 });
+
+const startOf = (element: Element): number => element.sourceCodeLocation?.startOffset ?? Number.POSITIVE_INFINITY;
+const SKIP_WORDS = /skip|jump|main|content/i;
+
+export const a11ySkipLink = check(meta("a11y.skip-link", "Page has navigation before the main content but no working skip link", "warning", ["WCAG 2.4.1"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    const main = mainLandmarks(page)[0];
+    if (!main) continue; // a11y.landmarks reports a missing main
+    const mainStart = startOf(main);
+    const before = page.elements.filter((e) => startOf(e) < mainStart);
+    const nav = before.find((e) => e.tagName === "nav" || attr(e, "role")?.trim().toLowerCase() === "navigation");
+    const links = before.filter((e) => e.tagName === "a" && attr(e, "href") !== undefined);
+    if (!nav || links.length < 3) continue; // a few links before the content are not worth skipping
+    const early = links.slice(0, 2).filter((a) => attr(a, "href")!.startsWith("#") && attr(a, "href")!.length > 1);
+    const working = early.some((a) => {
+      const fragment = decodeURIComponent(attr(a, "href")!.slice(1));
+      const target = page.elements.find((e) => attr(e, "id") === fragment || (e.tagName === "a" && attr(e, "name") === fragment));
+      return target !== undefined && (target === main || ancestors(target).includes(main) || ancestors(main).includes(target));
+    });
+    if (working) continue;
+    const intended = early.find((a) => SKIP_WORDS.test(`${textOf(a)} ${attr(a, "aria-label") ?? ""}`));
+    out.push({
+      message: intended
+        ? `The skip link "${textOf(intended) || attr(intended, "aria-label")}" points at ${attr(intended, "href")}, which is not the main content: ${page.ids.has(decodeURIComponent(attr(intended, "href")!.slice(1))) ? "that element is outside <main>" : "no element has that id"}. Keyboard users who use it land nowhere useful.`
+        : `The page has ${links.length} links before the main content and no skip link. Keyboard users must tab through all of them on every page.`,
+      location: intended ? locate(page, intended, "href") : locate(page, nav),
+      fix: {
+        kind: "manual",
+        summary: `Make the first link on the page <a class="skip-link" href="#main">Skip to main content</a>, give <main> the id "main", and style .skip-link to be hidden until it receives focus.`,
+        edits: [],
+      },
+      key: intended ? `broken:${attr(intended, "href")}` : "missing",
+    });
+  }
+  return out;
+});
