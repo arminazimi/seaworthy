@@ -1,0 +1,8 @@
+{
+  "description": "A video with sound and no captions, a captioned video that autoplays with sound, and an audio element that autoplays. A captioned video, a muted background loop, and audio with controls only are fine.",
+  "findings": [
+    { "check": "a11y.media-captions", "file": "index.html", "line": 10, "column": 1 },
+    { "check": "a11y.media-captions", "file": "index.html", "line": 15, "column": 33 },
+    { "check": "a11y.media-captions", "file": "index.html", "line": 18, "column": 25 }
+  ]
+}

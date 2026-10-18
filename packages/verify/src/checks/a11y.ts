@@ -457,3 +457,41 @@ export const a11yRadioGroups = check(meta("a11y.radio-groups", "Radio buttons or
   }
   return out;
 });
+
+export const a11yMediaCaptions = check(meta("a11y.media-captions", "Video has no captions, or media plays sound on its own", "error", ["WCAG 1.2.2", "WCAG 1.4.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (element.tagName !== "video" && element.tagName !== "audio") continue;
+      if (isHidden(element)) continue;
+      const muted = attr(element, "muted") !== undefined;
+      if (attr(element, "autoplay") !== undefined && !muted) {
+        const location = locate(page, element, "autoplay");
+        out.push({
+          message: `<${element.tagName}> starts playing on its own with sound. People using a screen reader cannot hear their reader over it, and it cannot be stopped easily.`,
+          location,
+          fix: {
+            kind: "manual",
+            summary: "Remove autoplay so people start it themselves. For a silent background video, add muted (and loop and playsinline) as well, with no controls needed.",
+            edits: [],
+          },
+          key: `${element.tagName}:autoplay:${attr(element, "src") ?? attr(element, "id") ?? ""}`,
+        });
+      }
+      if (element.tagName !== "video" || muted) continue; // a muted video has no speech to caption
+      const hasTrack = descendants(element).some((t) => t.tagName === "track" && ["captions", "subtitles"].includes((attr(t, "kind") ?? "subtitles").trim().toLowerCase()) && (attr(t, "src") ?? "").trim() !== "");
+      if (hasTrack) continue;
+      out.push({
+        message: "This video has no captions track. People who are deaf or hard of hearing cannot follow what is said, and nobody can follow it with the sound off.",
+        location: locate(page, element),
+        fix: {
+          kind: "manual",
+          summary: 'Add a captions file: <track kind="captions" src="/video/talk.en.vtt" srclang="en" label="English">. If the video has no speech or sound that carries meaning, add the muted attribute.',
+          edits: [],
+        },
+        key: `${element.tagName}:captions:${attr(element, "src") ?? attr(element, "id") ?? ""}`,
+      });
+    }
+  }
+  return out;
+});
