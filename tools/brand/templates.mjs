@@ -111,3 +111,15 @@ export const EXPORT_PRESETS_JSON = {
     background: p.background,
   })),
 };
+
+/** Favicon exports: PNGs rendered from the favicon SVGs, and the .ico built from the 16, 32, and 48 px PNGs. */
+export const FAVICON_PNGS = [
+  { source: "favicon/favicon.svg", output: "favicon/favicon-16.png", size: 16 },
+  { source: "favicon/favicon.svg", output: "favicon/favicon-32.png", size: 32 },
+  { source: "favicon/favicon.svg", output: "favicon/favicon-48.png", size: 48 },
+  { source: "favicon/icon-square.svg", output: "favicon/apple-touch-icon.png", size: 180 },
+  { source: "favicon/icon-square.svg", output: "favicon/icon-192.png", size: 192 },
+  { source: "favicon/icon-square.svg", output: "favicon/icon-512.png", size: 512 },
+];
+export const FAVICON_ICO = { output: "favicon/favicon.ico", sizes: [16, 32, 48] };
+export const FAVICON_OUTPUTS = [...FAVICON_PNGS.map((f) => f.output), FAVICON_ICO.output];

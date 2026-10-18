@@ -11,6 +11,7 @@ Start with [BRAND_GUIDE.md](BRAND_GUIDE.md).
 | [`BRAND_GUIDE.md`](BRAND_GUIDE.md) | Logo rules, color, type, badge, voice |
 | [`tokens.json`](tokens.json) · [`tokens.css`](tokens.css) | Colors, fonts, spacing: the source and its CSS |
 | [`assets/`](assets/) | Mark in four variants (SVG and PNG) and the three status badges |
+| [`favicon/`](favicon/) | Simplified mark for 16 to 48 px: SVG, .ico, PNGs, Apple touch icon, manifest icons |
 | [`templates/`](templates/) | Editable SVG sources for avatar, social preview, banner, marketplace art |
 | [`exports/`](exports/) | PNG exports and the logo review sheet |
 | [`export-presets.json`](export-presets.json) | Size and source for every export |

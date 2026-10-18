@@ -49,6 +49,33 @@ export function markFragment(variant) {
   ].join("");
 }
 
+/**
+ * The favicon mark: one thick open ring and a waterline on the dark canvas. The full mark has two thin rings that turn to
+ * mush at 16 px; this one keeps every stroke at least 2 px wide at 16 px. `rounded` is for browser tabs; the square one
+ * is full-bleed for the Apple touch icon and web-app manifest icons, which are masked by the system.
+ */
+const FAVICON = { r: 76, width: 36, halfGap: 30, line: { x: 22, y: 112, width: 212, height: 32 } };
+
+export function faviconSvg({ rounded }) {
+  const f = FAVICON;
+  const dx = Math.sqrt(f.r * f.r - f.halfGap * f.halfGap);
+  const left = n(CENTER - dx);
+  const right = n(CENTER + dx);
+  const top = CENTER - f.halfGap;
+  const bottom = CENTER + f.halfGap;
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title">`,
+    `<title id="title">Seaworthy</title>`,
+    `<rect width="256" height="256"${rounded ? ' rx="56"' : ""} fill="${c("abyss")}"/>`,
+    `<g fill="none" stroke="${c("sand")}" stroke-width="${f.width}"><path d="M${left} ${top} A${f.r} ${f.r} 0 0 1 ${right} ${top}"/><path d="M${left} ${bottom} A${f.r} ${f.r} 0 0 0 ${right} ${bottom}"/></g>`,
+    `<rect x="${f.line.x}" y="${f.line.y}" width="${f.line.width}" height="${f.line.height}" fill="${c("desertRose")}"/>`,
+    `</svg>`,
+    ``,
+  ].join("\n");
+}
+
+export const FAVICON_GEOMETRY = FAVICON;
+
 export function markSvg(variant) {
   const v = VARIANTS[variant];
   return [

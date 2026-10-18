@@ -44,7 +44,26 @@ Keep clear space equal to one eighth of the mark width (12.5%) on every side. Fo
 - Full-color mark: 32 px wide on screen, 8 mm in print.
 - One-color mark: 24 px wide on screen, 6 mm in print.
 - Wordmark lockup: 140 px wide on screen, 35 mm in print.
-- Do not use the mark below 24 px. Its thin rings do not hold at 16 px, so favicons wait for a simplified variant (task `brand.favicon`).
+- Do not use the full mark below 24 px. Its thin rings do not hold at 16 px. Use the favicon mark (below) for 16 to 48 px.
+
+### Favicon mark
+
+For browser tabs, app icons, and anything between 16 and 48 px, use the simplified mark in [`favicon/`](favicon/): one thick ring and the waterline on an abyss tile. Every stroke is at least 2 px at 16 px. Never shrink the full mark instead, and never use the favicon mark above 48 px where the full mark fits.
+
+| File | Size | Use |
+| --- | ---: | --- |
+| `favicon.svg` | scalable | Browsers that support SVG icons (rounded tile) |
+| `favicon.ico` | 16, 32, 48 | Browsers and tools that only read .ico |
+| `favicon-16.png`, `favicon-32.png`, `favicon-48.png` | 16, 32, 48 | Fixed-size fallbacks |
+| `apple-touch-icon.png` | 180 | iOS home screen (full-bleed; iOS rounds it) |
+| `icon-192.png`, `icon-512.png` | 192, 512 | Web app manifest (full-bleed, ring inside the 80% safe zone) |
+| `icon-square.svg` | scalable | Source for the full-bleed icons |
+
+```html
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+```
 
 ### Correct use
 
@@ -160,8 +179,8 @@ Do not edit these by hand. They come from `tools/brand/` and `tokens.json`.
 
 | Output | Regenerate with |
 | --- | --- |
-| `assets/*.svg`, `templates/*.svg`, `seaworthy-logo-sheet.svg`, `tokens.css`, `export-presets.json` | `npm run build:brand` |
-| `assets/*.png`, `exports/*.png` | `npm run export:brand` (needs Chrome or Chromium) |
+| `assets/*.svg`, `favicon/*.svg`, `templates/*.svg`, `seaworthy-logo-sheet.svg`, `tokens.css`, `export-presets.json` | `npm run build:brand` |
+| `assets/*.png`, `exports/*.png`, `favicon/*.png`, `favicon/favicon.ico` | `npm run export:brand` (needs Chrome or Chromium) |
 
 `npm run check` fails when the SVG sources are out of date or a PNG export is missing. The mark's geometry lives in `tools/brand/mark.mjs`.
 

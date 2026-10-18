@@ -10,12 +10,14 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { badgeSvg } from "./badge.mjs";
-import { BRAND_DIR, VARIANTS, markSvg, tokensCss } from "./mark.mjs";
-import { EXPORT_PRESETS_JSON, TEMPLATE_FILES, logoSheet } from "./templates.mjs";
+import { BRAND_DIR, VARIANTS, faviconSvg, markSvg, tokensCss } from "./mark.mjs";
+import { EXPORT_PRESETS_JSON, FAVICON_OUTPUTS, TEMPLATE_FILES, logoSheet } from "./templates.mjs";
 
 export function generatedFiles() {
   const files = new Map();
   for (const variant of Object.keys(VARIANTS)) files.set(`assets/seaworthy-mark-${variant}.svg`, markSvg(variant));
+  files.set("favicon/favicon.svg", faviconSvg({ rounded: true }));
+  files.set("favicon/icon-square.svg", faviconSvg({ rounded: false }));
   files.set("assets/badge-passing.svg", badgeSvg("passing"));
   files.set("assets/badge-warnings.svg", badgeSvg("warnings", 3));
   files.set("assets/badge-failing.svg", badgeSvg("failing", 12));
@@ -43,6 +45,7 @@ function main() {
   if (check) {
     const presets = EXPORT_PRESETS_JSON.presets;
     for (const p of presets) if (!existsSync(join(BRAND_DIR, p.output))) problems.push(`missing brand/${p.output} (run npm run export:brand)`);
+    for (const f of FAVICON_OUTPUTS) if (!existsSync(join(BRAND_DIR, f))) problems.push(`missing brand/${f} (run npm run export:brand)`);
     if (problems.length) {
       console.error(problems.map((p) => `brand: ${p}`).join("\n"));
       console.error("brand: regenerate with `npm run build:brand` and `npm run export:brand`");

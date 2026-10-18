@@ -5,7 +5,9 @@ import { test } from "node:test";
 
 import { badgeSvg } from "./badge.mjs";
 import { generatedFiles } from "./build.mjs";
-import { BRAND_DIR, VARIANTS, markSvg, tokens } from "./mark.mjs";
+import { readIco } from "./ico.mjs";
+import { BRAND_DIR, FAVICON_GEOMETRY, VARIANTS, faviconSvg, markSvg, tokens } from "./mark.mjs";
+import { FAVICON_ICO, FAVICON_PNGS } from "./templates.mjs";
 
 const hex = (name) => tokens.colors[name].value;
 
@@ -61,4 +63,34 @@ test("generation is deterministic", () => {
   const b = generatedFiles();
   assert.deepEqual([...a], [...b]);
   for (const [path, content] of a) if (path.endsWith(".svg")) assert.match(content, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/, path);
+});
+
+test("the favicon mark keeps every stroke at least 2 px wide at 16 px", () => {
+  const scale = 16 / 256;
+  assert.ok(FAVICON_GEOMETRY.width * scale >= 2, "ring stroke");
+  assert.ok(FAVICON_GEOMETRY.line.height * scale >= 2, "waterline");
+  for (const rounded of [true, false]) {
+    const svg = faviconSvg({ rounded });
+    assert.equal(svg.includes('rx="'), rounded);
+    assert.ok(!svg.toLowerCase().includes(hex("seaTeal").toLowerCase()), "no green in the mark");
+  }
+});
+
+test("the favicon exports exist at the sizes they claim, and the .ico holds 16, 32, and 48 px PNGs", () => {
+  const dimensions = (file) => {
+    const png = readFileSync(join(BRAND_DIR, file));
+    assert.equal(png.toString("latin1", 1, 4), "PNG", file);
+    return [png.readUInt32BE(16), png.readUInt32BE(20)];
+  };
+  for (const { output, size } of FAVICON_PNGS) assert.deepEqual(dimensions(output), [size, size], output);
+  const images = readIco(readFileSync(join(BRAND_DIR, FAVICON_ICO.output)));
+  assert.deepEqual(images.map((i) => i.width), FAVICON_ICO.sizes);
+  assert.ok(images.every((i) => i.png && i.width === i.height));
+});
+
+test("the full-bleed icons are opaque, so a system can mask them without black corners", () => {
+  for (const file of ["favicon/apple-touch-icon.png", "favicon/icon-192.png", "favicon/icon-512.png"]) {
+    const colorType = readFileSync(join(BRAND_DIR, file)).readUInt8(25);
+    assert.equal(colorType, 2, `${file} should be RGB without an alpha channel`);
+  }
 });
