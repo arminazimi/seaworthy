@@ -6,13 +6,14 @@
 // (Inter and IBM Plex Mono are used if installed), so export on a machine with them for the final look.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { BRAND_DIR, VARIANTS } from "./mark.mjs";
-import { EXPORT_PRESETS_JSON } from "./templates.mjs";
+import { EXPORT_PRESETS_JSON, FAVICON_ICO, FAVICON_PNGS } from "./templates.mjs";
+import { icoFromPngs } from "./ico.mjs";
 
 const CANDIDATES = [
   process.env.CHROME,
@@ -60,6 +61,12 @@ for (const variant of Object.keys(VARIANTS)) {
   render(join(BRAND_DIR, `assets/seaworthy-mark-${variant}.svg`), join(BRAND_DIR, `assets/seaworthy-mark-${variant}.png`), 512, 512, null);
   count++;
 }
+for (const f of FAVICON_PNGS) {
+  render(join(BRAND_DIR, f.source), join(BRAND_DIR, f.output), f.size, f.size, null);
+  count++;
+}
+writeFileSync(join(BRAND_DIR, FAVICON_ICO.output), icoFromPngs(FAVICON_ICO.sizes.map((size) => ({ size, png: readFileSync(join(BRAND_DIR, `favicon/favicon-${size}.png`)) }))));
+count++;
 render(join(BRAND_DIR, "seaworthy-logo-sheet.svg"), join(BRAND_DIR, "exports/seaworthy-logo-sheet.png"), 1600, 900, "#0C080F");
 count++;
 console.log(`Exported ${count} PNGs with ${chrome}`);
