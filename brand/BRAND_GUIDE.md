@@ -186,4 +186,4 @@ Do not edit these by hand. They come from `tools/brand/` and `tokens.json`.
 
 ## Asset rights
 
-Seaworthy code is available under the Apache License 2.0. Section 6 of that license grants no rights to use the project's name, logo, or other trademarks, so the name and brand assets are not licensed for use that suggests endorsement. A fuller brand-use policy is tracked in task `brand.policy`.
+Seaworthy code is available under the Apache License 2.0. Section 6 of that license grants no rights to use the project's name, logo, or other trademarks, so the name and brand assets are not licensed for use that suggests endorsement. The brand-use policy is in [USAGE_POLICY.md](USAGE_POLICY.md).
