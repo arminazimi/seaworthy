@@ -18,3 +18,4 @@ Each ADR has: **Status**, **Context**, **Decision**, and **Consequences**.
 | [0010](0010-markdown-links.md) | Repository Markdown is checked by an opt-in package that reuses the core finding model | Accepted |
 | [0011](0011-live-site-crawling.md) | Live sites are crawled into a folder snapshot that the existing pipeline verifies | Accepted |
 | [0012](0012-competitor-comparison.md) | What squirrelscan, pa11y, lychee, and Cloudflare Agent Readiness find and miss on our fixtures | Accepted |
+| [0013](0013-html-conformance.md) | HTML conformance is built in Node from parse5 and a small rule set; the Nu Html Checker stays optional | Accepted |
