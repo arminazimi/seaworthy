@@ -16,3 +16,4 @@ Each ADR has: **Status**, **Context**, **Decision**, and **Consequences**.
 | [0008](0008-sarif-locations.md) | SARIF locations are repository-relative | Accepted |
 | [0009](0009-theme-split-and-position.md) | The theme becomes its own project; Seaworthy competes on pre-deploy verification and CI-grade contracts | Accepted |
 | [0010](0010-markdown-links.md) | Repository Markdown is checked by an opt-in package that reuses the core finding model | Accepted |
+| [0011](0011-live-site-crawling.md) | Live sites are crawled into a folder snapshot that the existing pipeline verifies | Accepted |
