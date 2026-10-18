@@ -2,7 +2,7 @@
 
 import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import { check, descendants, isHidden, locate, meta, pagesOf, replaceAttribute, textOf } from "./helpers.js";
+import { ancestors, check, descendants, isHidden, locate, meta, pagesOf, replaceAttribute, textOf } from "./helpers.js";
 
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -111,6 +111,47 @@ export const a11yAriaReferences = check(meta("a11y.aria-references", "ARIA attri
           key: `${name}:${missing.join(" ")}:${element.tagName}`,
         });
       }
+    }
+  }
+  return out;
+});
+
+/** True for elements that a keyboard can reach: links with href, enabled form controls, and anything with tabindex of 0 or more. */
+function isFocusable(element: Parameters<typeof attr>[0]): boolean {
+  const tabindex = attr(element, "tabindex");
+  if (tabindex !== undefined && /^\s*[+-]?\d+\s*$/.test(tabindex)) return Number.parseInt(tabindex, 10) >= 0;
+  if (attr(element, "disabled") !== undefined && ["button", "input", "select", "textarea"].includes(element.tagName)) return false;
+  if (element.tagName === "input") return attr(element, "type")?.trim().toLowerCase() !== "hidden";
+  if (element.tagName === "a" || element.tagName === "area") return attr(element, "href") !== undefined;
+  if (["button", "select", "textarea"].includes(element.tagName)) return true;
+  if (element.tagName === "summary") return true;
+  if (attr(element, "contenteditable") !== undefined && attr(element, "contenteditable")?.trim().toLowerCase() !== "false") return true;
+  return false;
+}
+
+export const a11yHiddenFocusable = check(meta("a11y.hidden-focusable", "Focusable element is inside aria-hidden content", "error", ["WCAG 4.1.2", "WCAG 2.4.3"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (attr(element, "aria-hidden")?.trim().toLowerCase() !== "true") continue;
+      // Report the aria-hidden element once, naming the first focusable thing it hides.
+      const hidden = [element, ...descendants(element)].filter((e) => isFocusable(e) && ![e, ...ancestors(e)].some((a) => attr(a, "hidden") !== undefined || attr(a, "inert") !== undefined));
+      const first = hidden[0];
+      if (!first) continue;
+      // A nested aria-hidden is covered by the outer one.
+      const outer = ancestors(element).some((a) => attr(a, "aria-hidden")?.trim().toLowerCase() === "true");
+      if (outer) continue;
+      const location = locate(page, element, "aria-hidden");
+      out.push({
+        message: `aria-hidden="true" on <${element.tagName}> hides ${hidden.length === 1 ? "a focusable element" : `${hidden.length} focusable elements`} from screen readers, but keyboard focus can still reach ${hidden.length === 1 ? "it" : "them"}: <${first.tagName}>${first === element ? "" : " inside it"}. Users land on something they cannot hear.`,
+        location,
+        fix: {
+          kind: "manual",
+          summary: 'Remove aria-hidden="true" if the content is meant to be used. If it is decoration or an off-screen panel, make it unreachable too: add the hidden or inert attribute, or tabindex="-1" on each focusable element.',
+          edits: [],
+        },
+        key: `${element.tagName}:${attr(element, "id") ?? first.tagName}:${hidden.length}`,
+      });
     }
   }
   return out;
