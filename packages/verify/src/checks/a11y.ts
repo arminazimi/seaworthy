@@ -245,3 +245,31 @@ export const a11yAriaAttributes = check(meta("a11y.aria-attributes", "ARIA attri
   }
   return out;
 });
+
+const looksValid = (tag: string): boolean => /^[a-z]{2,3}(-[a-z0-9]{1,8})*$/i.test(tag) || /^x(-[a-z0-9]{1,8})+$/i.test(tag);
+
+export const a11yLangParts = check(meta("a11y.lang-parts", "lang on an inner element is not a valid language code", "warning", ["WCAG 3.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (element.tagName === "html") continue; // meta.lang reports the page language
+      const raw = attr(element, "lang");
+      const tag = raw?.trim();
+      if (raw === undefined || tag === "" || (tag !== undefined && looksValid(tag))) continue;
+      const location = locate(page, element, "lang");
+      const dashed = tag!.replace(/_/g, "-");
+      const edit = dashed !== tag && looksValid(dashed) ? replaceAttribute(page, element, "lang", dashed) : undefined;
+      out.push({
+        message: `lang="${raw}" on <${element.tagName}> is not a valid language code. Screen readers cannot switch to the right pronunciation for this text.`,
+        location,
+        fix: {
+          kind: edit ? "edit" : "manual",
+          summary: `Use a BCP 47 language code such as "fr", "ar", or "pt-BR"${edit ? ` (underscores become hyphens: "${dashed}")` : ""}, or remove the attribute if the text is in the page language.`,
+          edits: edit ? [edit] : [],
+        },
+        key: `${element.tagName}:${tag}`,
+      });
+    }
+  }
+  return out;
+});

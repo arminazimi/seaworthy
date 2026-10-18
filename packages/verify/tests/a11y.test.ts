@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -148,4 +148,26 @@ test("a11y.aria-attributes flags unknown names and invalid values, with exact ed
   assert.deepEqual(edits[2], [['aria-expanded="True"', 'aria-expanded="true"']]);
   assert.deepEqual(edits[3], [], "yes is ambiguous, so there is no edit");
   assert.match(result.findings[0]!.message, /Did you mean aria-label\?/);
+});
+
+test("a11y.lang-parts flags invalid codes on inner elements and fixes underscores", async () => {
+  const body = [
+    '<p lang="fr">ok</p>',
+    '<p lang="pt-BR">ok</p>',
+    '<p lang="zh-Hant-TW">ok</p>',
+    '<p lang="x-klingon">private use</p>',
+    '<p lang="">unknown language is allowed</p>',
+    '<p lang="english">name</p>',
+    '<p lang="en_US">underscore</p>',
+    '<p lang="e">short</p>',
+    '<p lang="en-">trailing hyphen</p>',
+    '<p lang="x">alone</p>',
+    '<p>none</p>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yLangParts] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [9, 10, 11, 12, 13]);
+  assert.deepEqual(result.findings[1]!.fix.edits.map((e) => [e.find, e.replace]), [['lang="en_US"', 'lang="en-US"']]);
+  assert.deepEqual(result.findings[0]!.fix.edits, []);
+  assert.ok(result.findings.every((f) => f.severity === "warning"));
 });
