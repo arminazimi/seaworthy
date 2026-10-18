@@ -6,6 +6,35 @@ import { ABSTRACT_ROLES, ALLOWED_ROLES, ARIA_ATTRIBUTES, ROLES, ariaValueProblem
 import { AUTOFILL_FIELDS, autofillProblem } from "./autofill-data.js";
 import { ancestors, check, descendants, documentLocation, firstElement, isHidden, isRedirectStub, locate, meta, pagesOf, renameAttribute, replaceAttribute, textOf } from "./helpers.js";
 
+export const a11yIframeTitle = check(meta("a11y.iframe-title", "Iframe has no accessible name", "error", ["WCAG 4.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (element.tagName !== "iframe" || isHidden(element)) continue;
+      const role = attr(element, "role")?.trim().toLowerCase();
+      if (role === "presentation" || role === "none") continue;
+      if ((attr(element, "title") ?? "").trim() || (attr(element, "aria-label") ?? "").trim()) continue;
+      const labelled = (attr(element, "aria-labelledby") ?? "").trim().split(/\s+/).some((id) => {
+        const label = id ? page.elements.find((candidate) => attr(candidate, "id") === id) : undefined;
+        return label !== undefined && textOf(label) !== "";
+      });
+      if (labelled) continue;
+      const location = locate(page, element, "title");
+      out.push({
+        message: "The iframe has no non-empty title or ARIA name to describe its content.",
+        location,
+        fix: {
+          kind: "manual",
+          summary: 'Add a descriptive title attribute to the iframe, such as title="Office location map". Name the embedded content, not just "frame".',
+          edits: [],
+        },
+        key: `${attr(element, "id") ?? attr(element, "src") ?? "iframe"}:${location.line ?? ""}`,
+      });
+    }
+  }
+  return out;
+});
+
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
