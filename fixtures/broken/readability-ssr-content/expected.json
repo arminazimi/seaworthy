@@ -1,0 +1,7 @@
+{
+  "description": "spa.html is an empty application root plus a module script; nojs.html tells people to enable JavaScript and has an empty shell. prerendered.html has the same shell with the content already in it, and note.html is a short page with no scripts.",
+  "findings": [
+    { "check": "readability.ssr-content", "file": "nojs.html", "line": 8, "column": 1 },
+    { "check": "readability.ssr-content", "file": "spa.html", "line": 8, "column": 1 }
+  ]
+}
