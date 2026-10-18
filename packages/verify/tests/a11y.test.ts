@@ -43,6 +43,6 @@ test("a11y.empty-headings flags headings with no text, name, or labelled content
   ].join("\n");
   const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yEmptyHeadings] });
   assert.deepEqual(result.errors, []);
-  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 5, 6, 7, 15]);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 5, 6, 7, 10, 15]);
   assert.ok(result.findings.every((f) => f.severity === "warning" && f.fix.kind === "manual" && f.fix.edits.length === 0));
 });
