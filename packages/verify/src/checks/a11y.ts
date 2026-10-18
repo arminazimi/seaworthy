@@ -2,7 +2,8 @@
 
 import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import { ABSTRACT_ROLES, ALLOWED_ROLES, ARIA_ATTRIBUTES, ROLES, ariaValueProblem, nearestAriaAttribute, nearestRole } from "./aria-data.js";
+import { ABSTRACT_ROLES, ALLOWED_ROLES, ARIA_ATTRIBUTES, ROLES, ariaValueProblem, nearest, nearestAriaAttribute, nearestRole } from "./aria-data.js";
+import { AUTOFILL_FIELDS, autofillProblem } from "./autofill-data.js";
 import { ancestors, check, descendants, isHidden, locate, meta, pagesOf, renameAttribute, replaceAttribute, textOf } from "./helpers.js";
 
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
@@ -268,6 +269,44 @@ export const a11yLangParts = check(meta("a11y.lang-parts", "lang on an inner ele
           edits: edit ? [edit] : [],
         },
         key: `${element.tagName}:${tag}`,
+      });
+    }
+  }
+  return out;
+});
+
+/** Input types that never take autofill: they hold no personal data the browser could fill. */
+const NO_AUTOFILL_TYPES = new Set(["hidden", "checkbox", "radio", "file", "submit", "reset", "button", "image"]);
+
+export const a11yAutocomplete = check(meta("a11y.autocomplete", "autocomplete value is not a valid autofill token", "warning", ["WCAG 1.3.5"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (!["input", "select", "textarea"].includes(element.tagName)) continue;
+      if (element.tagName === "input" && NO_AUTOFILL_TYPES.has((attr(element, "type") ?? "text").trim().toLowerCase())) continue;
+      const raw = attr(element, "autocomplete");
+      if (raw === undefined) continue;
+      const problem = autofillProblem(raw);
+      if (!problem) continue;
+      const location = locate(page, element, "autocomplete");
+      const guess = problem.reason === "unknown" && problem.token ? nearest(problem.token, AUTOFILL_FIELDS) : undefined;
+      const fixed = guess ? raw.trim().replace(new RegExp(`(^|\\s)${problem.token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=\\s|$)`, "i"), `$1${guess}`) : undefined;
+      const edit = fixed ? replaceAttribute(page, element, "autocomplete", fixed) : undefined;
+      const why = {
+        unknown: `"${problem.token}" is not an autofill field name`,
+        contact: `"${problem.token}" can only be used before tel, email, or impp fields`,
+        mixed: `"${problem.token}" cannot be combined with other tokens`,
+        order: `"${problem.token}" is in the wrong place`,
+      }[problem.reason];
+      out.push({
+        message: `autocomplete="${raw}" is not valid: ${why}${guess ? `. Did you mean "${guess}"?` : "."} Browsers and assistive technology cannot fill this field.`,
+        location,
+        fix: {
+          kind: edit ? "edit" : "manual",
+          summary: `Use "on", "off", or a field name from the HTML autofill list, such as "email", "given-name", "street-address", or "one-time-code", optionally after section-*, shipping or billing, and home, work, or mobile (for phone and email).`,
+          edits: edit ? [edit] : [],
+        },
+        key: `${element.tagName}:${raw.trim().toLowerCase()}`,
       });
     }
   }

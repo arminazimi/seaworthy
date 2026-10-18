@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -170,4 +170,31 @@ test("a11y.lang-parts flags invalid codes on inner elements and fixes underscore
   assert.deepEqual(result.findings[1]!.fix.edits.map((e) => [e.find, e.replace]), [['lang="en_US"', 'lang="en-US"']]);
   assert.deepEqual(result.findings[0]!.fix.edits, []);
   assert.ok(result.findings.every((f) => f.severity === "warning"));
+});
+
+test("a11y.autocomplete accepts the autofill grammar and flags everything else", async () => {
+  const body = [
+    '<input autocomplete="email">',
+    '<input autocomplete="off">',
+    '<input autocomplete="section-blue shipping home tel webauthn">',
+    '<input autocomplete="billing street-address">',
+    '<input autocomplete="given-nme">',
+    '<input autocomplete="firstname">',
+    '<input autocomplete="work postal-code">',
+    '<input autocomplete="on email">',
+    '<input autocomplete="shipping section-a name">',
+    '<input autocomplete="">',
+    '<input type="hidden" autocomplete="nonsense">',
+    '<select autocomplete="country"></select>',
+    '<textarea autocomplete="nope"></textarea>',
+    '<input autocomplete="Email">',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yAutocomplete] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [8, 9, 10, 11, 12, 13, 16]);
+  assert.deepEqual(result.findings[0]!.fix.edits.map((e) => [e.find, e.replace]), [['autocomplete="given-nme"', 'autocomplete="given-name"']]);
+  assert.deepEqual(result.findings[1]!.fix.edits, [], "firstname is not close enough to guess");
+  assert.match(result.findings[2]!.message, /only be used before tel, email, or impp/);
+  assert.match(result.findings[3]!.message, /cannot be combined/);
+  assert.match(result.findings[4]!.message, /wrong place/);
 });

@@ -1,0 +1,9 @@
+{
+  "description": "autocomplete=firstname is not a field name, given-nme is a misspelling, work postal-code uses a contact type on a non-contact field, and on email mixes on with a field name. email, off, the full section-a shipping home tel form, and a hidden input are fine.",
+  "findings": [
+    { "check": "a11y.autocomplete", "file": "index.html", "line": 11, "column": 39 },
+    { "check": "a11y.autocomplete", "file": "index.html", "line": 12, "column": 34 },
+    { "check": "a11y.autocomplete", "file": "index.html", "line": 13, "column": 30 },
+    { "check": "a11y.autocomplete", "file": "index.html", "line": 14, "column": 34 }
+  ]
+}
