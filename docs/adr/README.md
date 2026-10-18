@@ -15,3 +15,4 @@ Each ADR has: **Status**, **Context**, **Decision**, and **Consequences**.
 | [0007](0007-prior-art.md) | Prior art: what to reuse, wrap, or build | Accepted |
 | [0008](0008-sarif-locations.md) | SARIF locations are repository-relative | Accepted |
 | [0009](0009-theme-split-and-position.md) | The theme becomes its own project; Seaworthy competes on pre-deploy verification and CI-grade contracts | Accepted |
+| [0010](0010-markdown-links.md) | Repository Markdown is checked by an opt-in package that reuses the core finding model | Accepted |
