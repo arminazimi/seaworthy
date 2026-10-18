@@ -87,3 +87,31 @@ export const a11yDuplicateId = check(meta("a11y.duplicate-id", "Page has the sam
   }
   return out;
 });
+
+const ID_REFERENCES = ["aria-labelledby", "aria-describedby", "aria-controls", "aria-owns", "aria-flowto", "aria-details", "aria-activedescendant", "aria-errormessage"] as const;
+
+export const a11yAriaReferences = check(meta("a11y.aria-references", "ARIA attribute points at an id that does not exist", "error", ["WCAG 1.3.1", "WCAG 4.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      for (const name of ID_REFERENCES) {
+        const raw = attr(element, name);
+        if (raw === undefined) continue;
+        const missing = raw.split(/\s+/).filter((id) => id !== "" && !page.ids.has(id));
+        if (missing.length === 0) continue;
+        const location = locate(page, element, name);
+        out.push({
+          message: `${name}="${raw.trim()}" on <${element.tagName}> points at ${missing.length === 1 ? "an id" : "ids"} that ${missing.length === 1 ? "does" : "do"} not exist on this page: ${missing.join(", ")}. Assistive technology ignores the reference.`,
+          location,
+          fix: {
+            kind: "manual",
+            summary: `Add an element with ${missing.length === 1 ? `id="${missing[0]}"` : "each missing id"}, or correct the reference to an id that exists on this page. For a name that is plain text, aria-label is simpler.`,
+            edits: [],
+          },
+          key: `${name}:${missing.join(" ")}:${element.tagName}`,
+        });
+      }
+    }
+  }
+  return out;
+});

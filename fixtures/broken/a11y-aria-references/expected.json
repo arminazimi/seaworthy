@@ -1,0 +1,8 @@
+{
+  "description": "A dialog named by an id that was renamed, a field described by hint-2 which does not exist (hint does), and a button that controls a missing menu. References to existing ids and empty values are fine.",
+  "findings": [
+    { "check": "a11y.aria-references", "file": "index.html", "line": 11, "column": 20 },
+    { "check": "a11y.aria-references", "file": "index.html", "line": 12, "column": 27 },
+    { "check": "a11y.aria-references", "file": "index.html", "line": 14, "column": 9 }
+  ]
+}

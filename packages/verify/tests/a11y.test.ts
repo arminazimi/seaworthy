@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yDuplicateId, a11yEmptyHeadings, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaReferences, a11yDuplicateId, a11yEmptyHeadings, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -59,4 +59,23 @@ test("a11y.duplicate-id reports every repeat after the first, per page", async (
   assert.match(result.findings[0]!.message, /id="a" is already used .* on line 4/);
   const keys = result.findings.map((f) => f.fingerprint);
   assert.equal(new Set(keys).size, 3, "each repeat has its own fingerprint");
+});
+
+test("a11y.aria-references reports ids that are not on the page and keeps the ones that are", async () => {
+  const body = [
+    '<h2 id="t">Title</h2>',
+    '<div aria-labelledby="t">ok</div>',
+    '<div aria-labelledby="t missing">partly</div>',
+    '<div aria-describedby="nope">no</div>',
+    '<button aria-controls="panel other">x</button>',
+    '<div aria-labelledby="">empty</div>',
+    '<div aria-labelledby="  t  ">spaces</div>',
+    '<a name="legacy"></a><div aria-details="legacy">named anchor</div>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yAriaReferences] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => [f.location.line, f.location.column]), [[6, 6], [7, 6], [8, 9]]);
+  assert.match(result.findings[0]!.message, /: missing\./);
+  assert.match(result.findings[2]!.message, /panel, other/);
+  assert.ok(result.findings.every((f) => f.severity === "error" && f.fix.kind === "manual"));
 });
