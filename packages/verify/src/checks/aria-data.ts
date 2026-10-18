@@ -30,12 +30,122 @@ export const ALLOWED_ROLES: Readonly<Record<string, ReadonlySet<string>>> = {
 
 /** The closest role name within two edits, for "did you mean" hints. */
 export function nearestRole(token: string): string | undefined {
-  let best: { role: string; distance: number } | undefined;
-  for (const role of ROLES) {
-    const distance = editDistance(token, role);
-    if (distance <= 2 && (!best || distance < best.distance)) best = { role, distance };
+  return nearest(token, ROLES);
+}
+
+function nearest(token: string, names: Iterable<string>): string | undefined {
+  let best: { name: string; distance: number } | undefined;
+  for (const name of names) {
+    const distance = editDistance(token, name);
+    if (distance <= 2 && (!best || distance < best.distance)) best = { name, distance };
   }
-  return best?.role;
+  return best?.name;
+}
+
+/**
+ * What a WAI-ARIA 1.2 attribute accepts: true/false ("bool"), true/false/undefined ("bool?"), true/false/mixed ("tristate"),
+ * one token ("token"), a list of tokens ("tokens"), a whole number with a minimum ("int"), any number ("number"),
+ * or text and id references, which are not validated here ("free").
+ */
+export type AriaValue =
+  | { kind: "bool" | "bool?" | "tristate" | "number" | "free" }
+  | { kind: "token" | "tokens"; values: readonly string[] }
+  | { kind: "int"; min: number };
+
+const bool: AriaValue = { kind: "bool" };
+const boolUndef: AriaValue = { kind: "bool?" };
+const tristate: AriaValue = { kind: "tristate" };
+const free: AriaValue = { kind: "free" };
+const number: AriaValue = { kind: "number" };
+const int = (min: number): AriaValue => ({ kind: "int", min });
+const token = (...values: string[]): AriaValue => ({ kind: "token", values });
+
+export const ARIA_ATTRIBUTES: Readonly<Record<string, AriaValue>> = {
+  "aria-activedescendant": free,
+  "aria-atomic": bool,
+  "aria-autocomplete": token("inline", "list", "both", "none"),
+  "aria-braillelabel": free,
+  "aria-brailleroledescription": free,
+  "aria-busy": bool,
+  "aria-checked": tristate,
+  "aria-colcount": int(-1),
+  "aria-colindex": int(1),
+  "aria-colindextext": free,
+  "aria-colspan": int(1),
+  "aria-controls": free,
+  "aria-current": token("page", "step", "location", "date", "time", "true", "false"),
+  "aria-describedby": free,
+  "aria-description": free,
+  "aria-details": free,
+  "aria-disabled": bool,
+  "aria-dropeffect": { kind: "tokens", values: ["copy", "execute", "link", "move", "none", "popup"] },
+  "aria-errormessage": free,
+  "aria-expanded": boolUndef,
+  "aria-flowto": free,
+  "aria-grabbed": boolUndef,
+  "aria-haspopup": token("false", "true", "menu", "listbox", "tree", "grid", "dialog"),
+  "aria-hidden": boolUndef,
+  "aria-invalid": token("grammar", "false", "spelling", "true"),
+  "aria-keyshortcuts": free,
+  "aria-label": free,
+  "aria-labelledby": free,
+  "aria-level": int(1),
+  "aria-live": token("off", "polite", "assertive"),
+  "aria-modal": bool,
+  "aria-multiline": bool,
+  "aria-multiselectable": bool,
+  "aria-orientation": token("horizontal", "vertical", "undefined"),
+  "aria-owns": free,
+  "aria-placeholder": free,
+  "aria-posinset": int(1),
+  "aria-pressed": tristate,
+  "aria-readonly": bool,
+  "aria-relevant": { kind: "tokens", values: ["additions", "removals", "text", "all"] },
+  "aria-required": bool,
+  "aria-roledescription": free,
+  "aria-rowcount": int(-1),
+  "aria-rowindex": int(1),
+  "aria-rowindextext": free,
+  "aria-rowspan": int(0),
+  "aria-selected": boolUndef,
+  "aria-setsize": int(-1),
+  "aria-sort": token("ascending", "descending", "none", "other"),
+  "aria-valuemax": number,
+  "aria-valuemin": number,
+  "aria-valuenow": number,
+  "aria-valuetext": free,
+};
+
+/** The closest ARIA attribute name within two edits. */
+export function nearestAriaAttribute(name: string): string | undefined {
+  return nearest(name, Object.keys(ARIA_ATTRIBUTES));
+}
+
+/** Why a value is not valid for an attribute, or undefined when it is valid. Tokens compare without regard to case. */
+export function ariaValueProblem(value: AriaValue, raw: string): { expected: string; caseOnly: boolean } | undefined {
+  const text = raw.trim();
+  const lower = text.toLowerCase();
+  const answer = (expected: string, allowed: readonly string[]) => ({ expected, caseOnly: allowed.includes(lower) });
+  switch (value.kind) {
+    case "free":
+      return undefined;
+    case "bool":
+      return text === "true" || text === "false" ? undefined : answer('"true" or "false"', ["true", "false"]);
+    case "bool?":
+      return ["true", "false", "undefined"].includes(text) ? undefined : answer('"true", "false", or "undefined"', ["true", "false", "undefined"]);
+    case "tristate":
+      return ["true", "false", "mixed", "undefined"].includes(text) ? undefined : answer('"true", "false", "mixed", or "undefined"', ["true", "false", "mixed", "undefined"]);
+    case "token":
+      return value.values.includes(text) ? undefined : answer(value.values.map((v) => `"${v}"`).join(", "), value.values);
+    case "tokens": {
+      const parts = text.split(/\s+/).filter(Boolean);
+      return parts.length > 0 && parts.every((p) => value.values.includes(p)) ? undefined : { expected: `a list of ${value.values.map((v) => `"${v}"`).join(", ")}`, caseOnly: false };
+    }
+    case "int":
+      return /^[+-]?\d+$/.test(text) && Number.parseInt(text, 10) >= value.min ? undefined : { expected: `a whole number of ${value.min} or more`, caseOnly: false };
+    case "number":
+      return /^[+-]?(\d+\.?\d*|\.\d+)$/.test(text) ? undefined : { expected: "a number", caseOnly: false };
+  }
 }
 
 function editDistance(a: string, b: string): number {

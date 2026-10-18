@@ -2,8 +2,8 @@
 
 import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import { ABSTRACT_ROLES, ALLOWED_ROLES, ROLES, nearestRole } from "./aria-data.js";
-import { ancestors, check, descendants, isHidden, locate, meta, pagesOf, replaceAttribute, textOf } from "./helpers.js";
+import { ABSTRACT_ROLES, ALLOWED_ROLES, ARIA_ATTRIBUTES, ROLES, ariaValueProblem, nearestAriaAttribute, nearestRole } from "./aria-data.js";
+import { ancestors, check, descendants, isHidden, locate, meta, pagesOf, renameAttribute, replaceAttribute, textOf } from "./helpers.js";
 
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -197,6 +197,48 @@ export const a11yAriaRoles = check(meta("a11y.aria-roles", "role value is unknow
             edits: [],
           },
           key: `${element.tagName}:${used}`,
+        });
+      }
+    }
+  }
+  return out;
+});
+
+export const a11yAriaAttributes = check(meta("a11y.aria-attributes", "ARIA attribute does not exist or has an invalid value", "error", ["WCAG 4.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      for (const { name, value } of element.attrs) {
+        if (!name.startsWith("aria-")) continue;
+        const location = locate(page, element, name);
+        const spec = ARIA_ATTRIBUTES[name];
+        if (!spec) {
+          const guess = nearestAriaAttribute(name);
+          const edit = guess ? renameAttribute(page, element, name, guess) : undefined;
+          out.push({
+            message: `${name} is not a WAI-ARIA attribute, so assistive technology ignores it${guess ? `. Did you mean ${guess}?` : "."}`,
+            location,
+            fix: {
+              kind: edit ? "edit" : "manual",
+              summary: guess ? `Rename it to ${guess}, or remove it.` : "Use an aria-* attribute from WAI-ARIA 1.2, or remove it.",
+              edits: edit ? [edit] : [],
+            },
+            key: `${element.tagName}:${name}`,
+          });
+          continue;
+        }
+        const problem = ariaValueProblem(spec, value);
+        if (!problem) continue;
+        const lowered = problem.caseOnly ? replaceAttribute(page, element, name, value.trim().toLowerCase()) : undefined;
+        out.push({
+          message: `${name}="${value}" is not a valid value. It must be ${problem.expected}.`,
+          location,
+          fix: {
+            kind: lowered ? "edit" : "manual",
+            summary: `Set ${name} to ${problem.expected}.`,
+            edits: lowered ? [lowered] : [],
+          },
+          key: `${element.tagName}:${name}:${value.trim()}`,
         });
       }
     }
