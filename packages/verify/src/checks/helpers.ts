@@ -118,6 +118,24 @@ export function ancestors(element: HtmlElement): HtmlElement[] {
   return out;
 }
 
+/** Every element below this one, in document order. */
+export function descendants(element: HtmlElement): HtmlElement[] {
+  const out: HtmlElement[] = [];
+  const visit = (node: { childNodes?: unknown[] }): void => {
+    for (const child of (node.childNodes ?? []) as (HtmlElement & { childNodes?: unknown[] })[]) {
+      if ("tagName" in child) out.push(child);
+      visit(child);
+    }
+  };
+  visit(element);
+  return out;
+}
+
+/** True when the element, or anything inside it, is hidden from people and assistive technology. */
+export function isHidden(element: HtmlElement): boolean {
+  return [element, ...ancestors(element)].some((e) => attr(e, "hidden") !== undefined || attr(e, "aria-hidden")?.trim().toLowerCase() === "true");
+}
+
 /** The exact source text of one attribute of an element (for example `src="/a.png"`) and the line it is on. */
 function rawAttribute(page: Page, element: HtmlElement, name: string): { text: string; line: number } | undefined {
   const at = element.sourceCodeLocation?.attrs?.[name];
