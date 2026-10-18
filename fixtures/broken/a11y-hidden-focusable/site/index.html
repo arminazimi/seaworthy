@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Hidden but focusable</title>
+</head>
+<body>
+<main>
+<h1>Hidden but focusable</h1>
+<div class="menu" aria-hidden="true"><a href="/pricing">Pricing</a></div>
+<span class="icon" aria-hidden="true"></span>
+<button class="x" aria-hidden="true">Close</button>
+<div class="carousel" aria-hidden="true"><a href="/a">One</a> <button>Two</button></div>
+<div class="closed" aria-hidden="true"><a href="/b" tabindex="-1">Out of the tab order</a></div>
+<div class="off" aria-hidden="true" hidden><a href="/c">Unreachable</a></div>
+<div class="plain" aria-hidden="true"><button disabled>Disabled</button> <a>No href</a></div>
+</main>
+</body>
+</html>

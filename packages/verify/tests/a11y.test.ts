@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaReferences, a11yDuplicateId, a11yEmptyHeadings, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaReferences, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -77,5 +77,25 @@ test("a11y.aria-references reports ids that are not on the page and keeps the on
   assert.deepEqual(result.findings.map((f) => [f.location.line, f.location.column]), [[6, 6], [7, 6], [8, 9]]);
   assert.match(result.findings[0]!.message, /: missing\./);
   assert.match(result.findings[2]!.message, /panel, other/);
+  assert.ok(result.findings.every((f) => f.severity === "error" && f.fix.kind === "manual"));
+});
+
+test("a11y.hidden-focusable reports aria-hidden content a keyboard can still reach", async () => {
+  const body = [
+    '<div aria-hidden="true"><a href="/x">link</a></div>',
+    '<button aria-hidden="true">self</button>',
+    '<div aria-hidden="true"><a href="/x">a</a><button>b</button></div>',
+    '<div aria-hidden="true"><a href="/x" tabindex="-1">out of the tab order</a></div>',
+    '<div aria-hidden="true"><button disabled>off</button><a>no href</a><span>text</span></div>',
+    '<div aria-hidden="true"><div aria-hidden="true"><input></div></div>',
+    '<div aria-hidden="true"><div hidden><a href="/x">hidden</a></div></div>',
+    '<span aria-hidden="true" tabindex="0">icon</span>',
+    '<div aria-hidden="false"><a href="/x">visible</a></div>',
+    '<div aria-hidden="true"><input type="hidden"></div>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yHiddenFocusable] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 5, 6, 9, 11]);
+  assert.match(result.findings[2]!.message, /hides 2 focusable elements/);
   assert.ok(result.findings.every((f) => f.severity === "error" && f.fix.kind === "manual"));
 });
