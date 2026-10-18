@@ -1,0 +1,7 @@
+{
+  "description": "The card has no defaultOutputModes, and the skill search has no tags. The first skill and the rest of the card are complete.",
+  "findings": [
+    { "check": "readability.a2a-card", "file": ".well-known/agent-card.json", "line": 1, "column": 1 },
+    { "check": "readability.a2a-card", "file": ".well-known/agent-card.json", "line": 10, "column": 13 }
+  ]
+}
