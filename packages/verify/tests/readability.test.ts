@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
-import { readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
+import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -283,4 +283,26 @@ test("readability.mcp-card reports a card that does not parse or says too little
   assert.match(findings[0]!.message, /still a draft/);
   const many = await run({ ".well-known/mcp/server-cards.json": JSON.stringify({ cards: [{ serverInfo: { name: "a", version: "1" }, url: "https://x.test/a" }, { transport: "stdio" }] }) }, [readabilityMcpCard]);
   assert.deepEqual(many.map((f) => /card 2/.test(f.message)), [true]);
+});
+
+const A2A = ".well-known/agent-card.json";
+const goodCard = { name: "Docs agent", description: "Answers questions about the docs.", version: "1.0.0", supportedInterfaces: [{ url: "https://x.test/a2a", protocolBinding: "JSONRPC" }], capabilities: { streaming: true }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills: [{ id: "answer", name: "Answer", description: "Answers.", tags: ["docs"] }] };
+
+test("readability.a2a-card accepts a 1.0 card and the older single-url form", async () => {
+  const { supportedInterfaces: _dropped, ...older } = goodCard;
+  assert.deepEqual(await run({ [A2A]: JSON.stringify(goodCard) }, [readabilityA2aCard]), []);
+  assert.deepEqual(await run({ [A2A]: JSON.stringify({ ...older, url: "https://x.test/a2a" }) }, [readabilityA2aCard]), []);
+  assert.deepEqual(await run({}, [readabilityA2aCard]), []);
+});
+
+test("readability.a2a-card reports each missing required field and each incomplete skill", async () => {
+  assert.match((await run({ [A2A]: "{" }, [readabilityA2aCard]))[0]!.message, /does not parse/);
+  assert.match((await run({ [A2A]: "[]" }, [readabilityA2aCard]))[0]!.message, /not a JSON object/);
+  const card = { name: "Docs agent", capabilities: [], defaultInputModes: [], skills: [{ id: "answer", name: "Answer" }, "x"] };
+  const messages = (await run({ [A2A]: JSON.stringify(card, null, 2) }, [readabilityA2aCard])).map((f) => f.message);
+  for (const expected of [/no description/, /no version/, /neither "supportedInterfaces" nor a "url"/, /no "capabilities" object/, /no "defaultOutputModes" list/, /Skill "answer" has no description/, /Skill "answer" has no "tags" list/, /Skill 2 is not an object/]) {
+    assert.ok(messages.some((m) => expected.test(m)), `missing a message matching ${expected}`);
+  }
+  const empty = (await run({ [A2A]: JSON.stringify({ ...goodCard, supportedInterfaces: [] }) }, [readabilityA2aCard])).map((f) => f.message);
+  assert.match(empty[0]!, /cannot be empty/);
 });

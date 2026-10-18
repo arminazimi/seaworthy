@@ -1,0 +1,12 @@
+{
+  "name": "Docs agent",
+  "description": "Answers questions about the documentation.",
+  "version": "1.0.0",
+  "supportedInterfaces": [{ "url": "https://example.test/a2a", "protocolBinding": "JSONRPC" }],
+  "capabilities": { "streaming": true },
+  "defaultInputModes": ["text/plain"],
+  "skills": [
+    { "id": "answer", "name": "Answer", "description": "Answers questions.", "tags": ["docs"] },
+    { "id": "search", "name": "Search", "description": "Searches the docs." }
+  ]
+}

@@ -530,3 +530,61 @@ export const readabilityMcpCard = check(meta("readability.mcp-card", "MCP Server
   }
   return out;
 });
+
+const A2A_PATH = "/.well-known/agent-card.json";
+const A2A_TEXT_FIELDS = ["name", "description", "version"] as const;
+const A2A_LIST_FIELDS = ["defaultInputModes", "defaultOutputModes", "skills"] as const;
+
+export const readabilityA2aCard = check(meta("readability.a2a-card", "A2A agent card is invalid or missing required fields", "warning", ["A2A protocol 1.0"], ["files"]), (ctx) => {
+  const text = siteText(ctx.site, A2A_PATH);
+  if (text === undefined) return [];
+  const file = A2A_PATH.slice(1);
+  const out: FindingDraft[] = [];
+  const fail = (message: string, location: { file: string; line?: number; column?: number }, summary: string, key: string): void => {
+    out.push({ message, location, fix: { kind: "manual", summary, edits: [] }, key });
+  };
+  const parsed = parseJson(text);
+  if (!parsed.ok) {
+    fail(`The A2A agent card does not parse: ${parsed.message}.`, { file, ...(parsed.line ? { line: parsed.line, column: parsed.column ?? 1 } : {}) }, "Fix the JSON syntax.", "parse");
+    return out;
+  }
+  const card = parsed.value;
+  const top = { file, line: 1, column: 1 };
+  if (!isObject(card)) {
+    fail("The A2A agent card is not a JSON object.", top, "The card is an object with name, description, version, supportedInterfaces, capabilities, input and output modes, and skills.", "shape");
+    return out;
+  }
+  for (const field of A2A_TEXT_FIELDS) {
+    if (typeof card[field] !== "string" || card[field] === "") fail(`The A2A agent card has no ${field}.`, top, `Add "${field}" as non-empty text.`, `missing:${field}`);
+  }
+  // 1.0 lists interfaces; 0.3 used a single url. Accept either.
+  const interfaces = card["supportedInterfaces"];
+  if (Array.isArray(interfaces)) {
+    if (interfaces.length === 0 || !interfaces.every((i) => isObject(i) && typeof i["url"] === "string" && i["url"] !== "")) {
+      fail('Every entry of "supportedInterfaces" needs a "url", and the list cannot be empty.', top, 'Write "supportedInterfaces": [ { "url": "https://example.com/a2a", "protocolBinding": "JSONRPC" } ].', "interfaces");
+    }
+  } else if (typeof card["url"] !== "string" || card["url"] === "") {
+    fail('The A2A agent card does not say where the agent is reached: it has neither "supportedInterfaces" nor a "url".', top, 'Add "supportedInterfaces" with at least one interface that has a "url".', "no-endpoint");
+  }
+  if (!isObject(card["capabilities"])) fail('The A2A agent card has no "capabilities" object.', top, 'Add "capabilities": {}, with streaming and pushNotifications set if you support them.', "missing:capabilities");
+  for (const field of A2A_LIST_FIELDS) {
+    if (!Array.isArray(card[field])) fail(`The A2A agent card has no "${field}" list.`, top, `Add "${field}" as a list.`, `missing:${field}`);
+  }
+  if (Array.isArray(card["skills"])) {
+    let cursor = 0;
+    (card["skills"] as unknown[]).forEach((skill, i) => {
+      if (!isObject(skill)) {
+        fail(`Skill ${i + 1} is not an object.`, top, "A skill has id, name, description, and tags.", `skill:${i}`);
+        return;
+      }
+      const label = typeof skill["id"] === "string" ? skill["id"] : `#${i + 1}`;
+      const where = typeof skill["id"] === "string" ? locateJsonString(file, text, skill["id"], cursor) : top;
+      if (typeof skill["id"] === "string") cursor = text.indexOf(JSON.stringify(skill["id"]), cursor) + 1;
+      for (const field of ["id", "name", "description"]) {
+        if (typeof skill[field] !== "string" || skill[field] === "") fail(`Skill "${label}" has no ${field}.`, where, `Add "${field}" as non-empty text.`, `skill:${label}:${field}`);
+      }
+      if (!Array.isArray(skill["tags"])) fail(`Skill "${label}" has no "tags" list.`, where, 'Add "tags": [ "keyword" ].', `skill:${label}:tags`);
+    });
+  }
+  return out;
+});
