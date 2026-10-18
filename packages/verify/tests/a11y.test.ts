@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yRadioGroups, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yMediaCaptions, a11yRadioGroups, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -253,4 +253,24 @@ test("a11y.radio-groups needs a fieldset legend or a labelled group around contr
   assert.deepEqual(result.findings.map((f) => f.location.line), [4, 6, 8, 12]);
   assert.match(result.findings[0]!.message, /2 radio buttons named "size"/);
   assert.match(result.findings[1]!.message, /2 checkboxes named "topic"/);
+});
+
+test("a11y.media-captions wants captions on sound video and no autoplay with sound", async () => {
+  const body = [
+    '<video src="/a.mp4" controls></video>',
+    '<video controls><source src="/b.mp4"><track kind="captions" src="/b.vtt" srclang="en"></video>',
+    '<video controls><track kind="subtitles" src="/b.vtt" srclang="fr"></video>',
+    '<video controls><track kind="descriptions" src="/d.vtt"></video>',
+    '<video controls><track kind="captions"></video>',
+    '<video src="/loop.mp4" autoplay muted loop playsinline></video>',
+    '<video src="/e.mp4" autoplay controls><track kind="captions" src="/e.vtt"></video>',
+    '<audio src="/a.mp3" autoplay></audio>',
+    '<audio src="/a.mp3" controls></audio>',
+    '<video src="/h.mp4" hidden></video>',
+  ].join("\n");
+  const result = await runChecks({ site: buildSite(makeSite({ "index.html": PAGE(body) })), checks: [a11yMediaCaptions] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => f.location.line), [4, 7, 8, 10, 11]);
+  assert.match(result.findings[3]!.message, /starts playing on its own/);
+  assert.ok(result.findings.every((f) => f.severity === "error" && f.fix.kind === "manual"));
 });
