@@ -4,7 +4,7 @@ import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { ABSTRACT_ROLES, ALLOWED_ROLES, ARIA_ATTRIBUTES, ROLES, ariaValueProblem, nearest, nearestAriaAttribute, nearestRole } from "./aria-data.js";
 import { AUTOFILL_FIELDS, autofillProblem } from "./autofill-data.js";
-import { ancestors, check, descendants, isHidden, locate, meta, pagesOf, renameAttribute, replaceAttribute, textOf } from "./helpers.js";
+import { ancestors, check, descendants, documentLocation, firstElement, isHidden, isRedirectStub, locate, meta, pagesOf, renameAttribute, replaceAttribute, textOf } from "./helpers.js";
 
 export const a11yTabindex = check(meta("a11y.tabindex", "Element has a positive tabindex, which breaks the focus order", "warning", ["WCAG 2.4.3"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -366,3 +366,44 @@ function ancestorsBefore(element: Parameters<typeof ancestors>[0], stop: Paramet
   const at = chain.indexOf(stop);
   return at === -1 ? chain : chain.slice(0, at);
 }
+
+/** The page's main landmarks that people can reach: `<main>` or role="main", not hidden. */
+function mainLandmarks(page: ReturnType<typeof pagesOf>[number]) {
+  return page.elements.filter((e) => (e.tagName === "main" || attr(e, "role")?.trim().toLowerCase() === "main") && !isHidden(e));
+}
+
+export const a11yLandmarks = check(meta("a11y.landmarks", "Page does not have exactly one main landmark", "warning", ["WCAG 1.3.1", "WCAG 2.4.1"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const body = firstElement(page, "body");
+    if (!body || !textOf(body)) continue; // nothing to navigate
+    const mains = mainLandmarks(page);
+    if (mains.length === 0) {
+      out.push({
+        message: "The page has no <main> landmark. Screen reader users cannot jump straight to the content, and have to move through the header and navigation first.",
+        location: documentLocation(page),
+        fix: {
+          kind: "manual",
+          summary: "Wrap the page's primary content, the part that differs from page to page, in a single <main> element. Keep the site header, navigation, and footer outside it.",
+          edits: [],
+        },
+        key: "missing",
+      });
+      continue;
+    }
+    mains.slice(1).forEach((extra, i) => {
+      out.push({
+        message: `The page has ${mains.length} visible main landmarks. A page has one main content area; the others make the landmark list ambiguous.`,
+        location: locate(page, extra),
+        fix: {
+          kind: "manual",
+          summary: "Keep one <main>. Change the others to <div> or <section>, or hide inactive ones with the hidden attribute (HTML allows several <main> elements only when all but one are hidden).",
+          edits: [],
+        },
+        key: `extra:${i + 2}`,
+      });
+    });
+  }
+  return out;
+});

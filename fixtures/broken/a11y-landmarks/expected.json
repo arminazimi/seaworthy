@@ -1,0 +1,7 @@
+{
+  "description": "none.html has content but no main; two.html has two visible mains (the hidden third is an inactive view and does not count). A page with one main, a page using role=main, and a redirect stub are fine.",
+  "findings": [
+    { "check": "a11y.landmarks", "file": "none.html", "line": 3, "column": 1 },
+    { "check": "a11y.landmarks", "file": "two.html", "line": 9, "column": 1 }
+  ]
+}

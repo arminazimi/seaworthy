@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLangParts, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yLandmarks, a11yLangParts, a11yTableHeaders, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -216,4 +216,22 @@ test("a11y.table-headers flags data tables without header cells and headers that
   assert.match(result.findings[0]!.message, /2 rows and 2 columns/);
   assert.match(result.findings[1]!.message, /h3/);
   assert.match(result.findings[2]!.message, /^This table has 2 rows/, "the nested table is judged on its own cells");
+});
+
+test("a11y.landmarks wants one visible main on every page that has content", async () => {
+  const page = (body: string) => `<!doctype html>\n<html lang="en"><head><title>t</title></head>\n<body>\n${body}\n</body></html>\n`;
+  const site = makeSite({
+    "none.html": page("<h1>No main</h1>"),
+    "one.html": page("<main><h1>One</h1></main>"),
+    "role.html": page('<div role="main"><h1>Role</h1></div>'),
+    "two.html": page("<main><h1>One</h1></main>\n<main><h1>Two</h1></main>"),
+    "hidden.html": page("<main><h1>One</h1></main>\n<main hidden><h1>Inactive</h1></main>"),
+    "redirect.html": '<!doctype html><html lang="en"><head><title>r</title><meta http-equiv="refresh" content="0; url=/one.html"></head><body>Redirecting</body></html>',
+    "empty.html": page("   "),
+  });
+  const result = await runChecks({ site: buildSite(site), checks: [a11yLandmarks] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => [f.location.file, f.location.line]), [["none.html", 2], ["two.html", 5]]);
+  assert.match(result.findings[0]!.message, /no <main> landmark/);
+  assert.match(result.findings[1]!.message, /2 visible main landmarks/);
 });
