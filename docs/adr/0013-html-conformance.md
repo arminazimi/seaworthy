@@ -16,7 +16,7 @@ Questions:
 
 A throwaway prototype (not in the repository): `parse5` with `onParseError` and source positions, plus about 20 small rules over the tree and the source text. Compared with Nu Html Checker 26.10.12 (`vnu.jar`, OpenJDK 27) on two sets:
 
-- **A corpus of 48 small documents** written for this spike: one valid control, 44 with one mistake each, and 3 where the markup is odd but conforming (for example a `<tr>` directly in a `<table>`, `target="blank"`, a repeated `<h1>`). Nu reported errors in 36 of them, only warnings in 5, and nothing in 7.
+- **A corpus of 48 small documents** written for this spike: one valid control, 41 with one mistake each, and 6 where the markup is odd but Nu accepts it (for example a `<tr>` directly in a `<table>`, `target="blank"`, a repeated `<h1>`). Nu reported errors in 36 of the mistake documents and only warnings in the other 5.
 - **The 58 HTML pages in `fixtures/`**, which the rules were not written against.
 
 The rules were written after the corpus, from the HTML Standard. So the corpus number below overstates how well the rules would do on unseen mistakes; the second set is the better evidence.
@@ -43,7 +43,7 @@ The rules that closed the gap, by what they look at:
 
 | Measure | Result |
 | --- | --- |
-| Corpus: documents Nu accepts that the rules flag (the 7 clean ones) | 0 |
+| Corpus: documents Nu accepts that the rules flag (the control and the 6 odd-but-valid ones) | 0 |
 | Corpus: Nu errors missed by parse5 and rules together | 4 of 36: a `<td>` directly in `<tbody>`, an unknown attribute, invalid CSS in `style`, a `<caption>` after the table body |
 | Fixture pages: both flag | 10 |
 | Fixture pages: both report nothing | 38 |
