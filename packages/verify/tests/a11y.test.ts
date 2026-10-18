@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { a11yEmptyHeadings, a11yTabindex } from "../src/checks/a11y.js";
+import { a11yDuplicateId, a11yEmptyHeadings, a11yTabindex } from "../src/checks/a11y.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -45,4 +45,18 @@ test("a11y.empty-headings flags headings with no text, name, or labelled content
   assert.deepEqual(result.errors, []);
   assert.deepEqual(result.findings.map((f) => f.location.line), [4, 5, 6, 7, 10, 15]);
   assert.ok(result.findings.every((f) => f.severity === "warning" && f.fix.kind === "manual" && f.fix.edits.length === 0));
+});
+
+test("a11y.duplicate-id reports every repeat after the first, per page", async () => {
+  const page = (body: string) => PAGE(body);
+  const site = makeSite({
+    "index.html": page('<p id="a">1</p>\n<p id="b">2</p>\n<p id="a">3</p>\n<p id="a">4</p>\n<p id="">5</p>\n<p id="">6</p>\n<svg id="b"></svg>'),
+    "other.html": page('<p id="a">other page</p>'),
+  });
+  const result = await runChecks({ site: buildSite(site), checks: [a11yDuplicateId] });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.findings.map((f) => [f.location.file, f.location.line, f.location.column]), [["index.html", 6, 4], ["index.html", 7, 4], ["index.html", 10, 6]]);
+  assert.match(result.findings[0]!.message, /id="a" is already used .* on line 4/);
+  const keys = result.findings.map((f) => f.fingerprint);
+  assert.equal(new Set(keys).size, 3, "each repeat has its own fingerprint");
 });

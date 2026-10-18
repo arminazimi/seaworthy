@@ -58,3 +58,32 @@ export const a11yEmptyHeadings = check(meta("a11y.empty-headings", "Heading has 
   }
   return out;
 });
+
+export const a11yDuplicateId = check(meta("a11y.duplicate-id", "Page has the same id on more than one element", "warning", ["WCAG 1.3.1", "WCAG 4.1.2"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    const first = new Map<string, { line: number | undefined; count: number }>();
+    for (const element of page.elements) {
+      const id = attr(element, "id");
+      if (!id) continue;
+      const location = locate(page, element, "id");
+      const seen = first.get(id);
+      if (!seen) {
+        first.set(id, { line: location.line, count: 1 });
+        continue;
+      }
+      seen.count += 1;
+      out.push({
+        message: `id="${id}" is already used by another element${seen.line ? ` on line ${seen.line}` : ""}. Links to #${id}, <label for>, and aria-labelledby or aria-describedby reach only the first one.`,
+        location,
+        fix: {
+          kind: "manual",
+          summary: `Give each element a unique id. Rename this one and every reference to it (href="#${id}", for="${id}", aria-*="${id}").`,
+          edits: [],
+        },
+        key: `${id}:${seen.count}`,
+      });
+    }
+  }
+  return out;
+});
