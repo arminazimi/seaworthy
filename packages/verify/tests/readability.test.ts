@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
 
-import { readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
+import { readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "../src/checks/readability.js";
 import { runChecks } from "../src/engine.js";
 import { buildSite } from "../src/site.js";
 import { makeSite } from "./helpers.js";
@@ -264,4 +264,23 @@ test("readability.api-catalog reports non-JSON, a wrong shape, missing anchors a
   assert.ok(messages.some((m) => /"service-doc" must be an array/.test(m)));
   assert.ok(messages.some((m) => /\/gone\.json, which is not in the built site/.test(m)));
   assert.ok(messages.some((m) => /\/openapi\.json, which is not in the built site/.test(m)));
+});
+
+const CARD = ".well-known/mcp/server-card.json";
+
+test("readability.mcp-card accepts cards with serverInfo and any form of endpoint", async () => {
+  const withTransport = JSON.stringify({ serverInfo: { name: "docs", version: "1.0.0" }, transport: { type: "streamable-http", url: "https://x.test/mcp" } });
+  const withRemotes = JSON.stringify({ serverInfo: { name: "docs", version: "1.0.0" }, remotes: [{ type: "streamable-http", url: "https://x.test/mcp" }] });
+  assert.deepEqual(await run({ [CARD]: withTransport, ".well-known/mcp.json": withRemotes }, [readabilityMcpCard]), []);
+  assert.deepEqual(await run({}, [readabilityMcpCard]), []);
+});
+
+test("readability.mcp-card reports a card that does not parse or says too little, and says it is a draft", async () => {
+  assert.match((await run({ [CARD]: "{" }, [readabilityMcpCard]))[0]!.message, /does not parse/);
+  assert.match((await run({ [CARD]: "[1]" }, [readabilityMcpCard]))[0]!.message, /not a JSON object/);
+  const findings = await run({ [CARD]: JSON.stringify({ serverInfo: { name: "docs" }, capabilities: { tools: {} } }) }, [readabilityMcpCard]);
+  assert.deepEqual(findings.map((f) => f.message.replace(/ \(The MCP.*$/, "")), ["The MCP Server Card has no serverInfo.version.", "The MCP Server Card does not say where the server can be reached."]);
+  assert.match(findings[0]!.message, /still a draft/);
+  const many = await run({ ".well-known/mcp/server-cards.json": JSON.stringify({ cards: [{ serverInfo: { name: "a", version: "1" }, url: "https://x.test/a" }, { transport: "stdio" }] }) }, [readabilityMcpCard]);
+  assert.deepEqual(many.map((f) => /card 2/.test(f.message)), [true]);
 });

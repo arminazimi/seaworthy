@@ -1,0 +1,7 @@
+{
+  "description": "The card at /.well-known/mcp/server-card.json has no serverInfo.version and no endpoint. The card at /.well-known/mcp.json is complete.",
+  "findings": [
+    { "check": "readability.mcp-card", "file": ".well-known/mcp/server-card.json", "line": 1, "column": 1 },
+    { "check": "readability.mcp-card", "file": ".well-known/mcp/server-card.json", "line": 1, "column": 1 }
+  ]
+}

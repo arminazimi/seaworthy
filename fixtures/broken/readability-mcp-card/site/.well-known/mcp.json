@@ -1,0 +1,4 @@
+{
+  "serverInfo": { "name": "example-docs", "version": "1.0.0" },
+  "transport": { "type": "streamable-http", "url": "https://example.test/mcp" }
+}
