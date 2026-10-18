@@ -35,7 +35,7 @@ Two runs: this repository's own 72 Markdown files, and a seeded 4-file repositor
 | Problems reported | 0 |
 | Parse and check time (warm, M-series Mac) | 30 ms |
 
-Zero problems is the right answer here: the roadmap and docs links were already verified by hand while writing them, and the seeded repository shows the checker is not blind.
+Zero problems is plausible for a repository whose links were written with care, and the seeded repository below shows the checker is not blind. It is not proof that every link here is right; a second tool (lychee, in #212) is the cross-check.
 
 ### Seeded repository (30 links)
 
