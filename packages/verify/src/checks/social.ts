@@ -57,25 +57,23 @@ export const socialTwitterCard = check(meta("social.twitter-card", "Page has no 
     if (isRedirectStub(page)) continue;
     const tags = metaTags(page);
     const card = tags.get("twitter:card");
-    const hasAny = [...tags.keys()].some((key) => key.startsWith("twitter:"));
     if (!card || card.content === "") {
       const hasImage = (tags.get("twitter:image")?.content ?? "") !== "" || (tags.get("og:image")?.content ?? "") !== "";
-      const imageTag = '<meta name="twitter:image" content="https://example.com/card.png">';
-      const cardEdit = card ? replaceAttribute(page, card.element, "content", "summary_large_image") : insertInHead(page, `<meta name="twitter:card" content="summary_large_image">${hasImage ? "" : imageTag}`);
+      // The card type is safe to add automatically; an image needs a real address, so it stays manual.
+      const cardEdit = hasImage ? (card ? replaceAttribute(page, card.element, "content", "summary_large_image") : insertInHead(page, '<meta name="twitter:card" content="summary_large_image">')) : undefined;
       const edits: Edit[] = cardEdit ? [cardEdit] : [];
-      if (cardEdit && card && !hasImage) {
-        const inserted = insertInHead(page, imageTag);
-        if (inserted) edits.push(inserted);
-      }
+      const hasOtherTags = [...tags.keys()].some((key) => key.startsWith("twitter:") && key !== "twitter:card");
       out.push({
-        message: hasAny ? "The page has other Twitter tags but no twitter:card, so X ignores them." : "The page has no twitter:card, so X uses its default summary card.",
+        message: hasOtherTags ? "The page has other Twitter tags but no twitter:card, so X ignores them." : "The page has no twitter:card, so X uses its default summary card.",
         location: documentLocation(page),
-        severity: hasAny ? "warning" : "note",
+        severity: hasOtherTags ? "warning" : "note",
         fix: {
           kind: edits.length > 0 ? "edit" : "manual",
           summary: hasImage
-            ? 'Add <meta name="twitter:card" content="summary_large_image"> for a wide preview, or content="summary" for a square one.'
-            : 'Add a card type and an image: <meta name="twitter:card" content="summary_large_image"> and <meta name="twitter:image" content="https://example.com/card.png">.',
+            ? card
+              ? 'Set twitter:card to "summary_large_image" for a wide preview, or "summary" for a square one.'
+              : 'Add <meta name="twitter:card" content="summary_large_image"> for a wide preview, or content="summary" for a square one.'
+            : 'Add a card type and an image: <meta name="twitter:card" content="summary_large_image"> and <meta name="twitter:image" content="FULL_IMAGE_URL">, with the image\'s full public address in place of FULL_IMAGE_URL.',
           edits,
         },
         key: "twitter:card",
@@ -96,12 +94,11 @@ export const socialTwitterCard = check(meta("social.twitter-card", "Page has no 
     }
     const hasImage = (tags.get("twitter:image")?.content ?? "") !== "" || (tags.get("og:image")?.content ?? "") !== "";
     if ((type === "summary" || type === "summary_large_image") && !hasImage) {
-      const edit = insertInHead(page, '<meta name="twitter:image" content="https://example.com/card.png">');
       out.push({
         message: `The ${type} card has no image: add twitter:image, or og:image for X to fall back to.`,
         location: locate(page, card.element, "content"),
         severity: "warning",
-        fix: { kind: edit ? "edit" : "manual", summary: 'Add <meta name="twitter:image" content="https://example.com/card.png"> with the image\'s full public address.', edits: edit ? [edit] : [] },
+        fix: { kind: "manual", summary: 'Add <meta name="twitter:image" content="FULL_IMAGE_URL"> with the image\'s full public address in place of FULL_IMAGE_URL.', edits: [] },
         key: `twitter:card:image:${type}`,
       });
     }
