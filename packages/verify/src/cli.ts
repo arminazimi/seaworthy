@@ -3,6 +3,7 @@
 
 import { existsSync, mkdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 import { BaselineError, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
@@ -14,7 +15,7 @@ import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
 import type { Check, Report, Severity } from "./types.js";
 import { VERSION } from "./version.js";
 import { buildSite } from "./site.js";
-import { verifySite } from "./verify.js";
+import { type StageTiming, type Timings, verifySite } from "./verify.js";
 
 export const EXIT = {
   /** No findings at or above the failing severity. */
@@ -52,6 +53,7 @@ Options:
                        Report only findings in files that differ from a git ref (for sites that commit their output)
   --rendered           Run checks that need a browser
   --network            Run checks that make network requests
+  --timings            Time each stage and check, printed to stderr; the report is unchanged
   --help, -h           Print this help
   --version, -v        Print the version
 
@@ -89,12 +91,13 @@ interface Options {
   changedSince: string | undefined;
   rendered: boolean;
   network: boolean;
+  timings: boolean;
 }
 
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, timings: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -148,6 +151,9 @@ function parseOptions(args: readonly string[]): Options {
       case "--network":
         options.network = true;
         break;
+      case "--timings":
+        options.timings = true;
+        break;
       default:
         if (arg.startsWith("-")) throw new UsageError(`unknown option ${flag}`);
         if (options.dir !== undefined) throw new UsageError(`unexpected argument "${arg}"; verify takes one folder`);
@@ -165,6 +171,15 @@ export function rootLabel(cwd: string, folder: string): string {
   return rel.split("\\").join("/");
 }
 
+/** The `--timings` block: total wall time, then each stage, then each check. */
+export function formatTimings(totalMs: number, timings: Timings): string {
+  const ms = (value: number): string => `${value.toFixed(1)} ms`;
+  const lines = ["seaworthy: timings", `  total ${ms(totalMs)}`];
+  for (const stage of timings.stages) lines.push(`  stage ${stage.stage} ${ms(stage.ms)}`);
+  for (const check of timings.checks) lines.push(`  check ${check.check} ${ms(check.ms)}`);
+  return lines.join("\n") + "\n";
+}
+
 function failing(report: Report, failOn: Severity | "none"): boolean {
   if (failOn === "none") return false;
   return report.findings.some((f) => SEVERITY_ORDER[f.severity] <= SEVERITY_ORDER[failOn]);
@@ -174,6 +189,14 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const options = parseOptions(args);
   const cwd = env.cwd ?? process.cwd();
   const checks = env.checks ?? builtInChecks;
+
+  const collectTimings = options.timings;
+  const startedAt = collectTimings ? performance.now() : 0;
+  const stages: StageTiming[] = [];
+  const tick = (): number => (collectTimings ? performance.now() : 0);
+  const record = (stage: string, since: number): void => {
+    if (collectTimings) stages.push({ stage, ms: performance.now() - since });
+  };
 
   const { config, file: configFile } = loadConfig(cwd, options.config, checks.map((c) => c.meta.id));
   if (options.updateBaseline !== undefined && options.baseline !== undefined) throw new UsageError("use --baseline or --update-baseline, not both");
@@ -189,17 +212,23 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
 
   const label = rootLabel(cwd, folder);
+  const siteStarted = tick();
   const site = buildSite(folder, config.basePath === undefined ? {} : { basePath: config.basePath });
+  record("site", siteStarted);
   let saveCache: (() => void) | undefined;
   let changed: Set<string> | undefined;
-  if (options.changedSince !== undefined) changed = changedSinceRef(folder, options.changedSince).files;
-  else if (options.changed) {
-    const result = changedSinceLastRun(site, cwd, label);
-    changed = result.changed.files;
-    saveCache = result.save;
+  if (options.changedSince !== undefined || options.changed) {
+    const changedStarted = tick();
+    if (options.changedSince !== undefined) changed = changedSinceRef(folder, options.changedSince).files;
+    else {
+      const result = changedSinceLastRun(site, cwd, label);
+      changed = result.changed.files;
+      saveCache = result.save;
+    }
+    record("changed", changedStarted);
   }
 
-  const { report, unbaselined } = await verifySite({
+  const { report, unbaselined, timings: runTimings } = await verifySite({
     folder,
     site,
     ...(changed ? { changed } : {}),
@@ -210,12 +239,14 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
     rendered: options.rendered || config.rendered === true,
     network: options.network || config.network === true,
     ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
+    ...(collectTimings ? { timings: true } : {}),
   });
+  const timingText = (): string => (collectTimings ? formatTimings(performance.now() - startedAt, { stages: [...stages, ...(runTimings?.stages ?? [])], checks: runTimings?.checks ?? [] }) : "");
 
   if (options.updateBaseline !== undefined) {
     const baseline = createBaseline(unbaselined);
     writeBaseline(resolve(cwd, options.updateBaseline), baseline);
-    return { code: report.errors.length > 0 ? EXIT.internal : EXIT.ok, stdout: `seaworthy: baseline written to ${options.updateBaseline} (${unbaselined.length} finding${unbaselined.length === 1 ? "" : "s"} in ${baseline.entries.length} entr${baseline.entries.length === 1 ? "y" : "ies"})\n`, stderr: report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; the baseline may be incomplete\n` : "" };
+    return { code: report.errors.length > 0 ? EXIT.internal : EXIT.ok, stdout: `seaworthy: baseline written to ${options.updateBaseline} (${unbaselined.length} finding${unbaselined.length === 1 ? "" : "s"} in ${baseline.entries.length} entr${baseline.entries.length === 1 ? "y" : "ies"})\n`, stderr: (report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; the baseline may be incomplete\n` : "") + timingText() };
   }
 
   saveCache?.();
@@ -232,7 +263,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   }
   const failOn = options.failOn ?? config.failOn ?? "error";
   const code = report.errors.length > 0 ? EXIT.internal : failing(report, failOn) ? EXIT.findings : EXIT.ok;
-  return { code, stdout, stderr: report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; see the report\n` : "" };
+  return { code, stdout, stderr: (report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; see the report\n` : "") + timingText() };
 }
 
 export async function run(argv: readonly string[], env: CliEnvironment = {}): Promise<CliResult> {
