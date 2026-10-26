@@ -190,11 +190,12 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const cwd = env.cwd ?? process.cwd();
   const checks = env.checks ?? builtInChecks;
 
-  const startedAt = options.timings ? performance.now() : 0;
+  const collectTimings = options.timings;
+  const startedAt = collectTimings ? performance.now() : 0;
   const stages: StageTiming[] = [];
-  const tick = (): number => (options.timings ? performance.now() : 0);
+  const tick = (): number => (collectTimings ? performance.now() : 0);
   const record = (stage: string, since: number): void => {
-    if (options.timings) stages.push({ stage, ms: performance.now() - since });
+    if (collectTimings) stages.push({ stage, ms: performance.now() - since });
   };
 
   const { config, file: configFile } = loadConfig(cwd, options.config, checks.map((c) => c.meta.id));
@@ -238,9 +239,9 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
     rendered: options.rendered || config.rendered === true,
     network: options.network || config.network === true,
     ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
-    ...(options.timings ? { timings: true } : {}),
+    ...(collectTimings ? { timings: true } : {}),
   });
-  const timingText = (): string => (options.timings ? formatTimings(performance.now() - startedAt, { stages: [...stages, ...(runTimings?.stages ?? [])], checks: runTimings?.checks ?? [] }) : "");
+  const timingText = (): string => (collectTimings ? formatTimings(performance.now() - startedAt, { stages: [...stages, ...(runTimings?.stages ?? [])], checks: runTimings?.checks ?? [] }) : "");
 
   if (options.updateBaseline !== undefined) {
     const baseline = createBaseline(unbaselined);

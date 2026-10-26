@@ -62,9 +62,10 @@ export interface VerifyResult {
 export async function verifySite(options: VerifyOptions): Promise<VerifyResult> {
   const config: Config = options.config ?? { checks: {}, ignore: [], suppressions: [] };
   const now = options.now ?? new Date();
+  const collectTimings = options.timings === true;
   const stages: StageTiming[] = [];
   const measure = async <T>(stage: string, work: () => T | Promise<T>): Promise<T> => {
-    if (options.timings !== true) return await work();
+    if (!collectTimings) return await work();
     const startedAt = performance.now();
     const value = await work();
     stages.push({ stage, ms: performance.now() - startedAt });
@@ -84,7 +85,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       options: resolved.options,
       severity: resolved.severity,
       ...(options.changed ? { changed: options.changed } : {}),
-      ...(options.timings === true ? { timings: true } : {}),
+      ...(collectTimings ? { timings: true } : {}),
     }),
   );
 
@@ -121,5 +122,5 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       errors: run.errors,
     });
   });
-  return { report, site, unbaselined, ...(options.timings === true ? { timings: { stages, checks: run.timings ?? [] } } : {}) };
+  return { report, site, unbaselined, ...(collectTimings ? { timings: { stages, checks: run.timings ?? [] } } : {}) };
 }

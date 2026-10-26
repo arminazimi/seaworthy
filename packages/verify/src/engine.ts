@@ -96,11 +96,12 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
     else runnable.push(check);
   }
 
+  const collectTimings = options.timings === true;
   const signal = options.signal ?? new AbortController().signal;
   const results = await Promise.all(
     runnable.map(async (check) => {
-      const startedAt = options.timings ? performance.now() : 0;
-      const ms = (): number => (options.timings ? performance.now() - startedAt : 0);
+      const startedAt = collectTimings ? performance.now() : 0;
+      const ms = (): number => (collectTimings ? performance.now() - startedAt : 0);
       try {
         const severity = options.severity?.[check.meta.id] ?? check.meta.severity;
         const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal, ...(options.changed ? { changed: options.changed } : {}) }));
@@ -117,10 +118,10 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
   for (const result of results) {
     if ("error" in result) errors.push(result.error);
     else findings.push(...result.findings);
-    if (options.timings) timings.push({ check: result.check, ms: result.ms });
+    if (collectTimings) timings.push({ check: result.check, ms: result.ms });
   }
   skipped.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
   errors.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
   timings.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
-  return { findings, skipped, errors, ...(options.timings ? { timings } : {}) };
+  return { findings, skipped, errors, ...(collectTimings ? { timings } : {}) };
 }
