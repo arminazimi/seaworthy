@@ -1,0 +1,47 @@
+{
+  "description": "Delayed redirects and reloads are reported, including mixed-case attributes, extra whitespace, comma and space separators, and bare URLs. An immediate (0 second) refresh, a missing or malformed content value, and other meta tags are not.",
+  "findings": [
+    {
+      "check": "html.meta-refresh",
+      "file": "casing.html",
+      "line": 4,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "delay.html",
+      "line": 5,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "reload.html",
+      "line": 5,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "separators.html",
+      "line": 5,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "separators.html",
+      "line": 6,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "separators.html",
+      "line": 7,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "separators.html",
+      "line": 8,
+      "column": 30
+    }
+  ]
+}

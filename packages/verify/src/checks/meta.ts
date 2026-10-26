@@ -6,6 +6,34 @@ import { check, documentLocation, firstElement, insertInHead, isRedirectStub, lo
 
 const LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
+// The HTML refresh algorithm: digits, then an optional `;`, `,`, or whitespace separator, then an optional URL.
+// `url=` before the URL is only required for conforming markup; without it the whole remainder is the URL.
+const ASCII_WHITESPACE = /^[\t\n\f\r ]+/;
+
+/** The delay in seconds from a refresh content value a browser would act on, with its optional URL. */
+function refreshOf(content: string): { delay: number; url: string } | undefined {
+  const input = content.replace(ASCII_WHITESPACE, "");
+  const digits = /^\d+/.exec(input);
+  if (!digits) return undefined;
+  const delay = Number(digits[0]);
+  let rest = input.slice(digits[0].length);
+
+  if (rest !== "") {
+    const first = rest[0];
+    if (first === ";" || first === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
+    else if (ASCII_WHITESPACE.test(rest)) {
+      rest = rest.replace(ASCII_WHITESPACE, "");
+      if (rest[0] === ";" || rest[0] === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
+    } else return undefined;
+  }
+
+  let url = rest.replace(/[\t\n\f\r ]+$/, "").replace(/^url[\t\n\f\r ]*=/i, "").replace(ASCII_WHITESPACE, "");
+  if ((url.startsWith("'") && url.endsWith("'")) || (url.startsWith('"') && url.endsWith('"'))) url = url.slice(1, -1);
+  url = url.replace(ASCII_WHITESPACE, "").replace(/[\t\n\f\r ]+$/, "");
+  if (/^javascript:/i.test(url)) return undefined;
+  return { delay, url };
+}
+
 export const metaTitle = check(meta("meta.title", "Page has no title", "error", ["WCAG 2.4.2"]), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
@@ -111,6 +139,27 @@ export const metaCanonical = check(meta("meta.canonical", "Page has no usable ca
         severity: "warning",
         fix: { kind: "manual", summary: "Use the full public URL, starting with https://. Search engines ignore relative canonical links.", edits: [] },
         key: "canonical-relative",
+      });
+    }
+  }
+  return out;
+});
+
+export const htmlMetaRefresh = check(meta("html.meta-refresh", "Page moves itself after a delay", "warning", ["WCAG 2.2.1"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (element.tagName !== "meta" || (attr(element, "http-equiv") ?? "").trim().toLowerCase() !== "refresh") continue;
+      const content = attr(element, "content") ?? "";
+      const refresh = refreshOf(content);
+      if (!refresh || refresh.delay === 0) continue;
+      const seconds = refresh.delay === 1 ? "1 second" : `${refresh.delay} seconds`;
+      const action = refresh.url === "" ? "reloads itself" : `redirects to ${refresh.url}`;
+      out.push({
+        message: `The page ${action} after ${seconds}, before people can read it.`,
+        location: locate(page, element, "content"),
+        fix: { kind: "manual", summary: 'Remove the timed refresh and link to the destination so people can choose when to move. If this page only redirects, use an immediate redirect (content="0; url=...") or a server-side redirect.', edits: [] },
+        key: `refresh:${content.trim()}`,
       });
     }
   }
