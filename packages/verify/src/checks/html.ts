@@ -1,11 +1,16 @@
-// html.obsolete: elements and presentational attributes the HTML Standard no longer allows.
-// The rules and replacements live in html-data.ts; this file maps them to findings with exact positions.
+// html.*: document-level HTML conformance that the parsed page reveals.
+// html.obsolete rules and replacements live in html-data.ts.
 
+import type { HtmlElement, Page } from "../site.js";
+import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { OBSOLETE_ATTRIBUTES, OBSOLETE_ELEMENTS } from "./html-data.js";
-import { check, locate, meta, pagesOf } from "./helpers.js";
+import { check, documentLocation, firstElement, locate, meta, pagesOf, replaceEdit, startTagText } from "./helpers.js";
 
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
+const BYTE_LIMIT = 1024;
+const CONTENT_TYPE = /^content-type$/i;
+const CHARSET_PARAMETER = /(?:^|;)\s*charset\s*=\s*"?([^";\s]+)"?/i;
 
 export const htmlObsolete = check(meta("html.obsolete", "Element or attribute is obsolete", "note", ["HTML Standard 16.2"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -46,6 +51,59 @@ export const htmlObsolete = check(meta("html.obsolete", "Element or attribute is
         });
       }
     }
+  }
+  return out;
+});
+
+/** The first element that declares the page's encoding, and the byte at which it ends. */
+function declaration(page: Page): { element: HtmlElement; endByte: number } | undefined {
+  for (const element of page.elements) {
+    if (element.tagName !== "meta") continue;
+    const charset = (attr(element, "charset") ?? "").trim();
+    const httpEquiv = (attr(element, "http-equiv") ?? "").trim();
+    const content = attr(element, "content") ?? "";
+    if (charset === "" && !(CONTENT_TYPE.test(httpEquiv) && CHARSET_PARAMETER.test(content))) continue;
+    const end = element.sourceCodeLocation?.endOffset;
+    if (end === undefined) continue;
+    return { element, endByte: Buffer.byteLength(page.source.slice(0, end), "utf8") };
+  }
+  return undefined;
+}
+
+export const htmlCharset = check(meta("html.charset", "Page does not declare its character encoding early enough", "error", ["HTML Standard"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    // A leading byte order mark declares the encoding and is always within the first bytes.
+    if (page.source.startsWith("\uFEFF")) continue;
+    const found = declaration(page);
+    if (found && found.endByte <= BYTE_LIMIT) continue;
+    if (found) {
+      out.push({
+        message: `The character encoding declaration ends at byte ${found.endByte}, after the first 1,024 bytes.`,
+        location: locate(page, found.element),
+        fix: {
+          kind: "manual",
+          summary: "Move the character encoding declaration into <head> so it is completely within the first 1,024 bytes. Browsers may otherwise guess the encoding and show garbled text.",
+          edits: [],
+        },
+        key: "charset",
+      });
+      continue;
+    }
+    const head = firstElement(page, "head");
+    const tag = head ? startTagText(page, head) : undefined;
+    const line = head?.sourceCodeLocation?.startTag?.startLine;
+    const edit = tag && line !== undefined ? replaceEdit(page, line, tag, `${tag}<meta charset="utf-8">`) : undefined;
+    out.push({
+      message: "The page does not declare its character encoding.",
+      location: documentLocation(page),
+      fix: {
+        kind: edit ? "edit" : "manual",
+        summary: 'Add <meta charset="utf-8"> at the start of <head>, so browsers decode the rest of the page as UTF-8.',
+        edits: edit ? [edit] : [],
+      },
+      key: "charset",
+    });
   }
   return out;
 });

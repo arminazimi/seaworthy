@@ -13,3 +13,4 @@ The report schema is checked by `npm test`: the engine's output is validated aga
 ## Additive check IDs
 
 - `a11y.iframe-title`: an `error` for an iframe with an absent, empty or whitespace-only `title`. See the [check contract](../docs/checks/a11y.iframe-title.md).
+- `html.charset`: an `error` for a page with no character encoding declaration, or one that ends after the first 1,024 bytes. See the [check contract](../docs/checks/html.charset.md).
