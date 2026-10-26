@@ -2,6 +2,7 @@
 // A check that throws never hides the others: its error is recorded and the run continues.
 
 import { createHash } from "node:crypto";
+import { performance } from "node:perf_hooks";
 
 import type { Check, CheckError, CheckMeta, Finding, FindingDraft, Needs, Severity, SkippedCheck } from "./types.js";
 import type { SiteGraph } from "./site.js";
@@ -18,12 +19,22 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Passed to checks as `context.changed`. Findings are not filtered here; the pipeline does that. */
   changed?: ReadonlySet<string>;
+  /** Collect wall time per check in `RunResult.timings`. Off by default; timings never reach the report. */
+  timings?: boolean;
+}
+
+/** Wall time of one check, in milliseconds. Checks run in parallel, so these overlap. */
+export interface CheckTiming {
+  check: string;
+  ms: number;
 }
 
 export interface RunResult {
   findings: Finding[];
   skipped: SkippedCheck[];
   errors: CheckError[];
+  /** Present only with `timings`: one entry per check that ran, sorted by check ID. */
+  timings?: CheckTiming[];
 }
 
 const ID_PATTERN = /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/;
@@ -85,26 +96,32 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
     else runnable.push(check);
   }
 
+  const collectTimings = options.timings === true;
   const signal = options.signal ?? new AbortController().signal;
   const results = await Promise.all(
     runnable.map(async (check) => {
+      const startedAt = collectTimings ? performance.now() : 0;
+      const ms = (): number => (collectTimings ? performance.now() - startedAt : 0);
       try {
         const severity = options.severity?.[check.meta.id] ?? check.meta.severity;
         const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal, ...(options.changed ? { changed: options.changed } : {}) }));
-        return { findings: drafts.map((draft) => toFinding(check.meta, draft, severity)) };
+        return { check: check.meta.id, findings: drafts.map((draft) => toFinding(check.meta, draft, severity)), ms: ms() };
       } catch (error) {
-        return { error: { check: check.meta.id, message: error instanceof Error ? error.message : String(error) } };
+        return { check: check.meta.id, error: { check: check.meta.id, message: error instanceof Error ? error.message : String(error) }, ms: ms() };
       }
     }),
   );
 
   const findings: Finding[] = [];
   const errors: CheckError[] = [];
+  const timings: CheckTiming[] = [];
   for (const result of results) {
-    if ("error" in result && result.error) errors.push(result.error);
-    else if ("findings" in result && result.findings) findings.push(...result.findings);
+    if ("error" in result) errors.push(result.error);
+    else findings.push(...result.findings);
+    if (collectTimings) timings.push({ check: result.check, ms: result.ms });
   }
   skipped.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
   errors.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
-  return { findings, skipped, errors };
+  timings.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
+  return { findings, skipped, errors, ...(collectTimings ? { timings } : {}) };
 }
