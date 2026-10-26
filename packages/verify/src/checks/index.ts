@@ -5,6 +5,7 @@ import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete
 import { assetsMissing } from "./assets.js";
 import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
+import { htmlObsolete } from "./html.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
@@ -33,6 +34,7 @@ export const builtInChecks: readonly Check[] = [
   assetsMissing,
   headingsH1,
   headingsOrder,
+  htmlObsolete,
   imagesAlt,
   imagesDimensions,
   imagesSize,
