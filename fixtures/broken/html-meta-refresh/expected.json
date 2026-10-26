@@ -1,0 +1,23 @@
+{
+  "description": "Delayed redirects and reloads are reported, including mixed-case attributes and extra whitespace. An immediate (0 second) refresh, a missing or malformed content value, and other meta tags are not.",
+  "findings": [
+    {
+      "check": "html.meta-refresh",
+      "file": "casing.html",
+      "line": 4,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "delay.html",
+      "line": 5,
+      "column": 30
+    },
+    {
+      "check": "html.meta-refresh",
+      "file": "reload.html",
+      "line": 5,
+      "column": 30
+    }
+  ]
+}

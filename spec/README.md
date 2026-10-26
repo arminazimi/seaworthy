@@ -13,3 +13,4 @@ The report schema is checked by `npm test`: the engine's output is validated aga
 ## Additive check IDs
 
 - `a11y.iframe-title`: an `error` for an iframe with an absent, empty or whitespace-only `title`. See the [check contract](../docs/checks/a11y.iframe-title.md).
+- `html.meta-refresh`: a `warning` for `<meta http-equiv="refresh">` with a delay greater than 0 seconds, which moves people before they can read (WCAG 2.2.1). See the [check contract](../docs/checks/html.meta-refresh.md).

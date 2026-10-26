@@ -7,7 +7,7 @@ import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
-import { metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
+import { htmlMetaRefresh, metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
@@ -33,6 +33,7 @@ export const builtInChecks: readonly Check[] = [
   assetsMissing,
   headingsH1,
   headingsOrder,
+  htmlMetaRefresh,
   imagesAlt,
   imagesDimensions,
   imagesSize,

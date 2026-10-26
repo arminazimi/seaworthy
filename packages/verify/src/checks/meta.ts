@@ -6,6 +6,16 @@ import { check, documentLocation, firstElement, insertInHead, isRedirectStub, lo
 
 const LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
+// The HTML refresh algorithm: a non-negative integer, then optionally `; url=` and a URL. Anything else is ignored.
+const REFRESH_CONTENT = /^\s*(\d+)\s*(?:;\s*url\s*=([\s\S]*))?$/i;
+
+/** The delay in seconds from a refresh content value a browser would act on, with its optional URL. */
+function refreshOf(content: string): { delay: number; url: string } | undefined {
+  const match = REFRESH_CONTENT.exec(content);
+  if (!match) return undefined;
+  return { delay: Number(match[1]), url: (match[2] ?? "").trim() };
+}
+
 export const metaTitle = check(meta("meta.title", "Page has no title", "error", ["WCAG 2.4.2"]), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
@@ -111,6 +121,27 @@ export const metaCanonical = check(meta("meta.canonical", "Page has no usable ca
         severity: "warning",
         fix: { kind: "manual", summary: "Use the full public URL, starting with https://. Search engines ignore relative canonical links.", edits: [] },
         key: "canonical-relative",
+      });
+    }
+  }
+  return out;
+});
+
+export const htmlMetaRefresh = check(meta("html.meta-refresh", "Page moves itself after a delay", "warning", ["WCAG 2.2.1"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    for (const element of page.elements) {
+      if (element.tagName !== "meta" || (attr(element, "http-equiv") ?? "").trim().toLowerCase() !== "refresh") continue;
+      const content = attr(element, "content") ?? "";
+      const refresh = refreshOf(content);
+      if (!refresh || refresh.delay === 0) continue;
+      const seconds = refresh.delay === 1 ? "1 second" : `${refresh.delay} seconds`;
+      const action = refresh.url === "" ? "reloads itself" : `redirects to ${refresh.url}`;
+      out.push({
+        message: `The page ${action} after ${seconds}, before people can read it.`,
+        location: locate(page, element, "content"),
+        fix: { kind: "manual", summary: 'Remove the timed refresh and link to the destination so people can choose when to move. If this page only redirects, use an immediate redirect (content="0; url=...") or a server-side redirect.', edits: [] },
+        key: `refresh:${content.trim()}`,
       });
     }
   }
