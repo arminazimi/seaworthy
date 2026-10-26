@@ -26,18 +26,38 @@ test("html.meta-refresh reports redirects and reloads with a delay", async () =>
 test("html.meta-refresh ignores an immediate refresh and values browsers do not act on", async () => {
   const tags = [
     '<meta http-equiv="refresh" content="0; url=/next.html">',
+    '<meta http-equiv="refresh" content="0, url=/next.html">',
+    '<meta http-equiv="refresh" content="0 url=/next.html">',
     '<meta http-equiv="refresh" content="0">',
     '<meta http-equiv="refresh">',
     '<meta http-equiv="refresh" content="">',
     '<meta http-equiv="refresh" content="soon; url=/next.html">',
     '<meta http-equiv="refresh" content="+5; url=/next.html">',
     '<meta http-equiv="refresh" content="0.5; url=/next.html">',
-    '<meta http-equiv="refresh" content="5, url=/next.html">',
-    '<meta http-equiv="refresh" content="5; url">',
+    '<meta http-equiv="refresh" content="5.">',
+    '<meta http-equiv="refresh" content="5; javascript:void(0)">',
     '<meta http-equiv="X-UA-Compatible" content="5">',
     '<meta name="refresh" content="5">',
   ].join("\n");
   assert.deepEqual(await findings(`\n${tags}\n`), []);
+});
+
+test("html.meta-refresh accepts comma, space, and bare URLs after the delay", async () => {
+  const tags = [
+    '<meta http-equiv="refresh" content="5, url=/next.html">',
+    '<meta http-equiv="refresh" content="4 url=/next.html">',
+    '<meta http-equiv="refresh" content="3; /next.html">',
+    '<meta http-equiv="refresh" content="2; url">',
+    `<meta http-equiv="refresh" content="1; '/next.html'">`,
+  ].join("\n");
+  const result = await findings(`\n${tags}\n`);
+  assert.equal(result.length, 5);
+  assert.deepEqual(result.map((f) => [f.location.line, f.location.column]), [[4, 28], [5, 28], [6, 28], [7, 28], [8, 28]]);
+  assert.match(result[0]!.message, /redirects to \/next\.html after 5 seconds/);
+  assert.match(result[1]!.message, /redirects to \/next\.html after 4 seconds/);
+  assert.match(result[2]!.message, /redirects to \/next\.html after 3 seconds/);
+  assert.match(result[3]!.message, /redirects to url after 2 seconds/);
+  assert.match(result[4]!.message, /redirects to \/next\.html after 1 second/);
 });
 
 test("html.meta-refresh accepts mixed case and whitespace around the delay and url", async () => {

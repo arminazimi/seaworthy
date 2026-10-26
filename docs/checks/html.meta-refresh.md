@@ -8,11 +8,11 @@ A timed `<meta http-equiv="refresh">` takes control away from the reader. Someon
 
 ## What it checks
 
-Every page is scanned for `<meta http-equiv="refresh">` (the value is case-insensitive). The `content` value is read with the HTML refresh algorithm: a non-negative integer, optionally followed by `; url=` and a destination.
+Every page is scanned for `<meta http-equiv="refresh">` (the value is case-insensitive). The `content` value is read with the HTML refresh algorithm: a non-negative integer, then an optional separator (`;`, `,`, or whitespace), then an optional destination. The destination can be a URL or `url=` followed by a URL; `url=` is only required for conforming markup, so `content="5, /next.html"` and `content="5; url=/next.html"` both work. Quotes around the URL are stripped, and a `javascript:` URL is ignored.
 
 - A delay greater than 0 is reported, with or without a destination. A delayed redirect and a delayed reload both move the reader.
 - A delay of 0 is not reported. An immediate redirect is not a time limit, although it is still worth checking whether the destination is announced.
-- A missing or malformed `content` value is not reported, because browsers ignore a refresh they cannot parse. Examples are `content="soon"`, `content="+5"`, `content="0.5"`, and `content="5, url=/next.html"` (the separator must be a semicolon).
+- A missing or malformed `content` value is not reported, because browsers ignore a refresh they cannot parse. Examples are `content="soon"`, `content="+5"`, `content="0.5"`, and `content="5."` (no separator after the delay).
 
 Each finding points at the `content` attribute. The check suggests a fix but does not edit the page, because removing a timed redirect is a content decision.
 

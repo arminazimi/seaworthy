@@ -6,14 +6,32 @@ import { check, documentLocation, firstElement, insertInHead, isRedirectStub, lo
 
 const LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
-// The HTML refresh algorithm: a non-negative integer, then optionally `; url=` and a URL. Anything else is ignored.
-const REFRESH_CONTENT = /^\s*(\d+)\s*(?:;\s*url\s*=([\s\S]*))?$/i;
+// The HTML refresh algorithm: digits, then an optional `;`, `,`, or whitespace separator, then an optional URL.
+// `url=` before the URL is only required for conforming markup; without it the whole remainder is the URL.
+const ASCII_WHITESPACE = /^[\t\n\f\r ]+/;
 
 /** The delay in seconds from a refresh content value a browser would act on, with its optional URL. */
 function refreshOf(content: string): { delay: number; url: string } | undefined {
-  const match = REFRESH_CONTENT.exec(content);
-  if (!match) return undefined;
-  return { delay: Number(match[1]), url: (match[2] ?? "").trim() };
+  const input = content.replace(ASCII_WHITESPACE, "");
+  const digits = /^\d+/.exec(input);
+  if (!digits) return undefined;
+  const delay = Number(digits[0]);
+  let rest = input.slice(digits[0].length);
+
+  if (rest !== "") {
+    const first = rest[0];
+    if (first === ";" || first === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
+    else if (ASCII_WHITESPACE.test(rest)) {
+      rest = rest.replace(ASCII_WHITESPACE, "");
+      if (rest[0] === ";" || rest[0] === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
+    } else return undefined;
+  }
+
+  let url = rest.replace(/[\t\n\f\r ]+$/, "").replace(/^url[\t\n\f\r ]*=/i, "").replace(ASCII_WHITESPACE, "");
+  if ((url.startsWith("'") && url.endsWith("'")) || (url.startsWith('"') && url.endsWith('"'))) url = url.slice(1, -1);
+  url = url.replace(ASCII_WHITESPACE, "").replace(/[\t\n\f\r ]+$/, "");
+  if (/^javascript:/i.test(url)) return undefined;
+  return { delay, url };
 }
 
 export const metaTitle = check(meta("meta.title", "Page has no title", "error", ["WCAG 2.4.2"]), (ctx) => {
