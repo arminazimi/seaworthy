@@ -92,6 +92,11 @@ test("social.open-graph: the suggested tags complete the set", async () => {
   assert.deepEqual(after, []);
 });
 
+test("social.twitter-card: the suggested edits make every card usable", async () => {
+  const { after } = await fixLoop("social", ["social.twitter-card"]);
+  assert.deepEqual(after, []);
+});
+
 test("images.dimensions and images.alt: edits from two checks to the same image both apply", async () => {
   const { before, after } = await fixLoop("images", ["images.alt", "images.dimensions"]);
   const first = before.filter((f) => f.location.line === 8);

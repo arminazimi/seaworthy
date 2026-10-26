@@ -1,1 +1,1 @@
-{"checks": ["social.open-graph", "social.image-url"]}
+{"checks": ["social.open-graph", "social.image-url", "social.image-size", "social.twitter-card"]}
