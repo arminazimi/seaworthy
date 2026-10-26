@@ -13,7 +13,7 @@ import { namesButton, namesLabel, namesLink } from "./names.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
-import { socialImageUrl, socialOpenGraph } from "./social.js";
+import { socialImageSize, socialImageUrl, socialOpenGraph, socialTwitterCard } from "./social.js";
 
 export const builtInChecks: readonly Check[] = [
   a11yAriaAttributes,
@@ -66,6 +66,8 @@ export const builtInChecks: readonly Check[] = [
   securityMixedContent,
   securityTargetBlank,
   sitemapEntries,
+  socialImageSize,
   socialImageUrl,
   socialOpenGraph,
+  socialTwitterCard,
 ];

@@ -1,5 +1,5 @@
 {
-  "description": "A page with no Open Graph tags (a note), one with a partial set (a warning), and relative or plain-HTTP preview images. good.html is correct.",
+  "description": "A page with no Open Graph tags (a note), one with a partial set (a warning), relative or plain-HTTP preview images, orphaned and unknown Twitter cards, a card with no image, and a 40x30 preview image. good.html and large-image.html are correct.",
   "findings": [
     {
       "check": "social.open-graph",
@@ -8,8 +8,26 @@
       "column": 1
     },
     {
+      "check": "social.twitter-card",
+      "file": "none.html",
+      "line": 3,
+      "column": 1
+    },
+    {
       "check": "social.open-graph",
       "file": "partial.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "social.twitter-card",
+      "file": "partial.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "social.twitter-card",
+      "file": "relative-image.html",
       "line": 3,
       "column": 1
     },
@@ -24,6 +42,42 @@
       "file": "relative-image.html",
       "line": 9,
       "column": 30
+    },
+    {
+      "check": "social.image-size",
+      "file": "small-image.html",
+      "line": 9,
+      "column": 29
+    },
+    {
+      "check": "social.image-size",
+      "file": "small-image.html",
+      "line": 11,
+      "column": 30
+    },
+    {
+      "check": "social.twitter-card",
+      "file": "twitter-invalid.html",
+      "line": 9,
+      "column": 29
+    },
+    {
+      "check": "social.open-graph",
+      "file": "twitter-no-image.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "social.twitter-card",
+      "file": "twitter-no-image.html",
+      "line": 8,
+      "column": 29
+    },
+    {
+      "check": "social.twitter-card",
+      "file": "twitter-orphan.html",
+      "line": 3,
+      "column": 1
     }
   ]
 }

@@ -92,6 +92,15 @@ test("social.open-graph: the suggested tags complete the set", async () => {
   assert.deepEqual(after, []);
 });
 
+test("social.twitter-card: the suggested edits fix cards whose image exists, and leave pages without a real image to the author", async () => {
+  const { after } = await fixLoop("social", ["social.twitter-card"]);
+  assert.deepEqual(
+    after.map((f) => f.location.file).sort(),
+    ["none.html", "partial.html", "twitter-no-image.html"],
+  );
+  for (const f of after) assert.equal(f.fix.kind, "manual", `${f.location.file} needs a real image URL, not a placeholder`);
+});
+
 test("images.dimensions and images.alt: edits from two checks to the same image both apply", async () => {
   const { before, after } = await fixLoop("images", ["images.alt", "images.dimensions"]);
   const first = before.filter((f) => f.location.line === 8);
