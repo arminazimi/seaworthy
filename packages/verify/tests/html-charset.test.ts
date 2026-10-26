@@ -14,7 +14,7 @@ const PAGE_WITH_PADDING = (padding: number) => `${PREFIX(padding)}${DECLARATION}
 const endByte = (padding: number) => Buffer.byteLength(`${PREFIX(padding)}${DECLARATION}`, "utf8");
 const paddingFor = (target: number) => target - endByte(0);
 
-async function run(files: Record<string, string>): Promise<Finding[]> {
+async function run(files: Record<string, string | Buffer>): Promise<Finding[]> {
   const result = await runChecks({ site: buildSite(makeSite(files)), checks: [htmlCharset] });
   assert.deepEqual(result.errors, []);
   return result.findings;
@@ -26,7 +26,23 @@ test("html.charset reports a missing declaration and suggests the first tag in h
   assert.equal(finding!.severity, "error");
   assert.match(finding!.message, /does not declare its character encoding/);
   assert.deepEqual([finding!.location.file, finding!.location.line, finding!.location.column], ["index.html", 3, 1]);
+  assert.equal(finding!.fix.kind, "edit");
   assert.deepEqual(finding!.fix.edits, [{ file: "index.html", line: 3, action: "replace", find: "<head>", replace: '<head><meta charset="utf-8">' }]);
+});
+
+test("html.charset withholds the edit when the file is not valid UTF-8", async () => {
+  const page = Buffer.from(PAGE('<title>Windows-1252 (\xE9)</title>'), "latin1");
+  const [finding] = await run({ "index.html": page });
+  assert.equal(finding!.checkId, "html.charset");
+  assert.equal(finding!.message, "The page does not declare its character encoding.");
+  assert.equal(finding!.fix.kind, "manual");
+  assert.deepEqual(finding!.fix.edits, []);
+  assert.match(finding!.fix.summary, /could not be confirmed as UTF-8/);
+});
+
+test("html.charset keeps the edit when a valid UTF-8 page contains U+FFFD literally", async () => {
+  const [finding] = await run({ "index.html": PAGE("<title>Replacement character \uFFFD</title>") });
+  assert.equal(finding!.fix.kind, "edit");
 });
 
 test("html.charset accepts both declaration forms when they are early", async () => {

@@ -37,7 +37,7 @@ The check reads the built file, so it cannot see a `Content-Type` response heade
 </head>
 ```
 
-Put the declaration first in `<head>`, before any other content. In a template or layout, put it at the top of the `<head>` partial. The report suggests an exact insertion when the `<head>` tag is on one line; for a late declaration it gives a manual move hint.
+Put the declaration first in `<head>`, before any other content. In a template or layout, put it at the top of the `<head>` partial. The report suggests an exact insertion when the `<head>` tag is on one line and the file is valid UTF-8. If the file's encoding cannot be confirmed as UTF-8, it gives a manual hint to confirm the actual encoding first: declaring UTF-8 on a page saved in another encoding would relabel the bytes and garble the text. For a late declaration it gives a manual move hint.
 
 ## Options
 

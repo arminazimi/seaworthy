@@ -1,16 +1,19 @@
 // html.*: document-level HTML conformance that the parsed page reveals.
 // html.obsolete rules and replacements live in html-data.ts.
 
-import type { HtmlElement, Page } from "../site.js";
+import { TextDecoder } from "node:util";
+
+import type { HtmlElement, Page, SiteGraph } from "../site.js";
 import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { OBSOLETE_ATTRIBUTES, OBSOLETE_ELEMENTS } from "./html-data.js";
-import { check, documentLocation, firstElement, locate, meta, pagesOf, replaceEdit, startTagText } from "./helpers.js";
+import { check, documentLocation, firstElement, locate, meta, pagesOf, readSiteFile, replaceEdit, startTagText } from "./helpers.js";
 
 const HTML_NAMESPACE = "http://www.w3.org/1999/xhtml";
 const BYTE_LIMIT = 1024;
 const CONTENT_TYPE = /^content-type$/i;
 const CHARSET_PARAMETER = /(?:^|;)\s*charset\s*=\s*"?([^";\s]+)"?/i;
+const UTF8 = new TextDecoder("utf-8", { fatal: true });
 
 export const htmlObsolete = check(meta("html.obsolete", "Element or attribute is obsolete", "note", ["HTML Standard 16.2"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -70,6 +73,18 @@ function declaration(page: Page): { element: HtmlElement; endByte: number } | un
   return undefined;
 }
 
+/** True when the page's raw bytes decode as UTF-8, so declaring UTF-8 would not relabel another encoding. */
+function validUtf8(site: SiteGraph, page: Page): boolean {
+  const file = readSiteFile(site, page.url);
+  if (!file) return false;
+  try {
+    UTF8.decode(file.bytes);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const htmlCharset = check(meta("html.charset", "Page does not declare its character encoding early enough", "error", ["HTML Standard"]), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
@@ -93,13 +108,16 @@ export const htmlCharset = check(meta("html.charset", "Page does not declare its
     const head = firstElement(page, "head");
     const tag = head ? startTagText(page, head) : undefined;
     const line = head?.sourceCodeLocation?.startTag?.startLine;
-    const edit = tag && line !== undefined ? replaceEdit(page, line, tag, `${tag}<meta charset="utf-8">`) : undefined;
+    const utf8 = validUtf8(ctx.site, page);
+    const edit = utf8 && tag && line !== undefined ? replaceEdit(page, line, tag, `${tag}<meta charset="utf-8">`) : undefined;
     out.push({
       message: "The page does not declare its character encoding.",
       location: documentLocation(page),
       fix: {
         kind: edit ? "edit" : "manual",
-        summary: 'Add <meta charset="utf-8"> at the start of <head>, so browsers decode the rest of the page as UTF-8.',
+        summary: utf8
+          ? 'Add <meta charset="utf-8"> at the start of <head>, so browsers decode the rest of the page as UTF-8.'
+          : "The file's encoding could not be confirmed as UTF-8. Confirm the actual encoding, then add a matching <meta charset> at the start of <head>.",
         edits: edit ? [edit] : [],
       },
       key: "charset",
