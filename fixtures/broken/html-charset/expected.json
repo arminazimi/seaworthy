@@ -1,0 +1,7 @@
+{
+  "description": "A clean early meta charset, a clean legacy Content-Type declaration, a missing declaration, and a declaration after the first 1,024 bytes.",
+  "findings": [
+    { "check": "html.charset", "file": "late.html", "line": 5, "column": 3 },
+    { "check": "html.charset", "file": "missing.html", "line": 3, "column": 1 }
+  ]
+}

@@ -73,6 +73,20 @@ test("meta.*: inserting the suggested tags makes the missing-tag findings go awa
   assert.equal(after.filter((f) => f.location.file === "bare.html").length, 0, "bare.html is fully fixed by the suggested edits");
 });
 
+test("html.charset: the suggested tag clears the missing-declaration finding", async () => {
+  const { before, after } = await fixLoop("html-charset", ["html.charset"]);
+  assert.deepEqual(
+    before.map((f) => f.location.file),
+    ["late.html", "missing.html"],
+  );
+  assert.equal(before.find((f) => f.location.file === "missing.html")!.fix.kind, "edit");
+  assert.deepEqual(
+    after.map((f) => f.location.file),
+    ["late.html"],
+    "the late declaration needs a manual move",
+  );
+});
+
 test("social.open-graph: the suggested tags complete the set", async () => {
   const { after } = await fixLoop("social", ["social.open-graph"]);
   assert.deepEqual(after, []);

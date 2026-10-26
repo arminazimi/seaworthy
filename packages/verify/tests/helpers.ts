@@ -12,8 +12,8 @@ import Ajv6 from "ajv6";
 
 const made: string[] = [];
 
-/** Writes a built site to a temp folder: a map of relative path to file content. Cleaned up after the test file. */
-export function makeSite(files: Record<string, string>): string {
+/** Writes a built site to a temp folder: a map of relative path to text or raw bytes. Cleaned up after the test file. */
+export function makeSite(files: Record<string, string | Buffer>): string {
   const root = mkdtempSync(join(tmpdir(), "seaworthy-test-"));
   made.push(root);
   for (const [path, content] of Object.entries(files)) {
