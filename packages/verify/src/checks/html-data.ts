@@ -33,7 +33,7 @@ export const OBSOLETE_ELEMENTS: ReadonlyMap<string, string> = new Map([
 ]);
 
 export interface ObsoleteAttribute {
-  /** Elements the attribute is obsolete on, or "all" when no element accepts it. */
+  /** Elements the attribute is obsolete on, or "all" when it is obsolete on every element. */
   readonly elements: ReadonlySet<string> | "all";
   /** What to use instead, in the fix hint. */
   readonly replacement: string;

@@ -87,8 +87,19 @@ test("html.obsolete reports obsolete attributes at the attribute, not the elemen
 });
 
 test("html.obsolete reports an attribute on its own line when the start tag spans lines", async () => {
-  const [finding] = await bodyFindings('<img\n  src="/x.png"\n  alt="x"\n  border="0">');
+  const found = await bodyFindings('<img\n  src="/x.png"\n  alt="x"\n  border="0">');
+  assert.equal(found.length, 1);
+  const [finding] = found;
   assert.deepEqual([finding!.location.line, finding!.location.column], [8, 3]);
+});
+
+test("html.obsolete reports the version attribute on html", async () => {
+  const page = '<!doctype html>\n<html version="HTML 4.01">\n<head><title>t</title></head>\n<body><p>x</p></body>\n</html>\n';
+  const found = await findings({ "index.html": page });
+  assert.equal(found.length, 1);
+  assert.equal(found[0]!.location.line, 2);
+  assert.equal(found[0]!.location.column, 7);
+  assert.match(found[0]!.message, /version attribute on <html>/);
 });
 
 test("html.obsolete treats element and attribute names case-insensitively", async () => {
@@ -99,7 +110,9 @@ test("html.obsolete treats element and attribute names case-insensitively", asyn
 });
 
 test("html.obsolete does not report attributes on an obsolete element twice", async () => {
-  const [finding] = await bodyFindings('<font size="5" color="red" face="Arial">Big</font>');
+  const found = await bodyFindings('<font size="5" color="red" face="Arial">Big</font>');
+  assert.equal(found.length, 1);
+  const [finding] = found;
   assert.equal(finding!.message.startsWith("<font> is obsolete."), true);
   assert.equal(finding!.location.column, 1);
 });
