@@ -130,6 +130,19 @@ test("--timings prints stages and checks to stderr and leaves stdout byte-identi
   assert.equal(JSON.parse(timed.stdout).timings, undefined, "timings never enter the report");
 });
 
+test("--timings leaves the --out report schema-valid and unchanged", async () => {
+  const cwd = makeSite({ "dist/index.html": PAGE });
+  const args = ["verify", "dist", "--format", "json", "--out", "r.json"];
+  await run(args, { cwd, checks: [problem("error")] });
+  const before = readFileSync(join(cwd, "r.json"), "utf8");
+  const timed = await run([...args, "--timings"], { cwd, checks: [problem("error")] });
+
+  assert.equal(readFileSync(join(cwd, "r.json"), "utf8"), before, "the written report is unchanged");
+  assert.deepEqual(reportErrors(JSON.parse(before)), []);
+  assert.match(timed.stderr, /^seaworthy: timings\n/);
+  assert.doesNotMatch(timed.stdout, /timings/);
+});
+
 test("--timings adds a changed stage under --changed and keeps the report out of stdout", async () => {
   const cwd = makeSite({ "dist/index.html": PAGE, "dist/about.html": PAGE });
   const timed = await run(["verify", "dist", "--changed", "--timings", "--format", "json"], { cwd, checks: [problem("error")] });
