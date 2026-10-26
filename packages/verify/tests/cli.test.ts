@@ -34,6 +34,7 @@ test("no arguments and --help print usage", async () => {
     const result = await run(argv);
     assert.equal(result.code, EXIT.ok);
     assert.match(result.stdout, /Usage:\n {2}seaworthy verify \[dir\]/);
+    assert.match(result.stdout, /--timings +Time each stage and check/);
     assert.match(result.stdout, /Exit codes:/);
   }
 });
@@ -110,6 +111,36 @@ test("--out writes the report to a file and prints a one-line summary", async ()
   assert.equal(result.code, EXIT.findings);
   assert.match(result.stdout, /^seaworthy: 1 finding \(1 error\); json report written to reports\/seaworthy\.json\n$/);
   assert.deepEqual(reportErrors(JSON.parse(readFileSync(join(cwd, "reports", "seaworthy.json"), "utf8"))), []);
+});
+
+test("--timings prints stages and checks to stderr and leaves stdout byte-identical", async () => {
+  const site = makeSite({ "index.html": PAGE });
+  const args = ["verify", site, "--format", "json"];
+  const plain = await run(args, { checks: [problem("error"), rendered] });
+  const timed = await run([...args, "--timings"], { checks: [problem("error"), rendered] });
+
+  assert.equal(timed.code, plain.code);
+  assert.equal(timed.stdout, plain.stdout, "stdout is unchanged, so json and sarif output stay parseable");
+  assert.equal(plain.stderr, "", "timings are opt-in");
+  assert.match(timed.stderr, /^seaworthy: timings\n/);
+  assert.match(timed.stderr, /^ {2}total \d+\.\d ms$/m);
+  for (const stage of ["site", "checks", "suppressions", "baseline", "report"]) assert.match(timed.stderr, new RegExp(`^ {2}stage ${stage} \\d+\\.\\d ms$`, "m"), stage);
+  assert.match(timed.stderr, /^ {2}check x\.error \d+\.\d ms$/m);
+  assert.doesNotMatch(timed.stderr, /a11y\.x/, "a skipped check is not timed");
+  assert.equal(JSON.parse(timed.stdout).timings, undefined, "timings never enter the report");
+});
+
+test("--timings adds a changed stage under --changed and keeps the report out of stdout", async () => {
+  const cwd = makeSite({ "dist/index.html": PAGE, "dist/about.html": PAGE });
+  const timed = await run(["verify", "dist", "--changed", "--timings", "--format", "json"], { cwd, checks: [problem("error")] });
+
+  assert.deepEqual(
+    [...timed.stderr.matchAll(/^ {2}stage (\w+) /gm)].map((match) => match[1]),
+    ["site", "changed", "checks", "suppressions", "baseline", "report"],
+  );
+  const report = JSON.parse(timed.stdout);
+  assert.deepEqual(reportErrors(report), []);
+  assert.equal(report.timings, undefined);
 });
 
 test("a crashing check exits 4 and is listed, while other checks still report", async () => {

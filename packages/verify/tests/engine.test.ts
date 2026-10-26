@@ -90,6 +90,31 @@ test("checks that need a browser or the network are skipped unless enabled, neve
   assert.deepEqual(on.skipped, []);
 });
 
+test("timings name each check that ran, including a crashed one, and leave out skipped checks", async () => {
+  const slow: Check = {
+    meta: meta("x.slow"),
+    async *run() {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      yield draft("a.html", 1, "s");
+    },
+  };
+  const fast: Check = { meta: meta("x.fast"), run: () => [] };
+  const bad: Check = {
+    meta: meta("x.crash"),
+    run() {
+      throw new Error("boom");
+    },
+  };
+  const browser: Check = { meta: meta("x.browser", { needs: ["html", "browser"] }), run: () => [] };
+
+  assert.equal((await runChecks({ site: site(), checks: [fast] })).timings, undefined, "collecting timings is opt-in");
+
+  const timed = await runChecks({ site: site(), checks: [slow, fast, bad, browser], timings: true });
+  assert.deepEqual(timed.timings?.map((t) => t.check), ["x.crash", "x.fast", "x.slow"], "sorted by check ID; a skipped check did not run");
+  assert.ok(timed.timings?.every((t) => Number.isFinite(t.ms) && t.ms >= 0));
+  assert.ok((timed.timings?.find((t) => t.check === "x.slow")?.ms ?? 0) >= 1, "a check that waits is measured, not rounded to zero");
+});
+
 test("passes per-check options and an abort signal to the check", async () => {
   let seen: unknown;
   const check: Check = { meta: meta("x.opts"), run: (ctx) => ((seen = [ctx.options, ctx.signal.aborted]), []) };

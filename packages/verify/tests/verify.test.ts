@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { createBaseline } from "../src/baseline.js";
 import { parseConfig } from "../src/config.js";
+import { buildSite } from "../src/site.js";
 import { verifySite } from "../src/verify.js";
 import type { Check } from "../src/types.js";
 import { makeSite, reportErrors } from "./helpers.js";
@@ -69,4 +70,21 @@ test("the baseline hides accepted findings and the pipeline returns what to reco
 test("suppressed findings are not recorded in the baseline", async () => {
   const { unbaselined } = await run({ "index.html": PAGE("<!-- seaworthy-ignore images.alt: decorative -->\n"), "b.html": PAGE() });
   assert.deepEqual(unbaselined.map((f) => f.location.file), ["b.html"]);
+});
+
+test("timings cover the pipeline stages and never reach the report", async () => {
+  assert.equal((await run({ "index.html": PAGE() })).timings, undefined, "collecting timings is opt-in");
+
+  const timed = await run({ "index.html": PAGE() }, { timings: true });
+  assert.deepEqual(timed.timings?.stages.map((s) => s.stage), ["site", "checks", "suppressions", "baseline", "report"]);
+  assert.deepEqual(timed.timings?.checks.map((c) => c.check), ["images.alt"]);
+  assert.ok(timed.timings?.stages.every((s) => Number.isFinite(s.ms) && s.ms >= 0));
+  assert.equal(JSON.stringify(timed.report).includes("timings"), false);
+  assert.deepEqual(reportErrors(timed.report), []);
+});
+
+test("a graph supplied by the caller is not timed as a site stage", async () => {
+  const folder = makeSite({ "index.html": PAGE() });
+  const headless = await verifySite({ folder, site: buildSite(folder), rootLabel: "dist", checks: [imgCheck], timings: true });
+  assert.deepEqual(headless.timings?.stages.map((s) => s.stage), ["checks", "suppressions", "baseline", "report"]);
 });
