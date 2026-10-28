@@ -236,3 +236,68 @@ export const htmlCharset = check(meta("html.charset", "Page does not declare its
   }
   return out;
 });
+
+// ---- html.inline-handlers --------------------------------------------------------------------------------
+// Inline handlers and javascript: URLs only fail once a strict Content Security Policy is deployed, so they
+// are notes. The message says what the CSP blocks; browsers today still run both.
+
+const CSP_EVENT = 'A strict Content Security Policy (script-src without "unsafe-inline") blocks them,';
+
+/** URL attributes where following the attribute executes a `javascript:` URL. */
+const JAVASCRIPT_URL_ATTRIBUTES: Record<string, readonly string[]> = {
+  a: ["href"],
+  area: ["href"],
+  button: ["formaction"],
+  form: ["action"],
+  iframe: ["src"],
+  input: ["formaction"],
+};
+
+export const htmlInlineHandlers = check(meta("html.inline-handlers", "Inline event handler or javascript: URL blocks a strict CSP", "note", ["HTML Standard", "Content Security Policy Level 3"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    // Stable identity per attribute: same element tag, attribute name, and position in document order. No line numbers.
+    const counts = new Map<string, number>();
+    const key = (base: string): string => {
+      const count = counts.get(base) ?? 0;
+      counts.set(base, count + 1);
+      return `${base}:${count}`;
+    };
+
+    for (const element of page.elements) {
+      const urlAttributes = JAVASCRIPT_URL_ATTRIBUTES[element.tagName];
+      for (const attribute of element.attrs) {
+        const name = attribute.name.toLowerCase();
+        const place = urlAttributes?.includes(name) ? name : undefined;
+
+        // parse5 lowercases names. Any attribute that starts with "on" is an event handler; the runtime decides
+        // what it should do, so a check can only name it. This includes handlers that never fire, such as an
+        // unknown event: they all keep a strict CSP from being deployable.
+        if (name.length > 2 && name.startsWith("on")) {
+          out.push({
+            message: `The ${name} attribute on <${element.tagName}> is an inline event handler. ${CSP_EVENT} so the page loses the behavior it registers.`,
+            location: locate(page, element, attribute.name),
+            fix: {
+              kind: "manual",
+              summary: `Move the ${name} code into an external script file and attach it with addEventListener. A strict CSP cannot allow inline handlers: "unsafe-inline" also lets code that is injected into the page run.`,
+              edits: [],
+            },
+            key: key(`handler:${element.tagName}:${name}`),
+          });
+        } else if (place !== undefined && /^\s*javascript:/i.test(attribute.value)) {
+          out.push({
+            message: `The ${place} attribute on <${element.tagName}> uses a javascript: URL. ${CSP_EVENT} so the page loses what the URL does.`,
+            location: locate(page, element, attribute.name),
+            fix: {
+              kind: "manual",
+              summary: `Use a real address instead, or make the element a <button> whose click listener lives in an external script. A strict CSP cannot allow javascript: URLs: "unsafe-inline" also lets code that is injected into the page run.`,
+              edits: [],
+            },
+            key: key(`javascript:${element.tagName}:${place}`),
+          });
+        }
+      }
+    }
+  }
+  return out;
+});

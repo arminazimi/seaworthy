@@ -4,6 +4,7 @@
 
 ### Added
 
+- `html.inline-handlers` reports inline event handlers (`onclick` and every other `on*` attribute) and `javascript:` URLs in navigation and form attributes, which a strict Content Security Policy (`script-src` without `"unsafe-inline"`) blocks (#247).
 - `seaworthy diff before.json after.json` compares two report files and prints one JSON object with the counts and finding lists for what is new, fixed, and unchanged (#335).
 - `seaworthy config check` validates a config with the same rules `verify` applies, without running any checks, and exits 0 or 2 (#293).
 - The CLI colors human output when the stream is an interactive terminal: severity tokens in the pretty report, the `seaworthy:` summary lines, and crash notices get color, `NO_COLOR` turns it off everywhere, and JSON, markdown, SARIF, and report files are never colored (#291).
