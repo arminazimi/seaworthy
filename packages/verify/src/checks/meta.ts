@@ -1,6 +1,6 @@
 // meta.*: the document-level tags every page needs: title, description, language, viewport, canonical URL.
 
-import { attr } from "../site.js";
+import { type Page, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, replaceEdit, textOf } from "./helpers.js";
 
@@ -63,6 +63,48 @@ export const metaDescription = check(meta("meta.description", "Page has no meta 
       location: tag ? locate(page, tag.element) : documentLocation(page),
       fix: { kind: edit ? "edit" : "manual", summary: "Add a one-sentence description. Search engines and link previews show it.", edits: edit ? [edit] : [] },
       key: "description",
+    });
+  }
+  return out;
+});
+
+/** Pages listed in one finding, so a site with one description everywhere stays one line. */
+const MAX_GROUP_PAGES = 5;
+/** The description quoted in the message, so an accidental paragraph does not swallow the report. */
+const MAX_DESCRIPTION_CHARS = 80;
+
+/** Comma-plus-`and` list; when more than `max` pages, the list is capped and the rest are counted. */
+function pageList(urls: string[], max: number): string {
+  const extra = urls.length - max;
+  if (extra > 0) return `${urls.slice(0, max).join(", ")}, and ${extra} more`;
+  const shown = urls.length > 1 ? `${urls.slice(0, -1).join(", ")} and ${urls[urls.length - 1] as string}` : (urls[0] as string);
+  return shown;
+}
+
+export const metaDuplicateDescription = check(meta("meta.duplicate-description", "Pages share the same meta description", "warning"), (ctx) => {
+  // Group by the description with whitespace collapsed: spacing does not make two descriptions different.
+  const groups = new Map<string, Page[]>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const tag = metaTags(page).get("description");
+    if (!tag || tag.content === "") continue;
+    const description = tag.content.replace(/\s+/g, " ").trim();
+    const group = groups.get(description);
+    if (group) group.push(page);
+    else groups.set(description, [page]);
+  }
+  const out: FindingDraft[] = [];
+  for (const [description, group] of groups) {
+    if (group.length < 2) continue;
+    // Pages arrive in sorted file order, so the first page is the one the report lists the finding under.
+    const first = group[0]!;
+    const tag = metaTags(first).get("description")!;
+    const quoted = description.length > MAX_DESCRIPTION_CHARS ? `${description.slice(0, MAX_DESCRIPTION_CHARS)}…` : description;
+    out.push({
+      message: `The meta description "${quoted}" is the same on ${group.length} pages: ${pageList(group.map((page) => page.url), MAX_GROUP_PAGES)}. Search engines show the same preview for all of them.`,
+      location: locate(first, tag.element, "content"),
+      fix: { kind: "manual", summary: "Write a one-sentence description that says what each page is about, in its <meta name=\"description\">. Reusing one text gives every page the same search-result preview.", edits: [] },
+      key: description,
     });
   }
   return out;
