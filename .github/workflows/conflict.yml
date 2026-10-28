@@ -1,0 +1,35 @@
+name: Conflict bot
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: "conflict-${{ github.event.pull_request.number }}"
+  cancel-in-progress: true
+
+jobs:
+  label-conflict:
+    name: label conflicted pull requests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the default branch, never the pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: "${{ github.event.repository.default_branch }}"
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Reconcile the conflict label and rebase comment
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          REPO: "${{ github.repository }}"
+          PR: "${{ github.event.pull_request.number }}"
+        run: node tools/pr-conflict.mjs
