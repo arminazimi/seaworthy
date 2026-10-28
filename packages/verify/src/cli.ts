@@ -52,7 +52,7 @@ Commands:
   init [dir]           Write a config, a CI workflow, and an empty baseline in one step. See \`seaworthy init --help\`.
 
 Options:
-  --format <format>    pretty (default), json, markdown, or sarif
+  --format <format>    pretty (default), json, markdown, sarif, or llm
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
   --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
@@ -344,7 +344,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
 
   saveCache?.();
   // Paint the report only when it lands on a terminal as pretty output. Report files and the
-  // machine formats (json, markdown, sarif) must stay byte-identical to the plain text everywhere.
+  // machine formats (json, markdown, sarif, llm) must stay byte-identical to the plain text everywhere.
   const reportPaint: Palette = options.out === undefined && options.format === "pretty" ? stdoutPaint : PLAIN;
   const text = formatReport(report, options.format, {
     readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],

@@ -1,11 +1,12 @@
 import { PLAIN, type Palette } from "../color.js";
 import { reportToJson } from "../report.js";
 import type { Report } from "../types.js";
+import { formatLlm } from "./llm.js";
 import { formatMarkdown } from "./markdown.js";
 import { formatPretty } from "./pretty.js";
 import { type SarifContext, formatSarif } from "./sarif.js";
 
-export const FORMATS = ["pretty", "json", "markdown", "sarif"] as const;
+export const FORMATS = ["pretty", "json", "markdown", "sarif", "llm"] as const;
 export type Format = (typeof FORMATS)[number];
 
 export type FormatContext = SarifContext;
@@ -20,5 +21,7 @@ export function formatReport(report: Report, format: Format, context: FormatCont
       return formatPretty(report, paint);
     case "sarif":
       return formatSarif(report, context);
+    case "llm":
+      return formatLlm(report);
   }
 }

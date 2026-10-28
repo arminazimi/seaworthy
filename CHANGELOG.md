@@ -4,6 +4,7 @@
 
 ### Added
 
+- `seaworthy verify --format llm` prints a compact report sized for an agent's context window: one line per finding, grouped by file, with the fix first, then the check ID, severity, location, and a short evidence line; plain text, no color, byte-identical everywhere (#263).
 - `i18n.hreflang` reports `rel="alternate" hreflang=...` entries that point at a page the built site does not serve, or whose target page declares no hreflang alternate for the declaring page's language back to it; language values match without regard to case, `x-default` entries are out of scope (the `i18n.x-default` follow-up handles them), and external hreflang URLs are skipped, never fetched (#368).
 - Every output format now carries ready-to-paste fix prompts: one per finding and one for the whole report, generated from each finding's data alone (check ID, location, fix hint) so they are identical, deterministic, and free of private run state everywhere (#264).
 - `quality.empty-pages` reports pages whose built HTML has no main text — an empty `<main>`, or no text outside the navigation, header, and footer — so an agent that reads it gets only the site frame (#329).
