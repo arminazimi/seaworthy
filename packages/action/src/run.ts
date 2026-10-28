@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { ActionInputError, parseInputs, ReportFormatError } from "./index.js";
+import { ActionInputError, parseInputs, ReportFormatError, type Threshold } from "./index.js";
 
 /**
  * The verify CLI, built next to this package by the same `npm run build` the Action's build
@@ -18,6 +18,9 @@ const VERIFY_CLI = new URL("../../../verify/dist/src/cli.js", import.meta.url);
 
 /** The exit code for a failed Action input or an unusable report; the CLI's own code otherwise. */
 const USAGE_EXIT = 2;
+
+/** The CLI's exit code for "the site has findings at or above the threshold". */
+const FINDINGS_EXIT = 1;
 
 interface VerifyRun {
   code: number;
@@ -32,9 +35,13 @@ function runVerify(args: readonly string[], cwd: string): VerifyRun {
   return { code: run.status ?? 1, stdout: run.stdout ?? "", stderr: run.stderr ?? "" };
 }
 
-/** `verify` with the report format left open: the directory arg is skipped so the CLI discovers a default. */
-function verifyArgs(site: string, format: string, out?: string): string[] {
-  const args = ["verify", ...(site === "" ? [] : [site]), "--format", format];
+/**
+ * `verify` with the report format left open: the directory arg is skipped so the CLI discovers a default.
+ * The threshold travels as `--fail-on`, so the CLI decides the exit code from the same severity the
+ * Action input names; the run's outcome is the CLI's, never a second rule in this package.
+ */
+function verifyArgs(site: string, format: string, failOn: Threshold, out?: string): string[] {
+  const args = ["verify", ...(site === "" ? [] : [site]), "--format", format, "--fail-on", failOn];
   return out === undefined ? args : [...args, "--out", out];
 }
 
@@ -52,19 +59,25 @@ function readReport(stdout: string): { summary?: { findings?: number }; root?: s
  * `sarif` step output, and return the exit contract (0, 1, or 4). Relative paths resolve
  * against the consumer's workspace, the folder the workflow checked out.
  *
+ * The `threshold` input travels to the CLI as `--fail-on`, so the run fails on the site's
+ * findings exactly when the threshold says so, and the CLI's exit code is the run's outcome.
+ *
  * SARIF is written by the CLI itself (`--format sarif --out`) rather than mapped here,
  * because only the CLI's in-run site text can turn fix edits into exact regions.
  */
 export async function actionRun(env: Readonly<Record<string, string | undefined>> = process.env): Promise<number> {
   const inputs = parseInputs(env);
   const cwd = env.GITHUB_WORKSPACE ?? process.cwd();
-  const json = runVerify(verifyArgs(inputs.site, "json"), cwd);
+  const json = runVerify(verifyArgs(inputs.site, "json", inputs.threshold), cwd);
   if (json.code === USAGE_EXIT) return json.code;
   const report = readReport(json.stdout);
 
   if (inputs.sarif !== "") {
-    const sarif = runVerify(verifyArgs(inputs.site, "sarif", inputs.sarif), cwd);
-    if (sarif.code !== 0) return sarif.code === USAGE_EXIT ? USAGE_EXIT : 4;
+    const sarif = runVerify(verifyArgs(inputs.site, "sarif", inputs.threshold, inputs.sarif), cwd);
+    // 1 is the CLI's "the site has findings" code: the run failed on the site's problems, not on
+    // the SARIF write, and the JSON run above already decided that outcome. Anything else is the
+    // SARIF run itself failing, which the Action reports as its own failure.
+    if (sarif.code !== 0 && sarif.code !== FINDINGS_EXIT) return sarif.code === USAGE_EXIT ? USAGE_EXIT : 4;
   }
 
   if (env.GITHUB_OUTPUT !== undefined) {
