@@ -47,3 +47,5 @@ export { CACHE_FILE, ChangedError, changedSinceLastRun, changedSinceRef } from "
 export { formatDiffComment } from "./formats/markdown.js";
 export { diffReports, diffToJson, readReport } from "./diff.js";
 export type { DiffReport, ReportDiff } from "./diff.js";
+export { WATCH_DEBOUNCE_MS, WatchLoop, WatchScheduler, watchDiffText, watchStatusText } from "./watch.js";
+export type { WatchLoopOptions, WatchSchedulerOptions } from "./watch.js";
