@@ -1,6 +1,6 @@
 // meta.*: the document-level tags every page needs: title, description, language, viewport, canonical URL.
 
-import { type Page, attr } from "../site.js";
+import { type HtmlElement, type Page, type SiteGraph, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, refreshOf, replaceEdit, textOf } from "./helpers.js";
 
@@ -207,6 +207,104 @@ export const htmlMetaRefresh = check(meta("html.meta-refresh", "Page moves itsel
         key: `refresh:${content.trim()}`,
       });
     }
+  }
+  return out;
+});
+
+// The first canonical link on a page is the one that applies (HTML canonical rule).
+interface Canonical {
+  link: HtmlElement;
+  href: string;
+}
+
+function canonicalOf(page: Page): Canonical | undefined {
+  const link = page.elements.find((e) => e.tagName === "link" && (attr(e, "rel") ?? "").toLowerCase().split(/\s+/).includes("canonical"));
+  if (!link) return undefined;
+  return { link, href: (attr(link, "href") ?? "").trim() };
+}
+
+/** The root-relative URL path a canonical link names, resolved the way a static host serves it; undefined when it names nothing this site graph can check. */
+function canonicalTargetOf(site: SiteGraph, page: Page, href: string): { path: string; file: string | undefined } | undefined {
+  // An absolute canonical names another deployment, whose origin cannot be verified offline; only its path can.
+  let path: string | undefined = href;
+  if (/^https?:\/\//i.test(href)) {
+    try {
+      path = new URL(href).pathname;
+    } catch {
+      return undefined;
+    }
+  }
+  if (path === undefined || path === "") return undefined;
+  // resolveLink strips the configured base path the way links.internal does, for both absolute and relative paths.
+  const target = site.resolveLink(page.url, path);
+  if (target.kind !== "internal") return undefined;
+  return { path: target.path, file: target.file };
+}
+
+const FIX_CANONICAL = "Point the canonical at the full public URL of the page's content: its own URL, unless this page is a duplicate of another, in which case use that page's URL.";
+
+const FIX_CYCLE = "Point each page's canonical at the one real address of the content — usually the page's own URL — so the chain ends at a page instead of at another canonical.";
+
+export const metaCanonicalTarget = check(meta("meta.canonical-target", "Canonical link points at a page that does not exist", "warning"), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const canonical = canonicalOf(page);
+    if (!canonical) continue;
+    const target = canonicalTargetOf(ctx.site, page, canonical.href);
+    // The canonical names a page in the built site; an address that resolves to no page cannot be canonicalized.
+    if (target === undefined || (target.file !== undefined && ctx.site.pages.has(target.file))) continue;
+    out.push({
+      message: `The canonical link ${canonical.href} points at ${target.path}, which is not a page in the built site.`,
+      location: locate(page, canonical.link, "href"),
+      fix: { kind: "manual", summary: FIX_CANONICAL, edits: [] },
+      key: canonical.href,
+    });
+  }
+  return out;
+});
+
+export const metaCanonicalCycle = check(meta("meta.canonical-cycle", "Canonical links point at each other in a circle", "warning"), (ctx) => {
+  const out: FindingDraft[] = [];
+  const edges = new Map<string, { page: Page; link: HtmlElement; href: string; target: string }>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const canonical = canonicalOf(page);
+    if (!canonical) continue;
+    const target = canonicalTargetOf(ctx.site, page, canonical.href);
+    if (target === undefined || target.file === undefined || !ctx.site.pages.has(target.file)) continue;
+    edges.set(page.url, { page, link: canonical.link, href: canonical.href, target: target.file });
+  }
+
+  // Follow every canonical chain once (pages sorted, so runs are deterministic). A cycle is found where a
+  // walk re-enters the chain it is walking; each member of a circle is named once, on its own canonical link.
+  const color = new Map<string, "walking" | "done">();
+  for (const start of [...ctx.site.pages.keys()].sort()) {
+    if (color.has(start) || !edges.has(start)) continue;
+    const chain: string[] = [];
+    let node: string | undefined = start;
+    while (node !== undefined && !color.has(node)) {
+      color.set(node, "walking");
+      chain.push(node);
+      node = edges.get(node)?.target; // a page without a canonical ends the chain
+    }
+    if (node !== undefined && color.get(node) === "walking") {
+      const circle = chain.slice(chain.indexOf(node!));
+      if (circle.length > 1) {
+        // A page whose canonical points at itself is a normal self-canonical, not a circle.
+        const loop = [...circle, node!].join(" → ");
+        for (const member of circle) {
+          const edge = edges.get(member)!;
+          out.push({
+            message: `The canonical link ${edge.href} helps form a circle of canonical links (${loop}), so none of these pages has a canonical URL search engines can use.`,
+            location: locate(edge.page, edge.link, "href"),
+            fix: { kind: "manual", summary: FIX_CYCLE, edits: [] },
+            key: `circle:${loop}`,
+          });
+        }
+      }
+    }
+    for (const walked of chain) color.set(walked, "done");
   }
   return out;
 });
