@@ -14,6 +14,7 @@ import { builtInChecks } from "./checks/index.js";
 import { CONFIG_FILE, ConfigError, loadConfig } from "./config.js";
 import { ReportDiffError, diffReports, diffToJson, readReport } from "./diff.js";
 import { FORMATS, type Format, formatReport } from "./formats/index.js";
+import { appendHistory, buildHistoryRecord, runConfigHash } from "./history.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
 import { type FixPreview, planFix } from "./fix.js";
 import { BASELINE_FILE, detectGenerator, INIT_MARKERS, INIT_MARKERS_HINT, planInit, WORKFLOW_FILE, type PlanOptions } from "./init.js";
@@ -74,6 +75,7 @@ Options:
   --changed            Report only findings in files that changed since the last run (hashes in .seaworthy/cache.json)
   --changed-since <ref>
                        Report only findings in files that differ from a git ref (for sites that commit their output)
+  --no-history         Do not record this run in .seaworthy/history (default on; also "history": false in the config)
   --rendered           Run checks that need a browser
   --network            Run checks that make network requests
   --timings            Time each stage and check, printed to stderr; the report is unchanged
@@ -202,13 +204,15 @@ interface Options {
   changedSince: string | undefined;
   rendered: boolean;
   network: boolean;
+  /** Record the run in .seaworthy/history. Default on; `--no-history` is the per-run opt-out. */
+  history: boolean;
   timings: boolean;
 }
 
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, maxFindings: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, timings: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, maxFindings: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, history: true, timings: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -266,6 +270,9 @@ function parseOptions(args: readonly string[]): Options {
       case "--changed":
         options.changed = true;
         break;
+      case "--no-history":
+        options.history = false;
+        break;
       case "--rendered":
         options.rendered = true;
         break;
@@ -312,6 +319,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const options = parseOptions(args);
   const cwd = env.cwd ?? process.cwd();
   const checks = env.checks ?? builtInChecks;
+  const startedIso = new Date().toISOString();
 
   // Human output may be painted only when its stream is a terminal and NO_COLOR is unset.
   const stdoutPaint = paletteFor(env.color, "stdout");
@@ -399,8 +407,35 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
     stdout = `seaworthy: ${findings}; ${options.format} report written to ${options.out}\n`;
   }
   const failOn = options.failOn ?? config.failOn ?? "error";
-  const code = report.errors.length > 0 ? EXIT.internal : failing(report, failOn) ? EXIT.findings : EXIT.ok;
-  return { code, stdout, stderr: crashedNotice(report.errors.length, "; see the report") + timingText() };
+
+  // Run history is on by default: one record in .seaworthy/history per verify run, for diffs
+  // and trends between runs. It writes only that folder, never the report, never stdout or
+  // stderr on success, so machine-readable output is byte-identical with and without history.
+  // A --update-baseline run is a setup step, not a comparable run, and returns above.
+  const runsHistory = options.history && config.history !== false;
+  const historyStderr = (): string => {
+    if (!runsHistory) return "";
+    const settings = {
+      root: label,
+      basePath: config.basePath ?? null,
+      failOn,
+      rendered: options.rendered || config.rendered === true,
+      network: options.network || config.network === true,
+      baseline: baselinePath ?? null,
+      checks: config.checks,
+      ignore: config.ignore,
+      suppressions: config.suppressions,
+    };
+    try {
+      appendHistory(cwd, buildHistoryRecord(report, { started: startedIso, configHash: runConfigHash(settings) }));
+      return "";
+    } catch (error) {
+      return `seaworthy: could not record run history: ${error instanceof Error ? error.message : String(error)}\n`;
+    }
+  };
+
+  const runFails = report.errors.length > 0 ? EXIT.internal : failing(report, failOn) ? EXIT.findings : EXIT.ok;
+  return { code: runFails, stdout, stderr: crashedNotice(report.errors.length, "; see the report") + historyStderr() + timingText() };
 }
 
 /** `seaworthy config check [file] [options]`: validate a config without running checks. */

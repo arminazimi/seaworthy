@@ -24,6 +24,7 @@ Seaworthy works with no config. Add `seaworthy.config.json` in the folder you ru
 | `root` | The built site folder. Default: the first of `dist`, `build`, `out`, `public`, `_site`, `site` that exists. |
 | `failOn` | Exit 1 when a finding has at least this severity: `error` (default), `warning`, `note`, or `none`. `--fail-on` overrides it. |
 | `rendered`, `network` | Turn on checks that need a browser or the network. Off by default. |
+| `history` | Record a summary of every verify run in `.seaworthy/history` (see below). Default on; `"history": false` turns it off, and `--no-history` turns it off for one run. |
 | `ignore` | Site-relative globs (`*`, `**`, `?`). Findings in matching files are dropped. |
 | `checks` | Per-check settings by check ID or prefix such as `a11y.*`: `"off"`, a severity, or `{ "off", "severity", "options", "maxFindings" }`. An exact ID beats a prefix, and a longer prefix beats a shorter one, regardless of order. |
 | `baseline` | A baseline file to apply on every run. |
@@ -96,3 +97,17 @@ npx seaworthy verify --baseline seaworthy-baseline.json          # fail only on 
 ```
 
 The baseline stores fingerprints with counts, not line numbers, so it survives edits that move a finding. Fixed problems show up as `baselineStale` in the summary; run `--update-baseline` again to prune them. Commit the baseline file.
+
+## Run history
+
+Every verify run appends one JSON summary to `.seaworthy/history/0001-<timestamp>.json`: the timestamp, the site root and page count, a hash of the run's settings, and finding counts by severity and by check. The most recent 30 runs are kept and the oldest are pruned, so the store stays bounded.
+
+Records have sorted keys and stable ordering, so a plain `diff` between two record files is meaningful, and they are one file per run, so a partial write damages at most that one record and the next run is unaffected. The special-case files this write creates live next to the `--changed` cache (`.seaworthy/`); add `.seaworthy/` to your `.gitignore`.
+
+If a new file appearing after a verify run surprises you, opt out:
+
+```json
+{ "history": false }
+```
+
+or pass `--no-history` for a single run. Nothing else changes: the report, every output format, and the exit codes are identical with history on and off.

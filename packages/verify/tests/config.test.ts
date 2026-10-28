@@ -43,6 +43,13 @@ test("an empty object is a valid config", () => {
   assert.deepEqual(parse({}), { checks: {}, ignore: [], suppressions: [] });
 });
 
+test("history is a boolean, default on, false to opt out", () => {
+  assert.equal(parse({ history: false }).history, false);
+  assert.equal(parse({ history: true }).history, true);
+  assert.equal(parse({}).history, undefined, "absent means default on");
+  assert.match(problems({ history: "yes" }), /history: must be true or false, got "yes"/);
+});
+
 test("errors name the key, the bad value, and the allowed values", () => {
   assert.match(problems({ failOn: "fatal" }), /failOn: got "fatal"; allowed values: error, warning, note, none/);
   assert.match(problems({ rendered: "yes" }), /rendered: must be true or false, got "yes"/);
