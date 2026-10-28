@@ -23,6 +23,7 @@ export { attr, buildSite, positionOf } from "./site.js";
 export type { HtmlElement, LinkTarget, Page, SiteGraph } from "./site.js";
 export { buildMarkdownGraph, createSlugger, headingText, parseMarkdown, resolveTarget } from "./markdown.js";
 export type { MdHeading, MdImage, MdLink, MarkdownFile, MarkdownGraph, Slugger } from "./markdown.js";
+export { DEFAULT_FOLDERS, discoverFolder, rootLabel } from "./folders.js";
 export { fingerprint, runChecks, validateCheckId } from "./engine.js";
 export type { CheckTiming, RunOptions, RunResult } from "./engine.js";
 export { buildReport, compareFindings, reportToJson } from "./report.js";

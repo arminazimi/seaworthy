@@ -1,11 +1,11 @@
 // Pieces every command module shares: exit codes, the result envelope, the environment
-// hooks, the usage error, and the folder-label helper.
-
-import { basename, isAbsolute, relative } from "node:path";
+// hooks, and the usage error. The folder helpers live in ../folders.js, shared with the MCP server.
 
 import type { ColorEnvironment } from "../color.js";
 import type { WatchLoop } from "../watch.js";
 import type { Check } from "../types.js";
+
+export { DEFAULT_FOLDERS, rootLabel } from "../folders.js";
 
 export const EXIT = {
   /** No findings at or above the failing severity. */
@@ -16,9 +16,6 @@ export const EXIT = {
   /** A check or the engine crashed. */
   internal: 4,
 } as const;
-
-/** Folders a build usually writes to, in the order they are tried when no folder is given. */
-export const DEFAULT_FOLDERS = ["dist", "build", "out", "public", "_site", "site"] as const;
 
 /** A command rejected how it was invoked; `run` turns this into the usage exit code. */
 export class UsageError extends Error {}
@@ -57,12 +54,4 @@ export interface CliEnvironment {
    * so a caller can avoid writing it twice.
    */
   stream?: (chunk: string) => void;
-}
-
-/** The folder as a relative label, so reports never contain absolute paths. */
-export function rootLabel(cwd: string, folder: string): string {
-  const rel = relative(cwd, folder);
-  if (rel === "") return ".";
-  if (isAbsolute(rel)) return basename(folder); // a different drive on Windows
-  return rel.split("\\").join("/");
 }

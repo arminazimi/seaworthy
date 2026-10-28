@@ -6,7 +6,9 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -15,8 +17,10 @@ import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/ty
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
+import { PLANNED_TOOLS } from "../src/planned.js";
 import { SERVER_NAME, SERVER_TITLE } from "../src/server.js";
 import { SERVER_VERSION } from "../src/version.js";
+import { VERIFY_CHANGED_DESCRIPTION, VERIFY_CHANGED_NAME, VERIFY_SITE_DESCRIPTION, VERIFY_SITE_NAME } from "../src/verify-tools.js";
 
 // The built server the tests spawn: `<pkg>/dist/tests/server.e2e.test.js` imports `../src/main.js`,
 // which resolves to `<pkg>/dist/src/main.js` after `npm run build`.
@@ -198,7 +202,7 @@ test("initialize falls back to the SDK's latest version for an unsupported proto
   }
 });
 
-test("tools/list advertises exactly the implemented tool, never planned-but-unbuilt ones", { skip: SKIP_SPAWN }, async () => {
+test("tools/list advertises exactly the implemented tools, never planned-but-unbuilt ones", { skip: SKIP_SPAWN }, async () => {
   const child = await startServer();
   try {
     await initialize(child);
@@ -215,8 +219,58 @@ test("tools/list advertises exactly the implemented tool, never planned-but-unbu
           // The SDK marks synchronous tools this way in 1.32.x.
           execution: { taskSupport: "forbidden" },
         },
+        {
+          name: VERIFY_SITE_NAME,
+          description: VERIFY_SITE_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              site: { description: "The built site folder, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
+              base: { description: 'The base path the site is deployed under, such as "/repo/". Default: the config\'s basePath, else what a known generator config says, else "/".', type: "string" },
+              rendered: { description: "Run the checks that render pages in a browser. Opt-in: needs a browser installed on this machine.", type: "boolean" },
+              network: { description: "Let the checks that need it reach the network. Opt-in: every other check stays offline.", type: "boolean" },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
+          name: VERIFY_CHANGED_NAME,
+          description: VERIFY_CHANGED_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              site: { description: "The built site folder, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
+              base: { description: 'The base path the site is deployed under, such as "/repo/". Default: the config\'s basePath, else what a known generator config says, else "/".', type: "string" },
+              rendered: { description: "Run the checks that render pages in a browser. Opt-in: needs a browser installed on this machine.", type: "boolean" },
+              network: { description: "Let the checks that need it reach the network. Opt-in: every other check stays offline.", type: "boolean" },
+              since: { description: "A git ref (branch, tag, or commit) to compare the site with. Default: the files that changed since the last run.", type: "string" },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
       ],
     });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("tools/list advertises no tool that is still planned", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(2, "tools/list"));
+    const reply = await child.next();
+    const tools = (reply.result as { tools: Array<{ name: string }> }).tools;
+    for (const planned of PLANNED_TOOLS) {
+      assert.equal(
+        tools.some((tool) => tool.name === planned),
+        false,
+        `${planned} is planned but not implemented, so it must not be advertised`,
+      );
+    }
   } finally {
     await child.stop();
   }
@@ -260,16 +314,41 @@ test("calling a planned but unimplemented tool is a tool error, not invented dat
   const child = await startServer();
   try {
     await initialize(child);
-    child.send(request(4, "tools/call", { name: "verify_site", arguments: {} }));
+    child.send(request(4, "tools/call", { name: "explain_finding", arguments: {} }));
     const reply = await child.next();
     assert.equal(reply.jsonrpc, "2.0");
     assert.equal(reply.id, 4);
     assert.deepEqual(reply.result, {
-      content: [{ type: "text", text: "MCP error -32602: Tool verify_site not found" }],
+      content: [{ type: "text", text: "MCP error -32602: Tool explain_finding not found" }],
       isError: true,
     });
   } finally {
     await child.stop();
+  }
+});
+
+test("tools/call verify_site returns the report JSON of the named site", { skip: SKIP_SPAWN }, async () => {
+  const site = mkdtempSync(join(tmpdir(), "seaworthy-mcp-e2e-"));
+  try {
+    writeFileSync(join(site, "index.html"), '<!doctype html><html lang="en"><head><title>Page</title></head><body><main><h1>Page</h1></main></body></html>');
+    const child = await startServer();
+    try {
+      await initialize(child);
+      child.send(request(6, "tools/call", { name: VERIFY_SITE_NAME, arguments: { site } }));
+      const reply = await child.next();
+      assert.equal(reply.jsonrpc, "2.0");
+      assert.equal(reply.id, 6);
+      const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+      assert.equal(result.isError, undefined, "a site with findings is a result, not an error");
+      const report = JSON.parse(result.content[0]!.text) as { spec: number; root: string; findings: unknown[] };
+      assert.equal(report.spec, REPORT_SPEC_VERSION);
+      assert.equal(report.root.split("/").pop(), basename(site), "the folder is named relative to the workspace, never as an absolute path");
+      assert.ok(Array.isArray(report.findings));
+    } finally {
+      await child.stop();
+    }
+  } finally {
+    rmSync(site, { recursive: true, force: true });
   }
 });
 
