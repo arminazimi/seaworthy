@@ -230,6 +230,47 @@ Name, mark, palette, badge, and launch art are decided and shipped as a reusable
 
 ---
 
+## Epic: Parallel agent throughput
+<!-- seaworthy-roadmap-key: E-parallel -->
+> **Epic** · **Phase:** Phase 0 — Foundations and feasibility spikes (2026-10-19 → 2026-11-01)
+
+### Outcome
+Up to 20 agents can work on the repository at the same time and their pull requests merge without hand-resolving conflicts. Adding a check, a format, a flag, or a changelog entry means adding a file, not editing a line in a file every other PR also edits.
+
+### Scope
+- Changelog fragments (`changelog.d/`) instead of edits to `CHANGELOG.md`
+- Auto-discovered registries for checks and output formats; `cli.ts` split by command
+- Config and report schemas split so two PRs that add a field do not touch the same lines
+- A merge queue, a faster CI, and quarantine for flaky tests so a queue of PRs does not stall
+- A playbook and a metric for running many agents at once
+
+### Non-goals
+- Replacing the one-issue-one-PR rule.
+- Hosting our own agent runner or scheduler.
+
+### Tasks
+| Key | Task | Lane | Size | Depends |
+|---|---|---|---|---|
+| `par.changelog-fragments` | `changelog.d/<issue>.<section>.md` fragments, a fold script, a check, and updated contribution docs | strong-agent | S | none |
+| `par.registry` | Check and format registries load one module per file, so a new check or format adds a file and edits no shared index | strong-agent | M | none |
+| `par.cli-split` | Split `packages/verify/src/cli.ts` into one module per command and option group; a new flag touches one module | strong-agent | M | `par.registry` |
+| `par.schema-split` | Build `spec/config/v0.schema.json` and the report schema from per-feature fragments, with a check that the built files are current | strong-agent | M | none |
+| `par.hot-files` | List the shared files in `AGENTS.md` and the rule for each (append-only, regenerate, or never touch) | free-agent | XS | none |
+| `par.brief-files` | The roadmap build warns when two tasks that can run at the same time list the same file under **Files**, and prints a conflict map | strong-agent | S | `par.hot-files` |
+| `par.merge-queue` | Turn on the GitHub merge queue with required checks and add the `merge_group` trigger to CI | maintainer | S | none |
+| `par.ci-speed` | Run a small matrix on pull requests and the full OS and Node matrix in the merge queue; shard tests | strong-agent | S | `par.merge-queue` |
+| `par.flaky` | Find and fix tests and gates that fail on loaded runners (macOS timing, the startup budget); quarantine the rest with an issue each | strong-agent | S | none |
+| `par.stale-pr-bot` | Workflow that labels a PR `conflict` and comments the rebase prompt when it stops merging cleanly | free-agent | S | none |
+| `par.playbook` | Playbook for running many agents: one worktree and branch per issue, claim by assignment, rebase before push, small PRs | free-agent | XS | `par.changelog-fragments` |
+| `par.metrics` | Script that reports conflict rate, time to merge, and queue length from the GitHub API | free-agent | S | none |
+
+### Exit criteria
+- [ ] Twenty open pull requests, each adding a different check, merge in any order without a conflict.
+- [ ] No pull request edits `CHANGELOG.md`, a registry index, or a shared schema file directly.
+- [ ] The merge queue lands a pull request within 15 minutes of approval.
+
+---
+
 # Phase 1 — Verify engine and check pack v1 (2026-11-02 → 2026-11-29)
 
 ## Epic: Verify engine

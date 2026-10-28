@@ -23,8 +23,9 @@ Comment on the issue to claim it. If you go quiet for a week, someone else may p
 2. Follow the issue's agent brief, if it has one. If not, comment with a short plan first.
 3. Keep the PR to that one issue.
 4. Add tests for what users or agents can observe.
-5. Run `npm run check`.
-6. Open the PR with `Closes #<issue>`.
+5. Add a changelog fragment in `changelog.d/` (see its README). Do not edit `CHANGELOG.md` in a PR: that file conflicts between open PRs.
+6. Run `npm run check`.
+7. Open the PR with `Closes #<issue>`.
 
 ## Proposing checks
 
