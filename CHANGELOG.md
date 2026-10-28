@@ -11,3 +11,5 @@
 - `social.twitter-card` reports pages without a usable Twitter card type, and cards that have no image and no Open Graph fallback (#61).
 - `social.image-size` reports social preview images below the platform minimum dimensions or over the 5 MB limit, reading only images inside the built site (#61).
 - `html.meta-refresh` reports `<meta http-equiv="refresh">` with a delay greater than 0 seconds, which moves people before they can read (WCAG 2.2.1) (#246).
+- `meta.canonical-target` reports pages whose canonical link resolves, the way a static host serves it (including `basePath`), to no page in the built site (#334).
+- `meta.canonical-cycle` reports pages whose canonical links point at each other in a circle of two or more, so no page in the circle has a canonical URL (#334).

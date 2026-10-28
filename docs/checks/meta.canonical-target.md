@@ -1,0 +1,32 @@
+# meta.canonical-target
+
+A page's canonical link points at a URL that does not serve a page in the built site.
+
+## Why it matters
+
+A canonical link is advice: *list this address, not that one*. When the address is a 404, or names a file that is not a page, search engines ignore the advice and pick an address themselves, so duplicates and the wrong URL keep showing up in results. This is the most common canonical mistake after pages are renamed.
+
+## What it checks
+
+For every page with `<link rel="canonical">` (the first one on the page is the one that applies), the href is resolved the way a static host serves it — the exact file, `/dir/` or `/dir` to its `index.html`, an extensionless URL to `.html`, percent-encoding, and the configured `basePath`. The check fails when the address does not resolve to a page in the built site.
+
+An absolute `http(s)` URL is resolved by its path; the domain cannot be verified offline, so a canonical to another site is judged only by where its path would land here.
+
+## How to fix
+
+```html
+<!-- before: points at a page the site never builds -->
+<link rel="canonical" href="https://example.com/docs/old-guide.html">
+<!-- after: this page's own URL, or the URL of the one real copy of the content -->
+<link rel="canonical" href="https://example.com/docs/guide.html">
+```
+
+Fix it in the source (the template or generator setting that emits the tag), not in the built file. Most generators have a site URL and permalink setting that produces it.
+
+## Options
+
+None.
+
+## Standards
+
+None.
