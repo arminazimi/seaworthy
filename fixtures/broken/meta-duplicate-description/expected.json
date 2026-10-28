@@ -1,0 +1,11 @@
+{
+  "description": "Three pages share one meta description as one grouped finding; a fourth page has its own text.",
+  "findings": [
+    {
+      "check": "meta.duplicate-description",
+      "file": "about.html",
+      "line": 5,
+      "column": 28
+    }
+  ]
+}

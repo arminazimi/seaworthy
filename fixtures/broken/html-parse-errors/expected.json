@@ -1,0 +1,8 @@
+{
+  "description": "Duplicate attributes at the parser's own position, a <div> with no end tag that swallows the rest of <main>, and a stray </img>. The tag-shaped text inside a script, a comment, and a title attribute is not reported.",
+  "findings": [
+    { "check": "html.parse-errors", "file": "index.html", "line": 9, "column": 20 },
+    { "check": "html.parse-errors", "file": "index.html", "line": 10, "column": 5 },
+    { "check": "html.parse-errors", "file": "index.html", "line": 12, "column": 44 }
+  ]
+}

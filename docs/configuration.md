@@ -31,6 +31,17 @@ Seaworthy works with no config. Add `seaworthy.config.json` in the folder you ru
 
 Errors name the key, the value, and the allowed values, and suggest the closest match for a typo. All problems are listed at once.
 
+## Check the config
+
+`seaworthy config check` runs the same validation without running any checks or reading the site, so you can sanity-check a config before you build:
+
+```bash
+npx seaworthy config check          # validates seaworthy.config.json in this folder, if present
+npx seaworthy config check ci.json  # validates an explicit file
+```
+
+Exit 0 when the config is valid, and 2 when the file is missing, is not JSON, or has problems. With no config file at all there is nothing to reject: checks would run with their defaults, so it still exits 0 and says so.
+
 ## Suppressions
 
 Use a suppression when a finding is real but you have decided to live with it. Every suppression needs a **reason**, and may have an **expiry**. The finding disappears from `findings` but stays listed under `suppressed` with its reason, so nothing is hidden.
