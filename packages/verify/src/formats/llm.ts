@@ -5,6 +5,7 @@
 // writes the same bytes.
 
 import type { Finding, Report } from "../types.js";
+import type { Formatter } from "./base.js";
 import { describeLocation } from "./pretty.js";
 
 /** A finding is one line, so anything a check said across lines is flattened onto it. */
@@ -58,3 +59,5 @@ export function formatLlm(report: Report): string {
   if (readability) out.push(`readability: ${readability.score}/100 (${readability.passed} of ${plural(readability.checks, "applicable check")} clean)`);
   return out.join("\n") + "\n";
 }
+
+export const render: Formatter = (report) => formatLlm(report);

@@ -2,6 +2,7 @@
 
 import type { ReportDiff } from "../diff.js";
 import type { Finding, Report } from "../types.js";
+import type { Formatter } from "./base.js";
 import { describeLocation, readabilityLine, severityCounts } from "./pretty.js";
 
 export const MAX_MARKDOWN_ROWS = 50;
@@ -56,6 +57,8 @@ export function formatMarkdown(report: Report): string {
   }
   return out.join("\n").replace(/\n{3,}/g, "\n\n").trimEnd() + "\n";
 }
+
+export const render: Formatter = (report) => formatMarkdown(report);
 
 /**
  * Pull-request comment for a diff of two runs: counts first, then the new findings, then the

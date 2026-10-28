@@ -1,6 +1,7 @@
 // SARIF 2.1.0 output for GitHub code scanning and other SARIF consumers. See ADR 0006 and ADR 0008.
 
 import type { Finding, Report } from "../types.js";
+import type { Formatter } from "./base.js";
 
 export interface SarifContext {
   /** Returns the text of one line (1-based) of a site file, so edits can be turned into exact SARIF regions. */
@@ -106,3 +107,5 @@ export function toSarif(report: Report, context: SarifContext = {}): object {
 export function formatSarif(report: Report, context: SarifContext = {}): string {
   return JSON.stringify(toSarif(report, context), null, 2) + "\n";
 }
+
+export const render: Formatter = (report, context) => formatSarif(report, context);
