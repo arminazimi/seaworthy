@@ -2,6 +2,11 @@
 // It complements the static a11y.* checks with the rules a real browser decides and a parser cannot:
 // computed contrast and target size, DOM order after scripts, and rules over live shadow DOM.
 //
+// Every page is measured at each width in turn (phone, tablet, desktop), because a page that
+// breaks on a phone looks fine at desktop width. The same rule on the same element fires at every
+// width, so one problem is one finding: a rule and element are merged, and the finding names the
+// widths the problem was seen at.
+//
 // Everything is local: pages load from file:// URLs, the axe script comes from this package's own
 // node_modules, and requests to remote http(s) resources are aborted so a run stays offline even
 // for a site that references CDN scripts. Site contents are untrusted input: the browser measures
@@ -11,8 +16,9 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import type { Check, CheckContext, FindingDraft, Location, ProbeSkip, Severity } from "../types.js";
+import type { Check, FindingDraft, Location, Severity } from "../types.js";
 import { findBrowser } from "../browser.js";
+import { launchBrowser, openContext, probeRendered, VIEWPORTS, viewportLabel, type Viewport } from "../render.js";
 import { meta, pagesOf } from "./helpers.js";
 
 /** axe impact → Seaworthy severity. Absent impact (axe could not decide) stays at `note`. */
@@ -22,6 +28,9 @@ const IMPACT_SEVERITY: Record<string, Severity> = {
   moderate: "warning",
   minor: "note",
 };
+
+/** Severity order, most severe first: a problem keeps the worst impact it had at any width. */
+const SEVERITY_RANK: Record<Severity, number> = { error: 0, warning: 1, note: 2 };
 
 // Rules the static checks already report, disabled here so one problem is never named twice.
 // The docs page lists the mapping: rule → Seaworthy check. If a static check is retired, move its rules back to the rendered engine.
@@ -70,7 +79,7 @@ interface AxeNode {
   readonly html: string;
 }
 
-interface AxeViolation {
+export interface AxeViolation {
   readonly id: string;
   readonly impact: string | null;
   readonly help: string;
@@ -82,42 +91,6 @@ interface AxeResults {
   readonly violations: readonly AxeViolation[];
 }
 
-interface PlaywrightLike {
-  chromium: {
-    launch(options: { executablePath?: string; headless?: boolean }): Promise<PlaywrightBrowser>;
-  };
-}
-
-interface PlaywrightBrowser {
-  newContext(): Promise<PlaywrightContext>;
-  close(): Promise<void>;
-}
-
-interface PlaywrightContext {
-  /** Aborts every request through a URL pattern. */
-  route(url: string, handler: (route: { abort(): Promise<void> }) => Promise<void>): Promise<void>;
-  newPage(): Promise<PlaywrightPage>;
-  close(): Promise<void>;
-}
-
-interface PlaywrightPage {
-  goto(url: string, options?: { waitUntil?: "load" | "domcontentloaded" | "networkidle" | "commit" }): Promise<unknown>;
-  addScriptTag(options: { path: string }): Promise<unknown>;
-  evaluate<R>(script: (arg: never) => unknown, arg: unknown): Promise<R>;
-  close(): Promise<void>;
-}
-
-let playwrightModule: Promise<PlaywrightLike | undefined> | undefined;
-
-/** playwright-core stays an optional peer (ADR 0005): loaded once, lazily, and missing installs are fine. */
-function loadPlaywright(): Promise<PlaywrightLike | undefined> {
-  playwrightModule ??= import("playwright-core").then(
-    (module) => module as unknown as PlaywrightLike,
-    () => undefined,
-  );
-  return playwrightModule;
-}
-
 let axeScriptPath: string | undefined;
 function axeScript(): string {
   axeScriptPath ??= createRequire(import.meta.url).resolve("axe-core/axe.min.js");
@@ -127,26 +100,6 @@ function axeScript(): string {
 /** axe option block that turns the statically covered rules off. Pure, so the engine's options stay out of it. */
 export function axeRuleOptions(): { rules: Record<string, { enabled: boolean }> } {
   return { rules: Object.fromEntries(STATICALLY_COVERED.map(([rule]) => [rule, { enabled: false }])) };
-}
-
-async function probe(context: CheckContext): Promise<ProbeSkip | undefined> {
-  if ((await loadPlaywright()) === undefined) {
-    return {
-      reason: "playwright-core-missing",
-      hint: "Install playwright-core (npm install --no-save playwright-core), then run again with --rendered. Seaworthy never downloads a browser.",
-    };
-  }
-  try {
-    if (findBrowser(context.browser?.path) === undefined) {
-      return {
-        reason: "browser-unavailable",
-        hint: "Install Chrome, Chromium, or Edge, or set SEAWORTHY_BROWSER to a browser executable, then run again with --rendered.",
-      };
-    }
-  } catch (error) {
-    return { reason: "browser-unavailable", hint: `${error instanceof Error ? error.message : String(error)}. Fix it, then run again with --rendered.` };
-  }
-  return undefined;
 }
 
 /** One line an agent can act on: what axe found, then the source-level instruction. */
@@ -167,63 +120,112 @@ function snippetOf(node: AxeNode): string | undefined {
   return html === "" ? undefined : html.length <= 200 ? html : `${html.slice(0, 200)}…`;
 }
 
+/** The severity one axe violation maps to. */
+function severityOf(violation: AxeViolation): Severity {
+  return IMPACT_SEVERITY[violation.impact ?? ""] ?? "note";
+}
+
+/** One axe result: a rule on an element, on one page, at one width. */
+export interface SeenViolation {
+  readonly file: string;
+  readonly violation: AxeViolation;
+  readonly selector: string;
+  readonly snippet: string | undefined;
+  readonly viewport: Viewport;
+}
+
+/** One problem, seen at one or more widths. */
+export interface MergedViolation {
+  /** The page the problem is on, relative to the site root. */
+  readonly file: string;
+  /** The axe violation, replaced when a later width reports it more severely. */
+  violation: AxeViolation;
+  readonly selector: string;
+  readonly snippet: string | undefined;
+  /** The widths it was seen at, in the order the widths run. */
+  widths: Viewport[];
+  severity: Severity;
+}
+
+/**
+ * Adds one axe result to the problems seen so far. The same rule on the same element at another
+ * width is the same problem, so it is merged into one finding that names the widths it was seen at.
+ */
+export function addViolation(problems: Map<string, MergedViolation>, seen: SeenViolation): void {
+  const id = JSON.stringify([seen.file, seen.violation.id, seen.selector]);
+  const severity = severityOf(seen.violation);
+  const known = problems.get(id);
+  if (known === undefined) {
+    problems.set(id, { file: seen.file, violation: seen.violation, selector: seen.selector, snippet: seen.snippet, widths: [seen.viewport], severity });
+    return;
+  }
+  known.widths.push(seen.viewport);
+  // The problem keeps the worst severity it had at any width.
+  if (SEVERITY_RANK[severity] < SEVERITY_RANK[known.severity]) {
+    known.violation = seen.violation;
+    known.severity = severity;
+  }
+}
+
 export const a11yAxe: Check = {
   meta: meta("a11y.axe", "axe-core reports an accessibility problem in the rendered page", "error", ["WCAG 1.4.3", "WCAG 2.5.8", "WCAG 4.1.2"], ["html", "browser"]),
-  probe,
+  probe: probeRendered,
   async *run(context) {
-    const playwright = await loadPlaywright();
     // The engine probes first, so by the time run is called both playwright-core and a browser exist.
-    if (playwright === undefined) throw new Error("playwright-core is required for a11y.axe but is not installed");
     const found = findBrowser(context.browser?.path); // throws when the user asked for a missing browser
     if (found === undefined) throw new Error("a11y.axe found no browser to launch; next time the engine's probe would skip it");
-    const pwBrowser = await playwright.chromium.launch({ executablePath: found.path, headless: true });
+    const browser = await launchBrowser(found.path);
+    // One entry per problem, not per width: the same rule on the same element fires at every width.
+    const merged = new Map<string, MergedViolation>();
     try {
-      const pwContext = await pwBrowser.newContext();
-      try {
-        // Built pages may reference CDN scripts; aborting those keeps the run offline and deterministic.
-        await pwContext.route("http*", (route) => route.abort());
-        for (const page of pagesOf(context)) {
-          if (context.signal.aborted) break;
-          const pwPage = await pwContext.newPage();
-          try {
-            await pwPage.goto(pathToFileURL(join(context.site.root, page.file)).href, { waitUntil: "load" });
-            await pwPage.addScriptTag({ path: axeScript() });
-            const results = await pwPage.evaluate<AxeResults>((setup: { options: unknown }) => {
-              return new Promise<AxeResults>((resolve, reject) => {
-                const axeGlobal = (globalThis as unknown as { axe?: { run(options: unknown, done: (error: unknown, raw: AxeResults) => void): void } }).axe;
-                if (axeGlobal === undefined) {
-                  reject(new Error("the axe script did not load into the page"));
-                  return;
-                }
-                axeGlobal.run(setup.options, (error, raw) => {
-                  if (error) reject(new Error(String(error)));
-                  else resolve(raw);
+      for (const viewport of VIEWPORTS) {
+        const pwContext = await openContext(browser, viewport);
+        try {
+          for (const page of pagesOf(context)) {
+            if (context.signal.aborted) break;
+            const pwPage = await pwContext.newPage();
+            try {
+              await pwPage.goto(pathToFileURL(join(context.site.root, page.file)).href, { waitUntil: "load" });
+              await pwPage.addScriptTag({ path: axeScript() });
+              const results = await pwPage.evaluate<AxeResults>((setup: { options: unknown }) => {
+                return new Promise<AxeResults>((resolve, reject) => {
+                  const axeGlobal = (globalThis as unknown as { axe?: { run(options: unknown, done: (error: unknown, raw: AxeResults) => void): void } }).axe;
+                  if (axeGlobal === undefined) {
+                    reject(new Error("the axe script did not load into the page"));
+                    return;
+                  }
+                  axeGlobal.run(setup.options, (error, raw) => {
+                    if (error) reject(new Error(String(error)));
+                    else resolve(raw);
+                  });
                 });
-              });
-            }, { options: axeRuleOptions() });
-            for (const violation of results.violations) {
-              for (const node of violation.nodes) {
-                const selector = selectorOf(node);
-                const snippet = snippetOf(node);
-                const location: Location = { file: page.file, selector, ...(snippet === undefined ? {} : { snippet }) };
-                yield {
-                  message: `axe ${violation.id}: ${violation.help}.`,
-                  location,
-                  severity: IMPACT_SEVERITY[violation.impact ?? ""] ?? "note",
-                  fix: { kind: "manual", summary: fixSummary(violation), edits: [] },
-                  key: `${violation.id}:${selector}`,
-                };
+              }, { options: axeRuleOptions() });
+              for (const violation of results.violations) {
+                for (const node of violation.nodes) {
+                  addViolation(merged, { file: page.file, violation, selector: selectorOf(node), snippet: snippetOf(node), viewport });
+                }
               }
+            } finally {
+              await pwPage.close().catch(() => {});
             }
-          } finally {
-            await pwPage.close().catch(() => {});
           }
+        } finally {
+          await pwContext.close().catch(() => {});
         }
-      } finally {
-        await pwContext.close().catch(() => {});
+        if (context.signal.aborted) break;
       }
     } finally {
-      await pwBrowser.close().catch(() => {});
+      await browser.close().catch(() => {});
+    }
+    for (const { file, violation, selector, snippet, widths, severity } of merged.values()) {
+      const location: Location = { file, selector, ...(snippet === undefined ? {} : { snippet }) };
+      yield {
+        message: `axe ${violation.id}: ${violation.help}. Seen at ${viewportLabel(widths)}.`,
+        location,
+        severity,
+        fix: { kind: "manual", summary: fixSummary(violation), edits: [] },
+        key: `${violation.id}:${selector}`,
+      } satisfies FindingDraft;
     }
   },
 };
