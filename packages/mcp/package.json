@@ -6,11 +6,18 @@
   "type": "module",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
+  "bin": {
+    "seaworthy-mcp": "./dist/src/main.js"
+  },
   "files": [
     "dist/src"
   ],
   "engines": {
     "node": ">=22"
   },
-  "license": "Apache-2.0"
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@seaworthy/verify": "0.0.0"
+  }
 }
