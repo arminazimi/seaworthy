@@ -37,7 +37,7 @@ The report format, check IDs, config schema, and extension API are versioned. On
 
 ## Using agents
 
-Agents are welcome contributors. The same rules apply: one issue per PR, `npm run check` passes, and a human or agent reviewer can follow what changed. Say in the PR which agent you used, if any.
+Agents are welcome contributors. The same rules apply: one issue per PR, `npm run check` passes, and a human or agent reviewer can follow what changed. Say in the PR which agent you used, if any. For the worktree, branch, and rebase loop that keeps parallel agents from colliding, see [docs/agents-playbook.md](docs/agents-playbook.md).
 
 ## Code of conduct
 
