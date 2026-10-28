@@ -11,6 +11,7 @@ import { ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js
 import { type ColorEnvironment, detectColorEnvironment, paletteFor, type Palette, PLAIN } from "./color.js";
 import { builtInChecks } from "./checks/index.js";
 import { CONFIG_FILE, ConfigError, loadConfig } from "./config.js";
+import { ReportDiffError, diffReports, diffToJson, readReport } from "./diff.js";
 import { FORMATS, type Format, formatReport } from "./formats/index.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
 import type { Check, Report, Severity } from "./types.js";
@@ -37,6 +38,7 @@ Verify any built static site for agents and humans.
 
 Usage:
   seaworthy verify [dir] [options]
+  seaworthy diff <before.json> <after.json>
   seaworthy config check [file]
 
 Arguments:
@@ -62,8 +64,15 @@ Options:
   --help, -h           Print this help
   --version, -v        Print the version
 
+diff:
+  seaworthy diff before.json after.json
+                       Compare two report JSON files from \`verify --format json\` runs. Prints
+                       one JSON object with the counts and finding lists for what is new, fixed,
+                       and unchanged. Findings match by fingerprint, so the same problem is
+                       unchanged even when it moves to another line.
+
 Exit codes:
-  0  no findings at or above --fail-on
+  0  no findings at or above --fail-on (verify); the diff completed (diff)
   1  findings at or above --fail-on
   2  usage error
   4  a check or the engine crashed
@@ -350,16 +359,28 @@ function configHelp(): CliResult {
   return { code: EXIT.ok, stdout: CONFIG_HELP, stderr: "" };
 }
 
+/** `seaworthy diff before.json after.json`: one JSON object with the new, fixed, and unchanged findings. */
+async function diff(args: readonly string[], env: CliEnvironment): Promise<CliResult> {
+  if (args.length !== 2 || args.some((a) => a.startsWith("-"))) throw new UsageError(`diff takes exactly two report files: seaworthy diff before.json after.json`);
+  const [beforePath, afterPath] = args as [string, string];
+  const cwd = env.cwd ?? process.cwd();
+  const diff = diffReports(readReport(resolve(cwd, beforePath)), readReport(resolve(cwd, afterPath)));
+  const counts = diff.summary;
+  const stderr = `seaworthy: ${counts.new} new, ${counts.fixed} fixed, ${counts.unchanged} unchanged finding${counts.new + counts.fixed + counts.unchanged === 1 ? "" : "s"}\n`;
+  return { code: EXIT.ok, stdout: diffToJson(diff), stderr };
+}
+
 export async function run(argv: readonly string[], env: CliEnvironment = {}): Promise<CliResult> {
   const [command, ...rest] = argv;
   if (command === undefined || command === "--help" || command === "-h") return { code: EXIT.ok, stdout: HELP, stderr: "" };
   if (command === "--version" || command === "-v") return { code: EXIT.ok, stdout: `${VERSION}\n`, stderr: "" };
   try {
     if (command === "verify") return await verify(rest, env);
+    if (command === "diff") return await diff(rest, env);
     if (command === "config") return await configCommand(rest, env);
     return { code: EXIT.usage, stdout: "", stderr: `Unknown command: ${command}\n\n${HELP}` };
   } catch (error) {
-    if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError || error instanceof ChangedError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
+    if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError || error instanceof ChangedError || error instanceof ReportDiffError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
     return { code: EXIT.internal, stdout: "", stderr: `seaworthy: ${error instanceof Error ? error.message : String(error)}\n` };
   }
 }

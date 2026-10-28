@@ -4,6 +4,7 @@
 
 ### Added
 
+- `seaworthy diff before.json after.json` compares two report files and prints one JSON object with the counts and finding lists for what is new, fixed, and unchanged (#335).
 - `seaworthy config check` validates a config with the same rules `verify` applies, without running any checks, and exits 0 or 2 (#293).
 - The CLI colors human output when the stream is an interactive terminal: severity tokens in the pretty report, the `seaworthy:` summary lines, and crash notices get color, `NO_COLOR` turns it off everywhere, and JSON, markdown, SARIF, and report files are never colored (#291).
 - `a11y.iframe-title` reports iframes with missing or blank titles, with source locations and a manual fix hint (#232).
