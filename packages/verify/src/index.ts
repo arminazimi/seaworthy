@@ -40,6 +40,8 @@ export { verifySite } from "./verify.js";
 export type { StageTiming, Timings, VerifyOptions, VerifyResult } from "./verify.js";
 export { builtInChecks } from "./checks/index.js";
 export { SUPPRESSION_CHECKS } from "./suppress.js";
+export { detectBasePath, resolveBasePath } from "./base-path.js";
+export type { BasePathDetection, BasePathDetectionResult, BasePathFinding, BasePathGenerator, BasePathResolution, Canonical, UnclassifiedBasePath } from "./base-path.js";
 export { CACHE_FILE, ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js";
 export { formatDiffComment } from "./formats/markdown.js";
 export { diffReports, diffToJson, readReport } from "./diff.js";

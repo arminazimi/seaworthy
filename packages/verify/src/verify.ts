@@ -4,6 +4,7 @@
 
 import { performance } from "node:perf_hooks";
 
+import { resolveBasePath } from "./base-path.js";
 import { type Baseline, applyBaseline } from "./baseline.js";
 import { type Config, resolveChecks } from "./config.js";
 import { type CheckTiming, runChecks } from "./engine.js";
@@ -22,6 +23,8 @@ export interface VerifyOptions {
   /** The label for `report.root`: the folder as the user would write it, relative to where verify runs. */
   rootLabel: string;
   checks: readonly Check[];
+  /** An explicit `--base` value. It beats the config's `basePath` and detection. */
+  baseOverride?: string;
   config?: Config;
   /** Path of the config file relative to the site root, used as the location of config-level problems. */
   configLocation?: string;
@@ -74,7 +77,13 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
 
   let site: SiteGraph;
   if (options.site !== undefined) site = options.site;
-  else site = await measure("site", () => buildSite(options.folder, config.basePath === undefined ? {} : { basePath: config.basePath }));
+  else
+    site = await measure("site", () => {
+      // The base path the site is verified against: an explicit `--base`, else the config's
+      // `basePath`, else what a known generator config next to the output names, else `/`.
+      const { basePath } = resolveBasePath({ folder: options.folder, ...(options.baseOverride !== undefined ? { override: options.baseOverride } : {}), ...(config.basePath !== undefined ? { configBasePath: config.basePath } : {}) });
+      return buildSite(options.folder, basePath === "/" ? {} : { basePath });
+    });
 
   const resolved = resolveChecks(config, options.checks);
   const run = await measure("checks", () =>
