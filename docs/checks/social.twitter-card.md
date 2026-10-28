@@ -8,7 +8,7 @@ X uses `twitter:card` to choose the preview layout. Without a valid card type it
 
 ## What it checks
 
-Every page except redirect stubs needs `<meta name="twitter:card" content="...">` with one of `summary`, `summary_large_image`, `app`, or `player`.
+Every page except redirect stubs (`html.meta-refresh`) needs `<meta name="twitter:card" content="...">` with one of `summary`, `summary_large_image`, `app`, or `player`.
 
 - **No card** (note): the page has no `twitter:card`.
 - **Orphaned Twitter tags** (warning): the page has other `twitter:*` tags but no `twitter:card`, so they are ignored.
