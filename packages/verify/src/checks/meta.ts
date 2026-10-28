@@ -2,6 +2,7 @@
 
 import { attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
+import type { Page, SiteGraph } from "../site.js";
 import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, replaceEdit, textOf } from "./helpers.js";
 
 const LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
@@ -162,6 +163,99 @@ export const htmlMetaRefresh = check(meta("html.meta-refresh", "Page moves itsel
         key: `refresh:${content.trim()}`,
       });
     }
+  }
+  return out;
+});
+
+// html.redirect-chain: redirect pages whose target redirects again, forming a chain or a loop.
+
+/**
+ * The page a browser lands on when it acts on a refresh: the first refresh with a URL, resolved the way
+ * internal links are. A refresh that follows the URL outside the site, or to a file that does not exist,
+ * is a dead end ("stub"); no refresh with a URL means the page is content.
+ */
+function redirectEdge(site: SiteGraph, page: Page): Page | "stub" | undefined {
+  for (const element of page.elements) {
+    if (element.tagName !== "meta" || (attr(element, "http-equiv") ?? "").trim().toLowerCase() !== "refresh") continue;
+    const refresh = refreshOf(attr(element, "content") ?? "");
+    if (!refresh || refresh.url === "") continue;
+    // The walk follows the browser: the first refresh that acts decides where the page lands.
+    const target = site.resolveLink(page.url, refresh.url);
+    if (target.kind !== "internal" || target.file === undefined) return "stub";
+    return site.pages.get(target.file);
+  }
+  return undefined;
+}
+
+const describePath = (path: readonly Page[]): string => path.map((p) => p.url).join(" -> ");
+
+export const htmlRedirectChain = check(meta("html.redirect-chain", "Redirect pages form a chain or a loop", "warning", ["WCAG 2.2.1"]), (ctx) => {
+  const out: FindingDraft[] = [];
+  const reported = new Set<string>();
+
+  for (const page of pagesOf(ctx)) {
+    // Follow the redirects the way a browser does, until a content page (a chain to report), a dead end
+    // outside the site (not reported here: missing pages are links.internal's subject), or a page the
+    // path already visits (a loop) ends the walk.
+    const path: Page[] = [page];
+    let cycle: Page[] | undefined;
+    let deadEnd = false;
+    while (true) {
+      const next = redirectEdge(ctx.site, path[path.length - 1]!);
+      if (next === undefined) break;
+      if (next === "stub") {
+        deadEnd = true;
+        break;
+      }
+      const at = path.findIndex((p) => p.url === next.url);
+      if (at !== -1) {
+        cycle = path.slice(at);
+        break;
+      }
+      path.push(next);
+    }
+
+    if (cycle !== undefined) {
+      // The same loop is found from every page that walks into it. Name it from its first page in file
+      // order so it is reported once, as an error: browsers never land on a content page.
+      const ring = [...cycle].sort((a, b) => (a.url < b.url ? -1 : b.url < a.url ? 1 : 0));
+      ring.push(ring[0]!);
+      const key = `loop${describePath(ring)}`;
+      if (!reported.has(key)) {
+        reported.add(key);
+        const destinations = ring.slice(0, -1).map((p) => p.url).join(" and ");
+        out.push({
+          message:
+            cycle.length === 1
+              ? `The page redirects to itself: ${describePath(ring)}. Browsers reload it endlessly and never arrive anywhere.`
+              : `The page is part of a redirect loop: ${describePath(ring)}. Browsers keep moving between ${cycle.length} pages and never land on content.`,
+          location: documentLocation(ring[0]!),
+          severity: "error",
+          fix: {
+            kind: "manual",
+            summary:
+              cycle.length === 1
+                ? "The refresh points the page at itself. Point it at the destination readers should reach, or remove the refresh."
+                : `Break the loop: point ${destinations} at real destinations (or remove the refresh tags). A loop has no final page to land on.`,
+            edits: [],
+          },
+          key,
+        });
+      }
+      continue;
+    }
+    if (deadEnd || path.length < 3) continue; // a single redirect onto a content page is not a chain
+    const final = path[path.length - 1]!.url;
+    out.push({
+      message: `The page starts a chain of redirects: ${describePath(path)}. Readers pass through ${path.length - 1} redirects before reaching content.`,
+      location: documentLocation(page),
+      fix: {
+        kind: "manual",
+        summary: `Point each redirect page straight at the final destination ${final}: redirect immediately (content="0; url=${final}") or move the redirect to the server, so readers skip ${path.length - 2} intermediate pages.`,
+        edits: [],
+      },
+      key: `chain${describePath(path)}`,
+    });
   }
   return out;
 });

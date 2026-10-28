@@ -1,0 +1,46 @@
+# html.redirect-chain
+
+A redirect page lands on another redirect page, so readers crawl a chain of hops or bounce around a loop.
+
+## Why it matters
+
+Every extra hop makes the arrival worse. A chain of timed refreshes takes control away again on each page someone is pushed to, and one page that is slow to read multiplies the time it takes to reach the content. A loop never shows anything: browsers keep moving between two or more redirect pages forever, which is a hard failure of WCAG 2.2.1 (the time limit applies on every page of the loop and none of them ends). Agents suffer too: following a redirect one hop at a time still does not reach a page, so the answer to "where does this link land?" is a cycle, not a URL.
+
+## What it checks
+
+The check walks the redirects page by page, the way a browser acts: from a page it takes the first <code>\<meta http-equiv="refresh"\></code> whose content parses with a destination, and resolves it the way internal links are resolved. It repeats on the page that is landed on, and stops when the destination is a page with no redirect (content), when the destination leaves the built site or is missing from it, or when the destination is a page the walk already visited (a loop).
+
+- A chain is reported at its first page when at least one more redirect page follows it. The finding names every page of the chain in order, and the fix hint names the final destination.
+- A loop is reported once, no matter how many lead into it, as an error. The finding names the pages of the loop in order, starting from its first page in file order.
+- A page whose refresh points directly at itself is a one-page loop and is reported the same way.
+- A single redirect onto a content page is not reported here. That page's own refresh is `html.meta-refresh`'s subject; this check is about redirect pages that redirect further.
+- A chain that runs into a destination outside the built site, or a file that the built site does not contain, is not reported: the walk cannot follow it, and `links.internal` already reports the missing page.
+
+The delay does not matter for the walk: an immediate (0 second) redirect is followed too, because a chain of immediate redirects still moves people repeatedly and wastes requests. The check suggests a fix but does not edit the pages, because how to cut the chain is a content decision.
+
+## How to fix
+
+Point every redirect page straight at the final destination, so there is one hop instead of many:
+
+```html
+<!-- before: /old.html redirects to /moved.html, which redirects to /current.html -->
+<meta http-equiv="refresh" content="0; url=/moved.html">
+
+<!-- after -->
+<meta http-equiv="refresh" content="0; url=/current.html">
+```
+
+If nothing depends on the URL of the middle pages, redirect at the server instead and let people link to the real page. For a loop, pick a real destination outside the loop and point each page of the loop at it (or remove the refresh tags):
+
+```html
+<meta http-equiv="refresh" content="0; url=/current.html">
+```
+
+## Options
+
+None.
+
+## Standards
+
+- [WCAG 2.2.1 Timing Adjustable](https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html)
+- [F40: Failure of Success Criterion 2.2.1 due to using meta refresh with a time-out](https://www.w3.org/WAI/WCAG22/Techniques/failures/F40)
