@@ -6,11 +6,12 @@ import { assetsMissing } from "./assets.js";
 import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
 import { hostingHeaders, hostingRedirects } from "./hosting.js";
-import { htmlCharset, htmlObsolete } from "./html.js";
+import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlObsolete } from "./html.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
-import { htmlMetaRefresh, metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
+import { htmlMetaRefresh, metaCanonical, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
+import { qualityOrphans } from "./quality.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
@@ -38,6 +39,8 @@ export const builtInChecks: readonly Check[] = [
   hostingHeaders,
   hostingRedirects,
   htmlCharset,
+  htmlInlineHandlers,
+  htmlDoctype,
   htmlMetaRefresh,
   htmlObsolete,
   imagesAlt,
@@ -48,12 +51,15 @@ export const builtInChecks: readonly Check[] = [
   linksInternal,
   metaCanonical,
   metaDescription,
+  metaDuplicateDescription,
+  metaDuplicateTitles,
   metaLang,
   metaTitle,
   metaViewport,
   namesButton,
   namesLabel,
   namesLink,
+  qualityOrphans,
   readabilityA2aCard,
   readabilityAgentSkills,
   readabilityAiRobots,

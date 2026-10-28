@@ -1,15 +1,18 @@
-// Plain-text report for terminals and agent transcripts. No color, so it reads the same everywhere.
+// Plain-text report for terminals and agent transcripts. Color is applied only
+// when the caller paints terms (the CLI only paints when stdout is a TTY), so
+// files, pipes, and agent transcripts keep reading the same everywhere.
 
+import { PLAIN, type Palette } from "../color.js";
 import type { Finding, Report, Severity } from "../types.js";
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-export function severityCounts(report: Report): string {
-  const parts: string[] = [];
+export function severityCounts(report: Report, paint: Palette = PLAIN): string {
   const { error, warning, note } = report.summary.bySeverity;
-  if (error) parts.push(plural(error, "error"));
-  if (warning) parts.push(plural(warning, "warning"));
-  if (note) parts.push(plural(note, "note"));
+  const parts: string[] = [];
+  if (error) parts.push(paint.error(plural(error, "error")));
+  if (warning) parts.push(paint.warning(plural(warning, "warning")));
+  if (note) parts.push(paint.note(plural(note, "note")));
   return parts.join(", ");
 }
 
@@ -25,7 +28,7 @@ export function describeLocation(finding: Finding): string {
   return `${line}${column === undefined ? "" : `:${column}`}${finding.location.approximateLine ? "~" : ""}`;
 }
 
-export function formatPretty(report: Report): string {
+export function formatPretty(report: Report, paint: Palette = PLAIN): string {
   const path = (file: string) => (report.root === "." ? file : `${report.root}/${file}`);
   const out: string[] = [`seaworthy ${report.tool.version}: ${report.root} (${plural(report.summary.pages, "page")}, ${plural(report.checks.length, "check")})`, ""];
 
@@ -36,7 +39,7 @@ export function formatPretty(report: Report): string {
       current = finding.location.file;
       out.push(path(current));
     }
-    out.push(`  ${describeLocation(finding).padEnd(8)}${finding.severity.padEnd(8)}${finding.checkId}  ${finding.message}`);
+    out.push(`  ${describeLocation(finding).padEnd(8)}${paint[finding.severity](finding.severity.padEnd(8))}${finding.checkId}  ${finding.message}`);
     out.push(`          fix: ${finding.fix.summary}`);
   }
   if (report.findings.length > 0) out.push("");
@@ -47,7 +50,7 @@ export function formatPretty(report: Report): string {
     out.push("");
   }
   if (report.errors.length > 0) {
-    out.push(`Check errors (${report.errors.length}), these checks crashed:`);
+    out.push(paint.error(`Check errors (${report.errors.length}), these checks crashed:`));
     for (const e of report.errors) out.push(`  ${e.check}: ${e.message}`);
     out.push("");
   }
@@ -59,7 +62,7 @@ export function formatPretty(report: Report): string {
   const readability = readabilityLine(report);
   if (readability) out.push(readability);
   const files = new Set(report.findings.map((f) => f.location.file)).size;
-  out.push(report.findings.length === 0 ? "No findings." : `${plural(report.findings.length, "finding")} in ${plural(files, "file")}: ${severityCounts(report)}.`);
+  out.push(report.findings.length === 0 ? paint.ok("No findings.") : `${plural(report.findings.length, "finding")} in ${plural(files, "file")}: ${severityCounts(report, paint)}.`);
   return out.join("\n") + "\n";
 }
 
