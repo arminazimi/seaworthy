@@ -9,7 +9,7 @@ import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlNesting, htmlObsolete
 import { hostingHeaders, hostingRedirects } from "./hosting.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
-import { htmlMetaRefresh, metaCanonical, metaCanonicalCycle, metaCanonicalTarget, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
+import { htmlMetaRefresh, htmlRedirectChain, metaCanonical, metaCanonicalCycle, metaCanonicalTarget, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans } from "./quality.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
@@ -44,6 +44,7 @@ export const builtInChecks: readonly Check[] = [
   htmlMetaRefresh,
   htmlNesting,
   htmlObsolete,
+  htmlRedirectChain,
   htmlParseErrors,
   imagesAlt,
   imagesDimensions,

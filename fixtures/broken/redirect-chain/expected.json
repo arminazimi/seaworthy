@@ -1,0 +1,23 @@
+{
+  "description": "A chain of three redirect pages (a -> b -> c) is reported at its start with the final destination; a two-page loop is reported once even though entry.html leads into it; a page that redirects to itself is a one-page loop. A single redirect onto a content page (still-here.html) is not a chain.",
+  "findings": [
+    {
+      "check": "html.redirect-chain",
+      "file": "a.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "html.redirect-chain",
+      "file": "loop-a.html",
+      "line": 3,
+      "column": 1
+    },
+    {
+      "check": "html.redirect-chain",
+      "file": "self.html",
+      "line": 3,
+      "column": 1
+    }
+  ]
+}
