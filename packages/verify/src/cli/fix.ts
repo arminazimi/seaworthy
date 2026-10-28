@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import { CONFIG_FILE, loadConfig } from "../config.js";
 import { planFix } from "../fix.js";
 import { builtInChecks } from "../checks/index.js";
+import { discoverFolder } from "../folders.js";
 import { buildSite } from "../site.js";
 import { verifySite } from "../verify.js";
 import { DEFAULT_FOLDERS, EXIT, rootLabel, UsageError, type CliEnvironment, type CliResult } from "./types.js";
@@ -71,7 +72,7 @@ export async function fixCommand(args: readonly string[], env: CliEnvironment): 
   const cwd = env.cwd ?? process.cwd();
   const checks = env.checks ?? builtInChecks;
   const { config: settings } = loadConfig(cwd, config, checks.map((c) => c.meta.id));
-  const requested = dir ?? settings.root ?? DEFAULT_FOLDERS.find((name) => existsSync(resolve(cwd, name)) && statSync(resolve(cwd, name)).isDirectory());
+  const requested = dir ?? settings.root ?? discoverFolder(cwd);
   if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
   const folder = resolve(cwd, requested);
   if (!existsSync(folder) || !statSync(folder).isDirectory()) throw new UsageError(`${requested} is not a folder`);

@@ -15,6 +15,7 @@ import { loadConfig } from "../config.js";
 import { formatReport } from "../formats/index.js";
 import { ndjsonLine } from "../formats/ndjson.js";
 import { SEVERITY_ORDER, severityCounts } from "../formats/pretty.js";
+import { discoverFolder } from "../folders.js";
 import { appendHistory, buildHistoryRecord, runConfigHash } from "../history.js";
 import { buildSite } from "../site.js";
 import type { Check, Report, Severity } from "../types.js";
@@ -85,7 +86,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
   if (options.watch && options.updateBaseline !== undefined) throw new UsageError("--update-baseline writes the baseline and exits, so it cannot be combined with --watch");
   if (options.watch && (options.changed || options.changedSince !== undefined)) throw new UsageError("use --watch or --changed, not both; --watch already reports only what changed");
 
-  const requested = options.dir ?? config.root ?? DEFAULT_FOLDERS.find((name) => existsSync(resolve(cwd, name)) && statSync(resolve(cwd, name)).isDirectory());
+  const requested = options.dir ?? config.root ?? discoverFolder(cwd);
   if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
   const folder = resolve(cwd, requested);
   if (!existsSync(folder)) throw new UsageError(`no folder ${requested}; pass the folder your build writes to, or build first`);
