@@ -14,6 +14,7 @@ Start with [BRAND_GUIDE.md](BRAND_GUIDE.md).
 | [`assets/`](assets/) | Mark in four variants (SVG and PNG) and the three status badges |
 | [`favicon/`](favicon/) | Simplified mark for 16 to 48 px: SVG, .ico, PNGs, Apple touch icon, manifest icons |
 | [`templates/`](templates/) | Editable SVG sources for avatar, social preview, banner, marketplace art |
+| [`launch-1/`](launch-1/) | Launch kit for wave 1: copy, facts, assets, channels, checklist |
 | [`exports/`](exports/) | PNG exports and the logo review sheet |
 | [`export-presets.json`](export-presets.json) | Size and source for every export |
 
