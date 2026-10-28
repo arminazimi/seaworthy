@@ -140,7 +140,7 @@ The badge is the main growth loop: every verified repository advertises Seaworth
 | Warnings | Signal Amber | `assets/badge-warnings.svg` |
 | Errors | Alert Red | `assets/badge-failing.svg` |
 
-Until the GitHub Action serves a live badge (task `action.badge`), these are static examples. Badge construction lives in `tools/brand/badge.mjs` so the Action can import it.
+Until the GitHub Action serves a live badge (task `action.badge`), these are static examples. Badge construction lives in `packages/action/src/badge-svg.ts` — self-contained in the action package so `seaworthy-badge` runs from an installed package — and `tools/brand/badge.mjs` re-exports it.
 
 ```markdown
 ![seaworthy: passing](https://raw.githubusercontent.com/arminazimi/seaworthy/main/brand/assets/badge-passing.svg)
