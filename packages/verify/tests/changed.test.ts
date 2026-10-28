@@ -66,7 +66,7 @@ test("git mode explains a bad ref or a folder outside a repository", () => {
   git(repo, "add", "-A");
   git(repo, "commit", "-q", "-m", "one");
   assert.throws(() => changedSinceRef(join(repo, "docs"), "no-such-ref"), ChangedError);
-  assert.throws(() => changedSinceRef(join(repo, "docs"), "--output=x"), /is not a git ref/);
+  assert.throws(() => changedSinceRef(join(repo, "docs"), "--output=x"), /is not a git ref.*branch, tag, or commit/);
   assert.throws(() => changedSinceRef(makeSite({ "a.html": PAGE }), "HEAD"), ChangedError);
 });
 

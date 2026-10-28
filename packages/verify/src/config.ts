@@ -140,7 +140,7 @@ export function parseConfig(raw: unknown, source: string, knownCheckIds: readonl
 export function loadConfig(cwd: string, path: string | undefined, knownCheckIds: readonly string[]): { config: Config; file: string | undefined } {
   const file = resolve(cwd, path ?? CONFIG_FILE);
   if (!existsSync(file)) {
-    if (path !== undefined) throw new ConfigError(`config file not found: ${path}`);
+    if (path !== undefined) throw new ConfigError(`config file not found: ${path}; fix the path or pass an existing file`);
     return { config: { checks: {}, ignore: [], suppressions: [] }, file: undefined };
   }
   let raw: unknown;

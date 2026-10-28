@@ -248,7 +248,8 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const requested = options.dir ?? config.root ?? DEFAULT_FOLDERS.find((name) => existsSync(resolve(cwd, name)) && statSync(resolve(cwd, name)).isDirectory());
   if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
   const folder = resolve(cwd, requested);
-  if (!existsSync(folder) || !statSync(folder).isDirectory()) throw new UsageError(`${requested} is not a folder`);
+  if (!existsSync(folder)) throw new UsageError(`no folder ${requested}; pass the folder your build writes to, or build first`);
+  if (!statSync(folder).isDirectory()) throw new UsageError(`${requested} is not a folder; pass the folder your build writes to`);
 
   const baselinePath = options.baseline ?? (options.updateBaseline === undefined ? config.baseline : undefined);
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);

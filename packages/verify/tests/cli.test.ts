@@ -175,6 +175,9 @@ test("finds the build folder by default and says so when there is none", async (
   const notDir = await run(["verify", "a.txt"], { cwd: makeSite({ "a.txt": "x" }) });
   assert.equal(notDir.code, EXIT.usage);
   assert.match(notDir.stderr, /not a folder/);
+  const noSuch = await run(["verify", "nope"], { cwd: makeSite({ "a.txt": "x" }) });
+  assert.equal(noSuch.code, EXIT.usage);
+  assert.match(noSuch.stderr, /no folder nope.*build first/);
 });
 
 test("the same site gives byte-identical reports", async () => {

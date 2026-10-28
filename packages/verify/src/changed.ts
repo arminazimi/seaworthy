@@ -75,7 +75,7 @@ const git = (folder: string, args: string[]): string => {
 
 /** Files in the site folder that differ from `ref`, plus untracked files. Paths are relative to the folder. */
 export function changedSinceRef(folder: string, ref: string): ChangedSet {
-  if (ref.startsWith("-")) throw new ChangedError(`"${ref}" is not a git ref`);
+  if (ref.startsWith("-")) throw new ChangedError(`"${ref}" is not a git ref; pass a branch, tag, or commit that exists in this repository`);
   git(folder, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
   const tracked = git(folder, ["diff", "--name-only", "--relative", "-z", ref, "--", "."]).split("\0");
   const untracked = git(folder, ["ls-files", "--others", "--exclude-standard", "--full-name", "-z", "--", "."]);

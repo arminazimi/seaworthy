@@ -75,6 +75,7 @@ test("loadConfig: absent default is empty, absent explicit file is an error, bad
   const empty = makeSite({ "a.txt": "x" });
   assert.deepEqual(loadConfig(empty, undefined, IDS), { config: { checks: {}, ignore: [], suppressions: [] }, file: undefined });
   assert.throws(() => loadConfig(empty, "nope.json", IDS), /config file not found: nope\.json/);
+  assert.throws(() => loadConfig(empty, "nope.json", IDS), /pass an existing file/);
   const bad = makeSite({ "seaworthy.config.json": "{ not json" });
   assert.throws(() => loadConfig(bad, undefined, IDS), /seaworthy\.config\.json is not valid JSON/);
   const ok = makeSite({ "seaworthy.config.json": '{ "failOn": "note" }' });
