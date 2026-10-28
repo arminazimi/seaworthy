@@ -1,0 +1,63 @@
+# Seaworthy verification as a composite GitHub Action (issue #88).
+#
+# Minimal usage (after actions/checkout has the site sources):
+#   uses: arminazimi/seaworthy@v1
+#   with:
+#     sarif: seaworthy.sarif
+#
+# The Action runs with the pre-release CLI built from source, since
+# @seaworthy/verify is not published yet; the build step runs `npm ci` inside
+# the Action's own checkout (GITHUB_ACTION_PATH), never in the consumer's
+# workspace. Action pins use the same tag pins as .github/workflows/ci.yml.
+name: Verify a site with Seaworthy
+description: Verifies the built site, writes an optional SARIF 2.1.0 report, and fails at the threshold.
+inputs:
+  site:
+    description: Built site folder, relative to the workspace. Default lets the CLI pick the first existing of dist, build, out, public, _site, site.
+    required: false
+    default: ""
+  threshold:
+    description: Severity that fails the run — error (default), warning, note, or none.
+    required: false
+    default: error
+  sarif:
+    description: Where to write the SARIF 2.1.0 report, relative to the workspace. Default disables SARIF.
+    required: false
+    default: ""
+outputs:
+  sarif:
+    description: The SARIF file path as given, or "" when the sarif input was empty.
+    value: ${{ steps.verify.outputs.sarif }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+    - name: Build Seaworthy from source
+      shell: bash
+      run: |
+        cd "$GITHUB_ACTION_PATH"
+        npm ci
+        npm run build --silent
+    - name: Verify the site
+      id: verify
+      shell: bash
+      env:
+        SEAWORTHY_SITE: ${{ inputs.site }}
+        SEAWORTHY_THRESHOLD: ${{ inputs.threshold }}
+        SEAWORTHY_SARIF: ${{ inputs.sarif }}
+      # run.js reads the inputs from these SEAWORTHY_* variables, verifies the
+      # site once (cwd: the consumer's workspace), writes SARIF when asked, and
+      # exits with the verify contract (0 ok, 1 at or above the threshold, 4 when
+      # a check crashes).
+      run: node "$GITHUB_ACTION_PATH/packages/action/dist/run.js"
+    # Slot for the PR comment with new and fixed findings (issue #89): it reads the
+    # SARIF from steps.verify.outputs.sarif and runs after this step, any() condition
+    # of its own.
+    - name: Upload the SARIF report
+      if: always() && steps.verify.outputs.sarif != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: seaworthy-sarif
+        path: ${{ steps.verify.outputs.sarif }}
