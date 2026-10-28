@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "description": "Counts by severity over all findings the engine reported, including ones `--max-findings` or a per-check cap cut; `summary.findings` may be smaller. The exit code is decided from these counts, so a cap never hides a failure.",
+  "properties": {
+    "error": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "warning": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "note": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

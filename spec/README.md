@@ -8,6 +8,8 @@ Versioned contracts: the report format, check IDs, agent-readability rules, conf
 | Config | Draft (`spec: 0`) | [`config/v0.schema.json`](config/v0.schema.json) |
 | Agent readability | Draft v1 | [`agent-readability/v1.md`](agent-readability/v1.md) |
 
+The schemas are built, not hand-edited: `config/v0.schema.json` and `report/v0.schema.json` assemble from per-feature fragments under [`config/fragments/`](config/fragments/) and [`report/fragments/`](report/fragments/), so parallel PRs add a file instead of editing the same lines. Change a fragment and run `npm run schema:build`; `npm run check:schema` fails when a built schema is out of date.
+
 The report schema is checked by `npm test`: the engine's output is validated against it, and so is every fixture's expected report. Design background: [ADR 0006](../docs/adr/0006-check-model.md).
 
 ## Additive check IDs

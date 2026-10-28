@@ -1,0 +1,20 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "check",
+    "reason",
+    "hint"
+  ],
+  "properties": {
+    "check": {
+      "$ref": "#/$defs/checkId"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "hint": {
+      "type": "string"
+    }
+  }
+}

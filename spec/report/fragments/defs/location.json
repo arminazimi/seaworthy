@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "file"
+  ],
+  "properties": {
+    "file": {
+      "type": "string",
+      "description": "Relative to the site root, forward slashes.",
+      "not": {
+        "pattern": "^([a-zA-Z]:)?[\\\\/]|\\\\"
+      }
+    },
+    "line": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "column": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "approximateLine": {
+      "type": "boolean"
+    },
+    "selector": {
+      "type": "string"
+    },
+    "snippet": {
+      "type": "string"
+    }
+  }
+}

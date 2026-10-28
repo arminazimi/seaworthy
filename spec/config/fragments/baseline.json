@@ -1,0 +1,5 @@
+{
+  "type": "string",
+  "minLength": 1,
+  "description": "Baseline file. Findings it records are accepted; only new findings are reported."
+}

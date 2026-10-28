@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "version"
+  ],
+  "properties": {
+    "name": {
+      "const": "seaworthy"
+    },
+    "version": {
+      "type": "string"
+    }
+  }
+}

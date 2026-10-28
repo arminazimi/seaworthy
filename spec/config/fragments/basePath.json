@@ -1,0 +1,5 @@
+{
+  "type": "string",
+  "pattern": "^/?[A-Za-z0-9._~%/-]*$",
+  "description": "Where the site is deployed, such as /repo/ for a GitHub project page. Default /."
+}

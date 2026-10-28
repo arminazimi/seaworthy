@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "severity",
+    "needs",
+    "docs",
+    "standards"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/checkId"
+    },
+    "title": {
+      "type": "string"
+    },
+    "severity": {
+      "$ref": "#/$defs/severity"
+    },
+    "needs": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "html",
+          "files",
+          "browser",
+          "network"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "docs": {
+      "type": "string"
+    },
+    "standards": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

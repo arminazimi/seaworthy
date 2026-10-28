@@ -6,35 +6,39 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "spec",
-    "tool",
-    "root",
-    "summary",
     "checks",
+    "errors",
     "findings",
-    "suppressed",
+    "root",
     "skipped",
-    "errors"
+    "spec",
+    "summary",
+    "suppressed",
+    "tool"
   ],
   "properties": {
-    "spec": {
-      "const": 0
-    },
-    "tool": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "name",
-        "version"
-      ],
-      "properties": {
-        "name": {
-          "const": "seaworthy"
-        },
-        "version": {
-          "type": "string"
-        }
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
       }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/error"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One ready-to-paste prompt that fixes every finding, in report order. Present when the report has findings; generated per finding from its data alone."
     },
     "root": {
       "type": "string",
@@ -43,23 +47,32 @@
         "pattern": "^([a-zA-Z]:)?[\\\\/]"
       }
     },
+    "skipped": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skipped"
+      }
+    },
+    "spec": {
+      "const": 0
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "pages",
-        "findings",
-        "bySeverity",
-        "suppressed",
+        "baselineStale",
         "baselined",
-        "baselineStale"
+        "bySeverity",
+        "findings",
+        "pages",
+        "suppressed"
       ],
       "properties": {
-        "pages": {
+        "baselineStale": {
           "type": "integer",
           "minimum": 0
         },
-        "findings": {
+        "baselined": {
           "type": "integer",
           "minimum": 0
         },
@@ -82,15 +95,12 @@
             }
           }
         },
-        "suppressed": {
+        "changedFiles": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Present under --changed: findings are limited to files that changed."
         },
-        "baselined": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "baselineStale": {
+        "findings": {
           "type": "integer",
           "minimum": 0
         },
@@ -99,10 +109,9 @@
           "minimum": 1,
           "description": "Present when --max-findings or a per-check cap cut findings: how many the engine found but the report omits. The kept findings are the report's first, so the omitted ones are exactly the rest, in report order."
         },
-        "changedFiles": {
+        "pages": {
           "type": "integer",
-          "minimum": 0,
-          "description": "Present under --changed: findings are limited to files that changed."
+          "minimum": 0
         },
         "readability": {
           "type": "object",
@@ -133,31 +142,11 @@
               "minimum": 0
             }
           }
+        },
+        "suppressed": {
+          "type": "integer",
+          "minimum": 0
         }
-      }
-    },
-    "checks": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/check"
-      }
-    },
-    "findings": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/finding"
-      }
-    },
-    "skipped": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/skipped"
-      }
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/error"
       }
     },
     "suppressed": {
@@ -166,24 +155,24 @@
         "$ref": "#/$defs/suppressed"
       }
     },
-    "prompt": {
-      "type": "string",
-      "minLength": 1,
-      "description": "One ready-to-paste prompt that fixes every finding, in report order. Present when the report has findings; generated per finding from its data alone."
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "seaworthy"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
     }
   },
   "$defs": {
-    "checkId": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
-    },
-    "severity": {
-      "enum": [
-        "error",
-        "warning",
-        "note"
-      ]
-    },
     "check": {
       "type": "object",
       "additionalProperties": false,
@@ -228,38 +217,9 @@
         }
       }
     },
-    "location": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "file"
-      ],
-      "properties": {
-        "file": {
-          "type": "string",
-          "description": "Relative to the site root, forward slashes.",
-          "not": {
-            "pattern": "^([a-zA-Z]:)?[\\\\/]|\\\\"
-          }
-        },
-        "line": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "column": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "approximateLine": {
-          "type": "boolean"
-        },
-        "selector": {
-          "type": "string"
-        },
-        "snippet": {
-          "type": "string"
-        }
-      }
+    "checkId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+$"
     },
     "edit": {
       "type": "object",
@@ -294,34 +254,19 @@
         }
       }
     },
-    "fix": {
+    "error": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "kind",
-        "summary",
-        "edits",
-        "appliesTo"
+        "check",
+        "message"
       ],
       "properties": {
-        "kind": {
-          "enum": [
-            "edit",
-            "manual"
-          ]
+        "check": {
+          "$ref": "#/$defs/checkId"
         },
-        "summary": {
-          "type": "string",
-          "minLength": 1
-        },
-        "edits": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/edit"
-          }
-        },
-        "appliesTo": {
-          "const": "built-output"
+        "message": {
+          "type": "string"
         }
       }
     },
@@ -364,6 +309,77 @@
         }
       }
     },
+    "fix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "summary",
+        "edits",
+        "appliesTo"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "edit",
+            "manual"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "edits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edit"
+          }
+        },
+        "appliesTo": {
+          "const": "built-output"
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Relative to the site root, forward slashes.",
+          "not": {
+            "pattern": "^([a-zA-Z]:)?[\\\\/]|\\\\"
+          }
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "approximateLine": {
+          "type": "boolean"
+        },
+        "selector": {
+          "type": "string"
+        },
+        "snippet": {
+          "type": "string"
+        }
+      }
+    },
+    "severity": {
+      "enum": [
+        "error",
+        "warning",
+        "note"
+      ]
+    },
     "skipped": {
       "type": "object",
       "additionalProperties": false,
@@ -380,22 +396,6 @@
           "type": "string"
         },
         "hint": {
-          "type": "string"
-        }
-      }
-    },
-    "error": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "check",
-        "message"
-      ],
-      "properties": {
-        "check": {
-          "$ref": "#/$defs/checkId"
-        },
-        "message": {
           "type": "string"
         }
       }

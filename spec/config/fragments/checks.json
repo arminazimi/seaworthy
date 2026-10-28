@@ -1,0 +1,43 @@
+{
+  "type": "object",
+  "description": "Per-check settings, keyed by check ID or a prefix pattern such as a11y.*. An exact ID beats a prefix.",
+  "propertyNames": {
+    "pattern": "^[a-z][a-z0-9-]*(\\.([a-z][a-z0-9-]*|\\*))+$"
+  },
+  "additionalProperties": {
+    "oneOf": [
+      {
+        "enum": [
+          "off",
+          "error",
+          "warning",
+          "note"
+        ]
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "off": {
+            "type": "boolean"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "note"
+            ]
+          },
+          "options": {
+            "type": "object"
+          },
+          "maxFindings": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Cap this check's findings: the report keeps the first n in report order and counts the rest under summary.findingsOmitted."
+          }
+        }
+      }
+    ]
+  }
+}
