@@ -9,10 +9,11 @@ import { type Baseline, applyBaseline } from "./baseline.js";
 import { type Config, resolveChecks } from "./config.js";
 import { type CheckTiming, runChecks } from "./engine.js";
 import { matchesGlob } from "./glob.js";
+import { findingPrompt } from "./prompt.js";
 import { buildReport } from "./report.js";
 import { readabilitySummary } from "./readability-score.js";
 import { type SiteGraph, buildSite } from "./site.js";
-import { SUPPRESSION_CHECKS, applySuppressions, fromConfig, parseInlineSuppressions } from "./suppress.js";
+import { type Suppression, SUPPRESSION_CHECKS, applySuppressions, fromConfig, parseInlineSuppressions } from "./suppress.js";
 import type { Check, Finding, Report } from "./types.js";
 
 export interface VerifyOptions {
@@ -40,6 +41,14 @@ export interface VerifyOptions {
   now?: Date;
   /** Collect wall time per stage and per check in `VerifyResult.timings`. Off by default; timings never reach the report. */
   timings?: boolean;
+  /**
+   * Called with one finding the moment its check finishes, after the ignore, suppression,
+   * baseline, and `--changed` filters have been applied to that check's batch — the same
+   * filters the report applies to the whole run, so the streamed set is the report's set.
+   * Findings carry their `prompt`, like they do inside the report. Streaming only: without
+   * this, the run is exactly as it was before.
+   */
+  streamFindings?: (finding: Finding) => void;
 }
 
 /** Wall time of one pipeline stage, in milliseconds. */
@@ -88,6 +97,28 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
     });
 
   const resolved = resolveChecks(config, options.checks);
+
+  // The suppression rules need only the built site, so they are read before the checks run.
+  // That is what lets the streamed path filter a finding the moment its check finishes; the
+  // timing change stops there - the report, its stages, and their names are all unchanged.
+  const inline = parseInlineSuppressions(site, options.checks.map((c) => c.meta.id));
+  const configured = fromConfig(config.suppressions, options.configLocation ?? "seaworthy.config.json");
+  const rules: readonly Suppression[] = [...inline.suppressions, ...configured];
+
+  // The batch pipeline mirrors the run's stages (ignore → suppress → baseline → --changed).
+  // Applied per check instead of per run it picks the same findings: suppressions match one
+  // finding at a time, and a finding's fingerprint is hashed from its check ID, so every
+  // finding with a given baseline fingerprint comes from one check, one batch.
+  const streamBatch = options.streamFindings === undefined
+    ? undefined
+    : (findings: readonly Finding[]): void => {
+        const notIgnored = findings.filter((f) => !config.ignore.some((glob) => matchesGlob(glob, f.location.file)));
+        const suppression = applySuppressions(notIgnored, rules, now);
+        const kept = options.baseline ? applyBaseline(suppression.findings, options.baseline).findings : suppression.findings;
+        const reported = options.changed ? kept.filter((f) => options.changed!.has(f.location.file)) : kept;
+        for (const finding of reported) options.streamFindings!({ ...finding, prompt: findingPrompt(finding, options.rootLabel) });
+      };
+
   const run = await measure("checks", () =>
     runChecks({
       site,
@@ -97,15 +128,13 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       severity: resolved.severity,
       ...(options.changed ? { changed: options.changed } : {}),
       ...(collectTimings ? { timings: true } : {}),
+      ...(streamBatch === undefined ? {} : { onCheckFindings: (_check: string, findings) => streamBatch(findings) }),
     }),
   );
 
   const { suppression, unbaselined } = await measure("suppressions", () => {
-    const knownIds = options.checks.map((c) => c.meta.id);
-    const inline = parseInlineSuppressions(site, knownIds);
-    const configured = fromConfig(config.suppressions, options.configLocation ?? "seaworthy.config.json");
     const notIgnored = run.findings.filter((f) => !config.ignore.some((glob) => matchesGlob(glob, f.location.file)));
-    const suppression = applySuppressions(notIgnored, [...inline.suppressions, ...configured], now);
+    const suppression = applySuppressions(notIgnored, rules, now);
     return { suppression, unbaselined: [...suppression.findings, ...inline.problems, ...suppression.expired] };
   });
 

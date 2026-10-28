@@ -14,6 +14,7 @@ import { builtInChecks } from "./checks/index.js";
 import { CONFIG_FILE, ConfigError, loadConfig } from "./config.js";
 import { ReportDiffError, diffReports, diffToJson, readReport } from "./diff.js";
 import { FORMATS, type Format, formatReport } from "./formats/index.js";
+import { ndjsonLine } from "./formats/ndjson.js";
 import { appendHistory, buildHistoryRecord, runConfigHash } from "./history.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
 import { type FixPreview, planFix } from "./fix.js";
@@ -59,10 +60,11 @@ Commands:
   fix --dry-run        Preview every suggested edit as one unified diff. See \`seaworthy fix --help\`.
 
 Options:
-  --format <format>    pretty (default), json, markdown, sarif, llm, prompt, or html.
+  --format <format>    pretty (default), json, markdown, sarif, llm, prompt, html, or ndjson.
                        prompt: one copy-pasteable prompt that fixes every finding,
                        grouped by file (fewest findings first), to work through in order.
                        html: one self-contained page for people, with severity, check, and file filters
+                       ndjson: one JSON finding per line, as each check finishes.
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
   --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath
@@ -103,6 +105,13 @@ init:
                        Non-interactive, offline, and never a write outside dir. A second run says "already
                        present"; --force overwrites the config and the workflow it owns, but a baseline is
                        never rewritten, because a baseline records findings you have accepted.
+
+ndjson:
+  --format ndjson      Writes one JSON finding per line, as each check finishes. The fields of a
+                       line are exactly those of one finding in \`--format json\`, including its fix
+                       prompt. Line order follows check completion, so it can differ between
+                       runs; every line alone is deterministic. Findings the baseline accepts,
+                       ignored files, and live suppressions are excluded, like in every format.
 
 Exit codes:
   0  no findings at or above --fail-on (verify); the diff completed (diff); all files present (init); the fix preview completed (fix)
@@ -207,6 +216,13 @@ export interface CliEnvironment {
   color?: ColorEnvironment;
   /** Test hooks for `--watch`. Default: status on stdout, failures on stderr. */
   watch?: WatchProbe;
+  /**
+   * Called with output as the run produces it, so streaming formats can go out live
+   * (currently ndjson, one finding per line). Chunks end in a newline and, when the whole
+   * stdout is streamed this way, the returned `stdout` holds exactly their concatenation,
+   * so a caller can avoid writing it twice.
+   */
+  stream?: (chunk: string) => void;
 }
 
 interface Options {
@@ -397,6 +413,12 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
       record("changed", changedStarted);
     }
 
+    // NDJSON goes out one finding per line, as its check finishes. The lines are always
+    // collected here, so --out and the summary use the same bytes; with a `stream` sink and
+    // no file target they are also written while the run is still going. --update-baseline
+    // prints its summary, so it does not stream. Other formats render the finished report.
+    const streamedFormat = options.format === "ndjson";
+    let ndjson = "";
     const { report, unbaselined, timings: runTimings } = await verifySite({
       folder,
       site,
@@ -410,6 +432,14 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
       ...(collectTimings ? { timings: true } : {}),
+      ...(streamedFormat
+        ? {
+            streamFindings: (finding) => {
+              ndjson += ndjsonLine(finding);
+              if (options.out === undefined && options.updateBaseline === undefined) env.stream?.(ndjsonLine(finding));
+            },
+          }
+        : {}),
     });
     const timingText = (): string => (collectTimings ? formatTimings(performance.now() - startedAt, { stages: [...stages, ...(runTimings?.stages ?? [])], checks: runTimings?.checks ?? [] }) : "");
 
@@ -421,13 +451,18 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
 
     saveCache?.();
     // Paint the report only when it lands on a terminal as pretty output. Report files and the
-    // machine formats (json, markdown, sarif, llm) must stay byte-identical to the plain text everywhere.
+    // machine formats (json, markdown, sarif, llm, ndjson) must stay byte-identical to the plain text everywhere.
     const reportPaint: Palette = options.out === undefined && options.format === "pretty" ? stdoutPaint : PLAIN;
-    const text = formatReport(report, options.format, {
-      readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
-    }, reportPaint);
-    let stdout = text;
+    let stdout: string;
+    if (options.format === "ndjson") {
+      stdout = ndjson;
+    } else {
+      stdout = formatReport(report, options.format, {
+        readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
+      }, reportPaint);
+    }
     if (options.out !== undefined) {
+      const text = options.format === "ndjson" ? ndjson : stdout;
       const target = resolve(cwd, options.out);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, text);
@@ -731,11 +766,16 @@ function invokedDirectly(): boolean {
 }
 
 if (invokedDirectly()) {
+  // ndjson chunks are written as each check finishes; when stdout came out entirely that
+  // way, the final write would repeat it byte for byte, so it is skipped. --watch's
+  // status lines stay on the same pipes it uses in tests.
+  let streamed = "";
   const result = await run(process.argv.slice(2), {
     color: detectColorEnvironment(),
     watch: { write: (text: string): void => { process.stdout.write(text); }, writeError: (text: string): void => { process.stderr.write(text); } },
+    stream: (chunk) => { streamed += chunk; process.stdout.write(chunk); },
   });
-  process.stdout.write(result.stdout);
+  if (streamed !== result.stdout) process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
   process.exitCode = result.code;
   // Under --watch the process keeps running, one report per change; Ctrl-C must not leave the watcher open.
