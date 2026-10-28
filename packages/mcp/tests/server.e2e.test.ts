@@ -17,6 +17,7 @@ import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/ty
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
+import { CHECK_CATALOG_DESCRIPTION, CHECK_CATALOG_NAME, CHECK_CATALOG_URI } from "../src/catalog.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
 import { SERVER_NAME, SERVER_TITLE } from "../src/server.js";
 import { SERVER_VERSION } from "../src/version.js";
@@ -178,7 +179,7 @@ test("initialize answers the negotiated protocol version, capabilities, and serv
     const result = await initialize(child);
     assert.deepEqual(result, {
       protocolVersion: "2025-06-18",
-      capabilities: { tools: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, resources: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -194,7 +195,7 @@ test("initialize falls back to the SDK's latest version for an unsupported proto
     assert.equal(reply.id, 1);
     assert.deepEqual(reply.result, {
       protocolVersion: LATEST_PROTOCOL_VERSION,
-      capabilities: { tools: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, resources: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -305,6 +306,55 @@ test("tools/call list_checks returns deterministic check metadata from the verif
     for (const check of output.checks) {
       assert.deepEqual(Object.keys(check), ["id", "title", "severity", "needs", "docs", "standards"]);
     }
+  } finally {
+    await child.stop();
+  }
+});
+
+test("resources/list advertises the check catalog and resources/read serves it", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(7, "resources/list"));
+    const listed = await child.next();
+    assert.equal(listed.id, 7);
+    assert.deepEqual(listed.result, {
+      resources: [
+        {
+          uri: CHECK_CATALOG_URI,
+          name: CHECK_CATALOG_NAME,
+          description: CHECK_CATALOG_DESCRIPTION,
+          mimeType: "application/json",
+        },
+      ],
+    });
+
+    child.send(request(8, "resources/read", { uri: CHECK_CATALOG_URI }));
+    const read = await child.next();
+    assert.equal(read.id, 8);
+    const contents = (read.result as { contents: Array<{ uri: string; mimeType: string; text: string }> }).contents;
+    assert.equal(contents.length, 1);
+    assert.equal(contents[0]!.uri, CHECK_CATALOG_URI);
+    assert.equal(contents[0]!.mimeType, "application/json");
+    const catalog = JSON.parse(contents[0]!.text) as { spec: number; checks: Array<{ id: string }> };
+    assert.equal(catalog.spec, REPORT_SPEC_VERSION);
+    assert.equal(catalog.checks.length, builtInChecks.length);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("the catalog resource and the list_checks tool serve the same bytes", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(9, "resources/read", { uri: CHECK_CATALOG_URI }));
+    const read = await child.next();
+    const resourceText = (read.result as { contents: Array<{ text: string }> }).contents[0]!.text;
+    child.send(request(10, "tools/call", { name: "list_checks", arguments: {} }));
+    const called = await child.next();
+    const toolText = ((called.result as { content: Array<{ text: string }> }).content[0] as { text: string }).text;
+    assert.equal(resourceText, toolText, "the tool and the resource cannot disagree");
   } finally {
     await child.stop();
   }
