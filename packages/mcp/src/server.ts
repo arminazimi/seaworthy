@@ -1,6 +1,7 @@
 // The MCP server: a thin adapter over the verify API (AGENTS.md: `packages/mcp` must not own check logic).
 // This is the skeleton (issue #76) plus the verify tools (issue #77): an initialize handshake over
-// stdio, `list_checks` for the check metadata, and `verify_site` / `verify_changed` for the reports.
+// stdio, `list_checks` for the check metadata, the catalog resource with the same metadata, and
+// `verify_site` / `verify_changed` for the reports.
 // Tools for later issues are listed in "./planned.js" and stay unregistered until they ship.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -8,6 +9,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
+import { registerCatalogResource } from "./catalog.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
 import { SERVER_VERSION } from "./version.js";
 import {
@@ -56,6 +58,7 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     { description: VERIFY_CHANGED_DESCRIPTION, inputSchema: VERIFY_CHANGED_INPUT },
     async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, toolOptions) }] }),
   );
+  registerCatalogResource(server, checks.map((check) => check.meta));
   return server;
 }
 
