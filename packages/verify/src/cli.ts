@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// `seaworthy` command: `seaworthy verify [dir]`, `--help`, `--version`.
+// `seaworthy` commands: `seaworthy verify [dir]`, `seaworthy config check`, `--help`, `--version`.
 
 import { existsSync, mkdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
@@ -8,8 +8,9 @@ import { fileURLToPath } from "node:url";
 
 import { BaselineError, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
 import { ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js";
+import { type ColorEnvironment, detectColorEnvironment, paletteFor, type Palette, PLAIN } from "./color.js";
 import { builtInChecks } from "./checks/index.js";
-import { ConfigError, loadConfig } from "./config.js";
+import { CONFIG_FILE, ConfigError, loadConfig } from "./config.js";
 import { ReportDiffError, diffReports, diffToJson, readReport } from "./diff.js";
 import { FORMATS, type Format, formatReport } from "./formats/index.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
@@ -38,9 +39,13 @@ Verify any built static site for agents and humans.
 Usage:
   seaworthy verify [dir] [options]
   seaworthy diff <before.json> <after.json>
+  seaworthy config check [file]
 
 Arguments:
   dir                  Built site folder. Default: the first of ${DEFAULT_FOLDERS.join(", ")} that exists.
+
+Commands:
+  config check [file]  Validate a config file without running checks. See \`seaworthy config check --help\`.
 
 Options:
   --format <format>    pretty (default), json, markdown, or sarif
@@ -81,11 +86,33 @@ export interface CliResult {
   stderr: string;
 }
 
+const CONFIG_HELP = `seaworthy config check
+
+Validate a config file with the same rules \`verify\` applies, without running any checks or reading the site.
+
+Usage:
+  seaworthy config check [file]
+
+Arguments:
+  file                 Config file. Default: ${CONFIG_FILE} in the current folder, if present
+
+Options:
+  --config <file>      The config file, as a flag instead of a positional argument
+  --help, -h           Print this help
+
+Exit codes:
+  0  the config is valid; with no config file, checks would run with their defaults
+  2  the file is missing, is not valid JSON, or has problems (every problem is listed)
+`;
+
+
 export interface CliEnvironment {
   /** Base for relative paths. Default: process.cwd(). */
   cwd?: string;
   /** Checks to run. Default: the built-in checks. */
   checks?: readonly Check[];
+  /** Terminal and NO_COLOR detection for human output. Default: undefined, which keeps every byte plain. */
+  color?: ColorEnvironment;
 }
 
 interface Options {
@@ -199,6 +226,12 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   const cwd = env.cwd ?? process.cwd();
   const checks = env.checks ?? builtInChecks;
 
+  // Human output may be painted only when its stream is a terminal and NO_COLOR is unset.
+  const stdoutPaint = paletteFor(env.color, "stdout");
+  const stderrPaint = paletteFor(env.color, "stderr");
+  const crashedNotice = (count: number, tail: string): string =>
+    count === 0 ? "" : `${stderrPaint.error(`seaworthy: ${count} check${count === 1 ? "" : "s"} crashed`)}${tail}\n`;
+
   const collectTimings = options.timings;
   const startedAt = collectTimings ? performance.now() : 0;
   const stages: StageTiming[] = [];
@@ -255,24 +288,75 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
   if (options.updateBaseline !== undefined) {
     const baseline = createBaseline(unbaselined);
     writeBaseline(resolve(cwd, options.updateBaseline), baseline);
-    return { code: report.errors.length > 0 ? EXIT.internal : EXIT.ok, stdout: `seaworthy: baseline written to ${options.updateBaseline} (${unbaselined.length} finding${unbaselined.length === 1 ? "" : "s"} in ${baseline.entries.length} entr${baseline.entries.length === 1 ? "y" : "ies"})\n`, stderr: (report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; the baseline may be incomplete\n` : "") + timingText() };
+    return { code: report.errors.length > 0 ? EXIT.internal : EXIT.ok, stdout: `seaworthy: baseline written to ${options.updateBaseline} (${unbaselined.length} finding${unbaselined.length === 1 ? "" : "s"} in ${baseline.entries.length} entr${baseline.entries.length === 1 ? "y" : "ies"})\n`, stderr: crashedNotice(report.errors.length, "; the baseline may be incomplete") + timingText() };
   }
 
   saveCache?.();
+  // Paint the report only when it lands on a terminal as pretty output. Report files and the
+  // machine formats (json, markdown, sarif) must stay byte-identical to the plain text everywhere.
+  const reportPaint: Palette = options.out === undefined && options.format === "pretty" ? stdoutPaint : PLAIN;
   const text = formatReport(report, options.format, {
     readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
-  });
+  }, reportPaint);
   let stdout = text;
   if (options.out !== undefined) {
     const target = resolve(cwd, options.out);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, text);
-    const counts = severityCounts(report);
-    stdout = `seaworthy: ${report.findings.length === 0 ? "no findings" : `${report.findings.length} finding${report.findings.length === 1 ? "" : "s"} (${counts})`}; ${options.format} report written to ${options.out}\n`;
+    const findings = report.findings.length === 0 ? stdoutPaint.ok("no findings") : `${report.findings.length} finding${report.findings.length === 1 ? "" : "s"} (${severityCounts(report, stdoutPaint)})`;
+    stdout = `seaworthy: ${findings}; ${options.format} report written to ${options.out}\n`;
   }
   const failOn = options.failOn ?? config.failOn ?? "error";
   const code = report.errors.length > 0 ? EXIT.internal : failing(report, failOn) ? EXIT.findings : EXIT.ok;
-  return { code, stdout, stderr: (report.errors.length > 0 ? `seaworthy: ${report.errors.length} check${report.errors.length === 1 ? "" : "s"} crashed; see the report\n` : "") + timingText() };
+  return { code, stdout, stderr: crashedNotice(report.errors.length, "; see the report") + timingText() };
+}
+
+/** `seaworthy config check [file] [options]`: validate a config without running checks. */
+async function configCommand(args: readonly string[], env: CliEnvironment): Promise<CliResult> {
+  const [sub, ...rest] = args;
+  if (sub === undefined || sub === "--help" || sub === "-h") return configHelp();
+  if (sub !== "check") throw new UsageError(`unknown config command "${sub}"; use \`seaworthy config check\``);
+  if (rest.includes("-h") || rest.includes("--help")) return configHelp();
+
+  let file: string | undefined;
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i] as string;
+    const eq = arg.startsWith("--") ? arg.indexOf("=") : -1;
+    const flag = eq === -1 ? arg : arg.slice(0, eq);
+    if (flag === "--config") {
+      const inline = eq === -1 ? undefined : arg.slice(eq + 1);
+      const next = inline ?? rest[i + 1];
+      if (next === undefined || next.startsWith("--")) throw new UsageError("--config needs a value");
+      if (file !== undefined) throw new UsageError(`give the config file once, as a flag or as "${file}", not both`);
+      file = next;
+      if (inline === undefined) i++;
+      continue;
+    }
+    if (arg.startsWith("-")) throw new UsageError(`unknown option ${flag}`);
+    if (file !== undefined) throw new UsageError(`unexpected argument "${arg}"; config check takes one file`);
+    file = arg;
+  }
+
+  const cwd = env.cwd ?? process.cwd();
+  const { config, file: resolved } = loadConfig(cwd, file, (env.checks ?? builtInChecks).map((c) => c.meta.id));
+  if (resolved === undefined) {
+    return {
+      code: EXIT.ok,
+      stdout: `seaworthy: no config found (looked for ${CONFIG_FILE}); verify would run with its defaults\n`,
+      stderr: "",
+    };
+  }
+  const counts: string[] = [];
+  const entries = Object.keys(config.checks).length;
+  if (entries > 0) counts.push(`${entries} check setting${entries === 1 ? "" : "s"}`);
+  if (config.ignore.length > 0) counts.push(`${config.ignore.length} ignore glob${config.ignore.length === 1 ? "" : "s"}`);
+  if (config.suppressions.length > 0) counts.push(`${config.suppressions.length} suppression${config.suppressions.length === 1 ? "" : "s"}`);
+  const detail = counts.length > 0 ? ` (${counts.join(", ")})` : "";
+  return { code: EXIT.ok, stdout: `seaworthy: ${file ?? CONFIG_FILE} is a valid config${detail}\n`, stderr: "" };
+}
+
+function configHelp(): CliResult {
+  return { code: EXIT.ok, stdout: CONFIG_HELP, stderr: "" };
 }
 
 /** `seaworthy diff before.json after.json`: one JSON object with the new, fixed, and unchanged findings. */
@@ -293,6 +377,7 @@ export async function run(argv: readonly string[], env: CliEnvironment = {}): Pr
   try {
     if (command === "verify") return await verify(rest, env);
     if (command === "diff") return await diff(rest, env);
+    if (command === "config") return await configCommand(rest, env);
     return { code: EXIT.usage, stdout: "", stderr: `Unknown command: ${command}\n\n${HELP}` };
   } catch (error) {
     if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError || error instanceof ChangedError || error instanceof ReportDiffError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
@@ -312,7 +397,7 @@ function invokedDirectly(): boolean {
 }
 
 if (invokedDirectly()) {
-  const result = await run(process.argv.slice(2));
+  const result = await run(process.argv.slice(2), { color: detectColorEnvironment() });
   process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
   process.exitCode = result.code;
