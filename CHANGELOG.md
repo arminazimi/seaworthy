@@ -24,5 +24,12 @@
 - `meta.canonical-target` reports pages whose canonical link resolves, the way a static host serves it (including `basePath`), to no page in the built site (#334).
 - `meta.canonical-cycle` reports pages whose canonical links point at each other in a circle of two or more, so no page in the circle has a canonical URL (#334).
 - `meta.duplicate-description` groups pages whose `<meta name="description">` is the same text into one finding that names the description and every page carrying it (#328).
+- `html.doctype` reports pages with no doctype, or a non-standard one that puts the browser in quirks mode (#242).
+- `html.parse-errors` reports the HTML parser's own errors (stray end tags, bad nesting, duplicate attributes) at exact positions (#241).
+- `quality.orphans` reports pages that no other page links to (#326).
+- `meta.duplicate-titles` groups pages that share the same `<title>` into one finding (#327).
+- `quality.not-found-page` reports a missing 404 page, or one that is empty or only redirects (#330).
+
 ### Fixed
+
 - Only an immediate redirect (`content="0; url=..."`), or a refresh with a destination whose page has no readable text, now counts as a redirect stub, so content checks such as `meta.title` run on pages whose delayed `<meta http-equiv="refresh">` still shows content (#421).
