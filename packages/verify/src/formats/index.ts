@@ -4,9 +4,10 @@ import type { Report } from "../types.js";
 import { formatLlm } from "./llm.js";
 import { formatMarkdown } from "./markdown.js";
 import { formatPretty } from "./pretty.js";
+import { formatPrompt } from "./prompt.js";
 import { type SarifContext, formatSarif } from "./sarif.js";
 
-export const FORMATS = ["pretty", "json", "markdown", "sarif", "llm"] as const;
+export const FORMATS = ["pretty", "json", "markdown", "sarif", "llm", "prompt"] as const;
 export type Format = (typeof FORMATS)[number];
 
 export type FormatContext = SarifContext;
@@ -19,6 +20,8 @@ export function formatReport(report: Report, format: Format, context: FormatCont
       return formatMarkdown(report);
     case "pretty":
       return formatPretty(report, paint);
+    case "prompt":
+      return formatPrompt(report);
     case "sarif":
       return formatSarif(report, context);
     case "llm":

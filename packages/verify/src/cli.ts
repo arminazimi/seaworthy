@@ -53,7 +53,9 @@ Commands:
   init [dir]           Write a config, a CI workflow, and an empty baseline in one step. See \`seaworthy init --help\`.
 
 Options:
-  --format <format>    pretty (default), json, markdown, sarif, or llm
+  --format <format>    pretty (default), json, markdown, sarif, llm, or prompt.
+                       prompt: one copy-pasteable prompt that fixes every finding,
+                       grouped by file (fewest findings first), to work through in order.
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
   --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath
