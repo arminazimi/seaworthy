@@ -4,6 +4,7 @@
 
 ### Added
 
+- The status badge is a pure function of the verify report: `badgeForReport` (in `tools/brand/badge.mjs`, exposed by the new `seaworthy-badge` CLI in `@seaworthy/action`) reads a report's `summary.bySeverity` counts and crashed-check `errors` and emits a deterministic, byte-identical SVG — teal `passing`, amber `warnings`, red `errors` under the same scheme as the default `--fail-on error` gate — plus the README snippet it is shown with. Served by GitHub from a file a CI workflow commits; no hosted service (docs/badge.md) (#90).
 - `seaworthy verify --format llm` prints a compact report sized for an agent's context window: one line per finding, grouped by file, with the fix first, then the check ID, severity, location, and a short evidence line; plain text, no color, byte-identical everywhere (#263).
 - `i18n.hreflang` reports `rel="alternate" hreflang=...` entries that point at a page the built site does not serve, or whose target page declares no hreflang alternate for the declaring page's language back to it; language values match without regard to case, `x-default` entries are out of scope (the `i18n.x-default` follow-up handles them), and external hreflang URLs are skipped, never fetched (#368).
 - Every output format now carries ready-to-paste fix prompts: one per finding and one for the whole report, generated from each finding's data alone (check ID, location, fix hint) so they are identical, deterministic, and free of private run state everywhere (#264).
