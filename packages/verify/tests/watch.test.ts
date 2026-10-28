@@ -72,12 +72,31 @@ test("watchDiffText renders a precomputed diff exactly like the watch loop does"
 
 // ---- WatchScheduler: debouncing and the one-scan-in-flight invariant ----
 
+/**
+ * Runs `check` when the timer due at `ms` fires. Timers fire in deadline order even when the
+ * event loop stalls, so a probe due before a debounce timer is a deterministic "not yet":
+ * the debounce callback cannot run before it.
+ */
+function probeIn(ms: number, check: () => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      try {
+        check();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    }, ms);
+  });
+}
+
 test("a change schedules a scan after the quiet window, not before", async () => {
   let runs = 0;
   const scheduler = new WatchScheduler(async () => { runs++; }, { debounceMs: 60 });
+  const quiet = probeIn(20, () => assert.equal(runs, 0, "nothing runs while the folder is still changing"));
   scheduler.changed();
-  await sleep(20);
-  assert.equal(runs, 0, "nothing runs while the folder is still changing");
+  assert.equal(runs, 0, "changed() only schedules a scan");
+  await quiet;
   await waitFor(() => runs === 1, "the debounced scan");
   scheduler.stop();
 });
@@ -93,46 +112,58 @@ test("a burst of changes collapses into exactly one scan", async () => {
     inFlight--;
     runs++;
   }, { debounceMs: 30 });
-  scheduler.changed();
-  await sleep(5);
-  scheduler.changed();
-  await sleep(5);
-  scheduler.changed();
-  await sleep(8);
-  scheduler.changed();
-  scheduler.changed();
-  await sleep(60);
-  assert.equal(runs, 1, "a burst of writes before the quiet window is one run");
+  // Changes due at 5, 10, 15, and 18 ms: each moves the quiet window forward, so the last one
+  // cannot scan before 48 ms. The probe at 40 ms stays before that deadline even if the loop stalls.
+  const quiet = probeIn(40, () => assert.equal(runs, 0, "the scan waits for the last change of the burst"));
+  await new Promise<void>((resolve) => {
+    setTimeout(() => scheduler.changed(), 5);
+    setTimeout(() => scheduler.changed(), 10);
+    setTimeout(() => scheduler.changed(), 15);
+    setTimeout(() => {
+      scheduler.changed();
+      scheduler.changed();
+      resolve();
+    }, 18);
+  });
+  await quiet;
+  await waitFor(() => runs === 1, "the one scan for the burst");
   assert.equal(maxInFlight, 1);
   scheduler.stop();
-  await sleep(40);
-  assert.equal(runs, 1, "no trailing scan after stop");
+  await probeIn(40, () => assert.equal(runs, 1, "no trailing scan after stop"));
 });
 
 test("regression: at most one scan is ever in flight, and events during a scan queue one follow-up", async () => {
   let inFlight = 0;
   let maxInFlight = 0;
+  let scans = 0;
+  let release!: () => void;
+  const firstScan = new Promise<void>((resolve) => { release = resolve; });
   const scheduler = new WatchScheduler(async () => {
+    scans++;
     inFlight++;
     maxInFlight = Math.max(maxInFlight, inFlight);
-    await sleep(30);
+    if (scans === 1) await firstScan;
     inFlight--;
   }, { debounceMs: 0 });
 
   const first = scheduler.scanNow();
-  await sleep(5); // the first scan is now running
-  assert.equal(scheduler.busy, true);
+  assert.equal(scheduler.busy, true, "the first scan runs as soon as it is requested");
   scheduler.changed();
   scheduler.changed();
   scheduler.changed();
   await scheduler.scanNow(); // re-entrant request: must queue a follow-up, never start a second scan
-  assert.ok(scheduler.runs <= 1, `no extra scan starts while one is in flight (runs: ${scheduler.runs})`);
+  assert.equal(scans, 1, "no second scan starts while one is in flight");
+  assert.equal(scheduler.runs, 0, "the first scan has not completed");
   assert.ok(scheduler.rerunQueued, "the events coalesce into one queued follow-up");
+  release();
   await first;
   await waitFor(() => scheduler.runs === 2, "the single queued follow-up", 3000, () => ({ runs: scheduler.runs, busy: scheduler.busy, pending: scheduler.rerunQueued }));
-  await sleep(60);
-  assert.equal(scheduler.runs, 2, "exactly one follow-up, not one per event");
+  await probeIn(60, () => {
+    assert.equal(scans, 2, "exactly one follow-up, not one per event");
+    assert.equal(scheduler.runs, 2);
+  });
   assert.equal(maxInFlight, 1);
+  scheduler.stop();
 });
 
 test("scan errors are reported and do not stop scheduling; stop cancels a debounced scan", async () => {
@@ -148,8 +179,7 @@ test("scan errors are reported and do not stop scheduling; stop cancels a deboun
   const cancelled = new WatchScheduler(async () => { runs++; }, { debounceMs: 100 });
   cancelled.changed();
   cancelled.stop();
-  await sleep(150);
-  assert.equal(runs, 0, "the debounced scan was cancelled");
+  await probeIn(150, () => assert.equal(runs, 0, "the debounced scan was cancelled"));
 });
 
 // ---- WatchLoop: watcher semantics with an injected change source ----
@@ -182,7 +212,7 @@ test("WatchLoop runs once per change against the previous report and keeps watch
   loop.start();
   try {
     hooks.change();
-    await waitFor(() => notices.length === 1, "the notice for the first change", 2000, () => ({ notices, failures, runs: loop.runs }));
+    await waitFor(() => notices.length === 1, "the notice for the first change", 10_000, () => ({ notices, failures, runs: loop.runs }));
     assert.equal(notices[0], watchStatusText(before, after));
     assert.equal(failures.length, 0);
     assert.equal(loop.runs, 1);
@@ -209,17 +239,16 @@ test("WatchLoop survives a failed verification and stays quiet once closed", asy
   loop.start();
   try {
     hooks.change();
-    await waitFor(() => failures.length === 1, "the failure notice");
+    await waitFor(() => failures.length === 1, "the failure notice", 10_000);
     assert.equal(notices.length, 0);
     hooks.change();
-    await waitFor(() => notices.length === 1, "the retry after the failure");
+    await waitFor(() => notices.length === 1, "the retry after the failure", 10_000);
     assert.equal(loop.runs, 2);
   } finally {
     loop.close();
   }
   hooks.change();
-  await sleep(80);
-  assert.equal(loop.runs, 2, "a closed loop ignores further changes");
+  await probeIn(80, () => assert.equal(loop.runs, 2, "a closed loop ignores further changes"));
 });
 
 test("WatchLoop reports a watcher crash instead of crashing itself", async () => {
@@ -264,7 +293,7 @@ test("seaworthy verify --watch prints the first report in full and then only the
 
   try {
     writeFileSync(join(folder, "about.html"), PAGE);
-    await waitFor(() => notices.length > 0, "the watch diff after the write");
+    await waitFor(() => notices.length > 0, "the watch diff after the write", 15_000);
     const text = notices.join("");
     assert.match(text, /^seaworthy: 1 new, 0 fixed, 1 unchanged findings?\n/);
     assert.match(text, /\+ error x\.err .*about\.html.*: error on \/about\.html\n/);
