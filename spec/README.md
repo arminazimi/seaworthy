@@ -31,6 +31,7 @@ The report schema is checked by `npm test`: the engine's output is validated aga
 - `meta.canonical-cycle`: a `warning` for canonical links that point at each other in a circle. See the [check contract](../docs/checks/meta.canonical-cycle.md).
 - `hosting.headers`: a `warning` for a malformed `_headers` line, or headers set on a path the built site does not serve. See the [check contract](../docs/checks/hosting.headers.md).
 - `hosting.redirects`: an `error` for a malformed `_redirects` line, or a redirect to a path the built site does not serve. See the [check contract](../docs/checks/hosting.redirects.md).
+- `i18n.hreflang`: a `warning` for a `rel="alternate" hreflang=...` entry that points at a page the built site does not serve, or whose target page declares no `hreflang` alternate for the declaring page's language back to it (`x-default` entries are out of scope, covered by `i18n.x-default`). See the [check contract](../docs/checks/i18n.hreflang.md).
 
 ## Additive report fields
 

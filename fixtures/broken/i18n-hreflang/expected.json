@@ -1,0 +1,7 @@
+{
+  "description": "Two alternates broken from the declaring page (index.html): its fr target declares no hreflang=\"en\" alternate back, and its es target is not served by the built site; the de pair is reciprocal with case-variant language keys (DE/EN) and is correct",
+  "findings": [
+    { "check": "i18n.hreflang", "file": "index.html", "line": 5, "column": 23 },
+    { "check": "i18n.hreflang", "file": "index.html", "line": 6, "column": 23 }
+  ]
+}
