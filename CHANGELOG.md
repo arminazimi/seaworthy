@@ -4,6 +4,7 @@
 
 ### Added
 
+- `seaworthy config check` validates a config with the same rules `verify` applies, without running any checks, and exits 0 or 2 (#293).
 - `a11y.iframe-title` reports iframes with missing or blank titles, with source locations and a manual fix hint (#232).
 - `html.obsolete` reports obsolete elements and presentational attributes (`<center>`, `<font>`, `<marquee>`, `align`, `bgcolor`, and similar) with exact source locations and CSS fix hints (#245).
 - `seaworthy verify --timings` prints time per stage and per check to stderr. The report is unchanged, so default output stays deterministic (#216).
