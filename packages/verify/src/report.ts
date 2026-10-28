@@ -67,9 +67,11 @@ export function buildReport(input: ReportInput): Report {
   if (/^([a-zA-Z]:)?[\\/]/.test(input.root)) throw new Error("report root must be relative; absolute paths make reports differ between machines");
   const sorted = [...input.findings].sort(compareFindings);
   const { findings, omitted } = capFindings(sorted, input.maxFindings ?? DEFAULT_MAX_FINDINGS, input.checkMaxFindings);
+  // Counts over ALL findings, capped or not: the exit code is decided from these, so a cap can
+  // never hide an error (or warning, under --fail-on warning) that was cut from the report.
   const bySeverity: Report["summary"]["bySeverity"] = {};
   for (const severity of SEVERITIES) {
-    const count = findings.filter((f) => f.severity === severity).length;
+    const count = sorted.filter((f) => f.severity === severity).length;
     if (count > 0) bySeverity[severity] = count;
   }
   return {

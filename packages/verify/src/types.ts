@@ -124,6 +124,7 @@ export interface Report {
   summary: {
     pages: number;
     findings: number;
+    /** Counts by severity over ALL reported findings, including ones a `--max-findings` or per-check cap cut, so the exit code can be decided from it. May be larger than `findings`. */
     bySeverity: Partial<Record<Severity, number>>;
     /** Findings hidden by a live suppression. They are listed in `suppressed`, with reasons. */
     suppressed: number;

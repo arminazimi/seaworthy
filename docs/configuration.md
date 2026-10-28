@@ -52,6 +52,8 @@ npx seaworthy verify --max-findings 200   # report at most 200 findings
 
 The cap is deterministic: findings stay in report order and the report keeps the first `n`, so the omitted ones are exactly the rest. When anything was cut, the summary says how many under `findingsOmitted`; when nothing was cut, the report is byte-identical to a run without the flag. `--update-baseline` and `--baseline` still see every finding the engine found, capped or not, so adopting with a baseline records all of them.
 
+A cap never changes the exit code. `summary.bySeverity` counts every finding, cut or not, and the exit code is decided from those counts: a run that reported 5 warnings and cut an error under `--max-findings` still fails with the default `--fail-on error`.
+
 Cap one noisy check on its own in the config:
 
 ```json

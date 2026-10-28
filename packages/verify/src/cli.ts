@@ -60,7 +60,8 @@ Options:
   --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath
                         in seaworthy.config.json and base-path detection from generator configs.
   --max-findings <n>   Cap the report at n findings, in report order; the rest are omitted and counted
-                       in the report as findingsOmitted. Default: ${DEFAULT_MAX_FINDINGS}
+                       in the report as findingsOmitted. Default: ${DEFAULT_MAX_FINDINGS}. Caps never
+                       change the exit code; it is decided from all findings, cut or not
   --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
   --baseline <file>    Accept the findings recorded in this file; report and fail only on new ones
   --update-baseline <file>
@@ -286,7 +287,9 @@ export function formatTimings(totalMs: number, timings: Timings): string {
 
 function failing(report: Report, failOn: Severity | "none"): boolean {
   if (failOn === "none") return false;
-  return report.findings.some((f) => SEVERITY_ORDER[f.severity] <= SEVERITY_ORDER[failOn]);
+  // Decided from summary.bySeverity, which counts all findings the caps kept and cut, so the
+  // exit code never lets a finding hidden by a cap turn the run green.
+  return Object.entries(report.summary.bySeverity).some(([severity, count]) => (count ?? 0) > 0 && SEVERITY_ORDER[severity as Severity] <= SEVERITY_ORDER[failOn]);
 }
 
 async function verify(args: readonly string[], env: CliEnvironment): Promise<CliResult> {

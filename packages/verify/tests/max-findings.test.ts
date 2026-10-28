@@ -102,6 +102,30 @@ test("the pipeline caps the report and still returns everything beyond it for th
 const BREAKING = (n: number): string =>
   `<!doctype html>\n<html><head><title>t</title></head>\n<body>\n${Array.from({ length: n }, (_, i) => `<a href="/missing-${i}.html">x</a>`).join("\n")}\n</body></html>\n`;
 
+/** A check that reports `warnings` warnings on a.html and one error on b.html, so report order puts every warning before the error. */
+const sorted = (warnings: number): Check => ({
+  meta: meta("x.sorted"),
+  *run(): IterableIterator<FindingDraft> {
+    for (const line of Array.from({ length: warnings }, (_, i) => i + 1))
+      yield { message: "warning", location: { file: "a.html", line, column: 1 }, fix: { kind: "manual", summary: "fix it" }, key: `/${line}` };
+    yield { message: "error", severity: "error", location: { file: "b.html", line: 1, column: 1 }, fix: { kind: "manual", summary: "fix it" }, key: "/error" };
+  },
+});
+
+test("a cap never hides a failing severity: 5 warnings sort before 1 error, --max-findings 2, and the run still exits 1", async () => {
+  const site = makeSite({ "a.html": "<title>t</title>", "b.html": "<title>t</title>" });
+  const env = { checks: [sorted(5)] };
+  const args = ["verify", site, "--max-findings", "2"];
+
+  const result = await run(args, env);
+  assert.equal(result.code, EXIT.findings, "the cut error decides the exit code");
+
+  const report = JSON.parse((await run([...args, "--format", "json"], env)).stdout);
+  assert.deepEqual([report.summary.findings, report.summary.findingsOmitted], [2, 4], "the cap kept the first two findings, the warnings");
+  assert.deepEqual(report.summary.bySeverity, { warning: 5, error: 1 }, "bySeverity counts every finding, capped or not");
+  assert.deepEqual(reportErrors(report), [], "a report with uncapped counts validates against the spec");
+});
+
 const CLEAN = fileURLToPath(new URL("../../../../fixtures/clean/minimal/site", import.meta.url));
 
 test("--max-findings keeps every output format byte-identical when nothing is truncated", async () => {
