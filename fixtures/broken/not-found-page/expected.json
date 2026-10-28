@@ -1,0 +1,6 @@
+{
+  "description": "The build has no 404 page, so Seaworthy reports the missing not-found page once, against the conventional file name.",
+  "findings": [
+    { "check": "quality.not-found-page", "file": "404.html" }
+  ]
+}

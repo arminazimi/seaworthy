@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nesting browsers mishandle</title>
+</head>
+<body>
+  <p>Intro text
+    <div>Block inside the paragraph</div>
+  </p>
+  <p>The second paragraph
+    <a href="/item">Buy the widget <div>Widget framing</div>
+      <a href="/specs">Full specs</a>
+    </a>
+  </p>
+  <table>
+    <tr>
+      <td>
+        <button>Save <button>Save and close</button></button>
+        <label for="email">Email <select size="1"><option>Daily</option></select></label>
+        <label>Name <input id="name"></label>
+      </td>
+    </tr>
+  </table>
+  <p>Proper paragraph stays quiet.</p>
+</body>
+</html>

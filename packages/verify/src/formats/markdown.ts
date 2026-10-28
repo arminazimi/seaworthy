@@ -30,9 +30,17 @@ export function formatMarkdown(report: Report): string {
     for (const f of shown) out.push(`| ${f.severity} | ${code(f.checkId)} | ${code(`${f.location.file}:${describeLocation(f)}`)} | ${cell(f.message)} |`);
     out.push("");
     out.push("**How to fix**", "");
-    for (const f of shown) out.push(`- ${code(`${f.location.file}:${describeLocation(f)}`)} ${cell(f.fix.summary)}`);
+    for (const f of shown) {
+      out.push(`- ${code(`${f.location.file}:${describeLocation(f)}`)} ${cell(f.fix.summary)}`);
+      if (f.prompt !== undefined) out.push(`  - Prompt: ${cell(f.prompt)}`);
+    }
     if (total > shown.length) out.push("", `...and ${total - shown.length} more. Run \`seaworthy verify --format json\` for the full report.`);
     out.push("");
+    if (report.prompt !== undefined) {
+      out.push("**Prompt for the whole report**", "");
+      for (const line of report.prompt.split("\n")) out.push(`    ${line}`);
+      out.push("");
+    }
   }
   if (report.skipped.length > 0) {
     out.push("**Skipped, not run**", "");

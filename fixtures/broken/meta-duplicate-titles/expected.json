@@ -1,0 +1,6 @@
+{
+  "description": "Three pages share one title, reported once with all of them listed; docs/battery.html has its own title and is not part of it.",
+  "findings": [
+    { "check": "meta.duplicate-titles", "file": "about.html", "line": 3, "column": 1 }
+  ]
+}

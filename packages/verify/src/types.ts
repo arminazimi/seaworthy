@@ -89,6 +89,8 @@ export interface Finding {
   location: Location;
   fix: Fix;
   fingerprint: string;
+  /** Added in buildReport: a ready-to-paste fix prompt for an agent, identical in every output format. */
+  prompt?: string;
 }
 
 export interface SkippedCheck {
@@ -139,4 +141,6 @@ export interface Report {
   suppressed: SuppressedFinding[];
   skipped: SkippedCheck[];
   errors: CheckError[];
+  /** Added in buildReport when there are findings: one prompt that fixes everything, in report order. */
+  prompt?: string;
 }

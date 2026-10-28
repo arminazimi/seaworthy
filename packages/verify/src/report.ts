@@ -4,6 +4,7 @@
 import { REPORT_SPEC_VERSION, VERSION } from "./version.js";
 import type { SuppressedFinding } from "./suppress.js";
 import { SEVERITIES, type Check, type CheckError, type Finding, type Readability, type Report, type SkippedCheck } from "./types.js";
+import { findingPrompt, reportPrompt } from "./prompt.js";
 
 export interface ReportInput {
   /** The folder that was verified, as the user gave it. Must be relative. */
@@ -50,10 +51,11 @@ export function buildReport(input: ReportInput): Report {
     checks: input.checks
       .map((c) => ({ id: c.meta.id, title: c.meta.title, severity: c.meta.severity, needs: [...c.meta.needs], docs: c.meta.docs, standards: [...c.meta.standards] }))
       .sort((a, b) => compare(a.id, b.id)),
-    findings,
+    findings: findings.map((f) => ({ ...f, prompt: findingPrompt(f, input.root) })),
     suppressed: [...(input.suppressed ?? [])].sort((a, b) => compare(a.file, b.file) || compare(a.line ?? 0, b.line ?? 0) || compare(a.checkId, b.checkId) || compare(a.fingerprint, b.fingerprint)),
     skipped: [...(input.skipped ?? [])],
     errors: [...(input.errors ?? [])],
+    ...(findings.length > 0 ? { prompt: reportPrompt(findings, input.root) } : {}),
   };
 }
 

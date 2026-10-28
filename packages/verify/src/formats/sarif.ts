@@ -81,12 +81,14 @@ export function toSarif(report: Report, context: SarifContext = {}): object {
             partialFingerprints: { [SARIF_FINGERPRINT_KEY]: finding.fingerprint },
             properties: {
               fixSummary: finding.fix.summary,
+              ...(finding.prompt === undefined ? {} : { fixPrompt: finding.prompt }),
               ...(finding.location.selector === undefined ? {} : { selector: finding.location.selector }),
               ...(finding.location.approximateLine ? { approximateLine: true } : {}),
             },
             ...(fixes.length > 0 ? { fixes } : {}),
           };
         }),
+        ...(report.prompt === undefined ? {} : { properties: { prompt: report.prompt } }),
         invocations: [
           {
             executionSuccessful: report.errors.length === 0,
