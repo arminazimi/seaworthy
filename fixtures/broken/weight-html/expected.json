@@ -1,0 +1,8 @@
+{
+  "findings": [
+    {
+      "check": "quality.page-weight",
+      "file": "index.html"
+    }
+  ]
+}

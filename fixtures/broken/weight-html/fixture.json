@@ -1,0 +1,8 @@
+{
+  "checks": ["quality.page-weight"],
+  "config": {
+    "checks": {
+      "quality.page-weight": { "options": { "budgets": { "html": 500 } } }
+    }
+  }
+}
