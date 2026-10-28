@@ -60,6 +60,7 @@ test("after the probe passes, a clean page is silent and a contrast failure is o
   assert.ok(contrast.location.selector !== undefined && contrast.location.selector.length > 0);
   assert.ok(contrast.location.snippet !== undefined && contrast.location.snippet.includes("color"));
   assert.match(contrast.fix.summary, /axe rule "color-contrast"/);
+  assert.match(contrast.message, /Seen at phone \(375 px\), tablet \(768 px\), desktop \(1280 px\)\./, "the finding names the widths the problem was seen at");
 });
 
 test("rules the static checks report are switched off in axe", async () => {

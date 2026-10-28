@@ -1,8 +1,9 @@
 import { createRequire } from "node:module";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { after, test } from "node:test";
 
 import {
   ActionInputError,
@@ -11,8 +12,8 @@ import {
   ReportFormatError,
   sarifFromReportJson,
   THRESHOLDS,
-  thresholdExitCode,
 } from "../src/index.js";
+import { actionRun } from "../src/run.js";
 
 // The SARIF 2.1.0 schema validation follows packages/verify/tests/helpers.ts: the official
 // schema shipped by @microsoft/jest-sarif, validated with ajv 6 (the schema is draft-04).
@@ -119,16 +120,6 @@ test("parseInputs rejects an unknown threshold instead of silently defaulting", 
   });
 });
 
-test("the threshold exposes the CLI exit contract: 0, findings 1, crashed 4", () => {
-  assert.equal(thresholdExitCode(CLEAN, "none"), 0);
-  assert.equal(thresholdExitCode(CLEAN, "error"), 0);
-  assert.equal(thresholdExitCode(BROKEN, "error"), 1);
-  assert.equal(thresholdExitCode(BROKEN, "warning"), 1);
-  assert.equal(thresholdExitCode(BROKEN, "none"), 0);
-  assert.equal(thresholdExitCode(reportOf({ findings: [finding("note")] }), "warning"), 0);
-  assert.equal(thresholdExitCode(reportOf({ errors: [{ check: "links.internal", message: "boom" }] }), "error"), 4);
-});
-
 test("the report JSON maps to a SARIF 2.1.0 log that passes the official schema", () => {
   const sarif = sarifFromReportJson(JSON.parse(JSON.stringify(BROKEN)));
   assert.deepEqual(sarifErrors(sarif), []);
@@ -155,4 +146,83 @@ test("the SARIF text is JSON with a trailing newline, byte-stable across runs", 
 test("sarifFromReportJson rejects input that is not a Seaworthy report", () => {
   assert.throws(() => sarifFromReportJson({ nope: true }), ReportFormatError);
   assert.throws(() => sarifFromReportJson(undefined), ReportFormatError);
+});
+
+// ---- the Action's own run ------------------------------------------------------------------------------------
+// These tests run the built verify CLI, the way the composite action.yml does, so the exit contract
+// is proven end to end: the `threshold` input has to decide the run's outcome, not the CLI's default.
+
+const made: string[] = [];
+after(() => {
+  for (const root of made) rmSync(root, { recursive: true, force: true });
+});
+
+/** A consumer's checkout: a built site in dist/ and a config next to it. */
+function workspace(files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), "seaworthy-action-"));
+  made.push(root);
+  for (const [path, content] of Object.entries(files)) {
+    const target = join(root, ...path.split("/"));
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, content);
+  }
+  return root;
+}
+
+const PAGE = "<!doctype html>\n<html lang=\"en\"><head><title>Page</title><meta name=\"description\" content=\"A description.\"></head>\n<body><main><h1>Heading</h1><p>Some text.</p></main></body></html>\n";
+
+/** Turns off every check the page trips except the ones named, so the run has findings of a known severity only. */
+function onlyChecks(...keep: string[]): string {
+  const checks: Record<string, string> = {};
+  for (const id of ["quality.not-found-page", "html.charset", "meta.canonical", "meta.viewport", "social.open-graph", "social.twitter-card", "readability.llms-txt"]) {
+    if (!keep.includes(id)) checks[id] = "off";
+  }
+  return JSON.stringify({ checks });
+}
+
+/** Runs the Action against a workspace, with the run's own log lines captured. */
+async function runAction(root: string, env: Record<string, string | undefined>): Promise<{ code: number; stdout: string }> {
+  let stdout = "";
+  const write = process.stdout.write;
+  process.stdout.write = ((chunk: string | Uint8Array): boolean => {
+    stdout += String(chunk);
+    return true;
+  }) as typeof process.stdout.write;
+  try {
+    const code = await actionRun({ GITHUB_WORKSPACE: root, SEAWORTHY_SITE: "dist", ...env });
+    return { code, stdout };
+  } finally {
+    process.stdout.write = write;
+  }
+}
+
+test("the threshold input decides the exit code: a warning fails at warning, not at error", async () => {
+  const root = workspace({ "dist/index.html": PAGE, "seaworthy.config.json": onlyChecks("meta.viewport") });
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "warning" })).code, 1, "a warning is at the threshold");
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "error" })).code, 0, "a warning is below the threshold");
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "none" })).code, 0, "no threshold fails nothing");
+});
+
+test("an error fails the run at every threshold that includes it", async () => {
+  const root = workspace({ "dist/index.html": PAGE, "seaworthy.config.json": onlyChecks("html.charset") });
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "error" })).code, 1);
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "warning" })).code, 1);
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "note" })).code, 1);
+  assert.equal((await runAction(root, { SEAWORTHY_THRESHOLD: "none" })).code, 0);
+});
+
+test("a failing site with SARIF enabled fails with the findings code and still writes the report", async () => {
+  const root = workspace({ "dist/index.html": PAGE, "seaworthy.config.json": onlyChecks("html.charset") });
+  const { code, stdout } = await runAction(root, { SEAWORTHY_THRESHOLD: "error", SEAWORTHY_SARIF: "out.sarif" });
+  assert.equal(code, 1, "the site's findings fail the run, not the SARIF write");
+  assert.match(stdout, /sarif written to out\.sarif/);
+  const sarif = JSON.parse(readFileSync(join(root, "out.sarif"), "utf8")) as { runs: { results: { ruleId: string }[] }[] };
+  assert.deepEqual(sarif.runs[0]!.results.map((r) => r.ruleId), ["html.charset"]);
+});
+
+test("a clean site passes and writes no SARIF when the input is empty", async () => {
+  const root = workspace({ "dist/index.html": PAGE, "seaworthy.config.json": onlyChecks() });
+  const { code } = await runAction(root, { SEAWORTHY_THRESHOLD: "error" });
+  assert.equal(code, 0);
+  assert.equal(existsSync(join(root, "out.sarif")), false);
 });

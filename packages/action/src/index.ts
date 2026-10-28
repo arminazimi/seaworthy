@@ -56,20 +56,6 @@ export function parseInputs(env: Readonly<Record<string, string | undefined>>): 
   };
 }
 
-const SEVERITY_RANK: Record<Severity, number> = { error: 0, warning: 1, note: 2 };
-
-/**
- * The exit code the run fails with, using the CLI's own contract (see `EXIT` in packages/verify):
- * 4 when a check crashed even nothing failed the threshold, then 1 with findings at or above
- * `threshold`, else 0. "above" means more severe: `threshold: warning` fails on errors too.
- */
-export function thresholdExitCode(report: Report | { summary: { findings: number }; errors: unknown[]; findings: { severity: Severity }[] }, threshold: Threshold): number {
-  if (report.errors.length > 0) return 4;
-  if (threshold === "none") return 0;
-  const limits = { error: SEVERITY_RANK.error, warning: SEVERITY_RANK.warning, note: SEVERITY_RANK.note };
-  return report.findings.some((f) => SEVERITY_RANK[f.severity] <= limits[threshold]) ? 1 : 0;
-}
-
 /** Minimal shape of the report JSON the CLI writes, checked before the SARIF mapping trusts it. */
 function asReport(value: unknown): Report {
   const report = value as Partial<Report> | null;

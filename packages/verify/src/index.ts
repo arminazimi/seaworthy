@@ -40,6 +40,8 @@ export type { Baseline, BaselineEntry } from "./baseline.js";
 export { verifySite } from "./verify.js";
 export type { StageTiming, Timings, VerifyOptions, VerifyResult } from "./verify.js";
 export { builtInChecks } from "./checks/index.js";
+export { VIEWPORTS, viewportLabel } from "./render.js";
+export type { Viewport } from "./render.js";
 export { SUPPRESSION_CHECKS } from "./suppress.js";
 export { detectBasePath, resolveBasePath } from "./base-path.js";
 export type { BasePathDetection, BasePathDetectionResult, BasePathFinding, BasePathGenerator, BasePathResolution, Canonical, UnclassifiedBasePath } from "./base-path.js";
