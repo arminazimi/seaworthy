@@ -4,6 +4,7 @@
 
 ### Added
 
+- `hosting.headers` and `hosting.redirects` validate the `_headers` and `_redirects` files of Netlify and Cloudflare Pages: malformed lines, splats and placeholders the hosts cannot match, paths and destinations the built site does not serve, dead duplicate rules, and redirects that answer their own address (#325).
 - `npm run check:startup` gates `seaworthy --version` at the 150 ms startup budget from ADR 0004: one warm-up, five timed runs judged on the best run, with settle-delayed retry passes (up to 15 runs) so a loaded CI runner does not flakily fail (#299).
 - `html.inline-handlers` reports inline event handlers (`onclick` and every other `on*` attribute) and `javascript:` URLs in navigation and form attributes, which a strict Content Security Policy (`script-src` without `"unsafe-inline"`) blocks (#247).
 - `seaworthy diff before.json after.json` compares two report files and prints one JSON object with the counts and finding lists for what is new, fixed, and unchanged (#335).
