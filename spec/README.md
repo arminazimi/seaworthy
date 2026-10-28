@@ -25,6 +25,7 @@ The report schema is checked by `npm test`: the engine's output is validated aga
 - `html.nesting`: a `warning` for content nested outside its parent's content model: interactive inside interactive, block inside `<p>`, `<a>` inside `<a>`. See the [check contract](../docs/checks/html.nesting.md).
 - `quality.orphans`: a `warning` for a page that no other page links to. See the [check contract](../docs/checks/quality.orphans.md).
 - `quality.not-found-page`: a `warning` for a missing 404 page, or one that is empty or only redirects. See the [check contract](../docs/checks/quality.not-found-page.md).
+- `quality.page-weight`: a `warning` per page and asset kind (HTML, CSS, JavaScript, images, fonts) whose weight is over the budget configured in `checks."quality.page-weight".options.budgets`. No budget, no findings: the check is off until a site opts in, and buckets left unset keep documented defaults. Sizes come from the built output's file system; no browser, no network. See the [check contract](../docs/checks/quality.page-weight.md).
 - `quality.empty-pages`: a `warning` for a page whose HTML has no main text outside the navigation, header and footer. See the [check contract](../docs/checks/quality.empty-pages.md).
 - `meta.duplicate-titles`: a `warning` for the same `<title>` on two or more pages. See the [check contract](../docs/checks/meta.duplicate-titles.md).
 - `meta.canonical-target`: a `warning` for a canonical link that points at a URL the built site does not serve. See the [check contract](../docs/checks/meta.canonical-target.md).

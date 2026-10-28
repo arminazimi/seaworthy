@@ -70,7 +70,8 @@ export const imagesDimensions = check(meta("images.dimensions", "Image has no wi
 });
 
 const DEFAULT_MAX_BYTES = 512_000;
-const kb = (bytes: number): string => (bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1000)} KB`);
+/** Sizes in messages, the way users write them: KB under a million, one MB decimal above. Shared with weight checks. */
+export const kb = (bytes: number): string => (bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1000)} KB`);
 
 export const imagesSize = check(meta("images.size", "Image file is larger than the budget", "warning"), (ctx) => {
   const out: FindingDraft[] = [];

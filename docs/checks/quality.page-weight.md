@@ -1,0 +1,58 @@
+# quality.page-weight
+
+A page loads more bytes of HTML, CSS, JavaScript, images, or fonts than its budget allows.
+
+## Why it matters
+
+Page weight is the one number every framework can be judged by, and it is best kept as a budget, like a test suite: once a page ships 60 KB of JavaScript you rarely notice it growing page by page. Heavy pages load slowly on phones and weak networks, and agents that read the site pay the same cost for every asset they fetch. A per-page, per-asset-kind budget turns "too heavy" from a feeling into a check that fails a build when crossed.
+
+## What it checks
+
+The check walks the built output with no browser and no network. For each page it sums bytes per asset kind:
+
+- **html**: the page's own built HTML file.
+- **css**: stylesheet files the page links, and inline `<style>` blocks. (`@import` chains inside a stylesheet are a follow-up.)
+- **javascript**: script files the page loads, and inline `<script>` bodies. Types browsers do not execute — import maps, JSON-LD, speculation rules — are left out.
+- **images**: files and data URIs from `<img>` and `srcset` candidates, `<source>` elements inside `<picture>`, `<video poster>`, and `preload as="image"` links.
+- **fonts**: font files in `@font-face src:` lines of the stylesheets the page loads, and `preload as="font"` links.
+
+Sizes come from the file system, so a repeated asset counts on the page it appears on and is read once per run. A file two elements of one page load counts once; two inline scripts are counted separately because both ship. External URLs (a CDN, analytics) are not counted: they are not the build's bytes. A data URI counts as its own inline asset, sized by its text.
+
+The check only sees styles the page links or includes, and images only what the page's HTML asks for. Weight a stylesheet hides in `background-image`, and the count of font files, are separate follow-ups (`quality.font-count` depends on this check in the roadmap).
+
+**The check is off until a site opts in.** With no `budgets` option it reports nothing, so runs are byte-identical with and without the feature. Once `budgets` is set, any bucket it does not name uses the default for that kind (see Options).
+
+## How to fix
+
+Bring the heaviest asset kind under its budget — the finding names it and where it is attributed from:
+
+```html
+<!-- before: 41 KB of JavaScript blocks the first paint -->
+<script src="/js/bundle.js"></script>
+<!-- after: defer the script, and split what the page loads now from the rest -->
+<script src="/js/bundle.js" defer></script>
+```
+
+Minify and compress what ships, remove what the page does not use, resize and compress images, and subset fonts. Fix it in the source (templates, CSS source, image pipeline) where the asset is produced. Raise a budget only deliberately, in the config, when a page genuinely needs to be that heavy.
+
+## Options
+
+Under `checks."quality.page-weight".options`, the check accepts `budgets`: an object of per-bucket budgets in bytes. Without it the check is off. Every bucket not named in `budgets` keeps its default:
+
+| Bucket | Default |
+| --- | --- |
+| `html` | 50 000 bytes |
+| `css` | 100 000 bytes |
+| `javascript` | 200 000 bytes |
+| `images` | 512 000 bytes (matching `images.size`) |
+| `fonts` | 200 000 bytes |
+
+A budget that is not a finite non-negative number falls back to its default. `"budgets": {}` opts every bucket in at the defaults.
+
+```json
+{ "checks": { "quality.page-weight": { "options": { "budgets": { "javascript": 150000, "images": 300000 } } } } }
+```
+
+## Standards
+
+None.
