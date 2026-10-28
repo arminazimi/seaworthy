@@ -16,6 +16,7 @@ const valid = [
   {},
   { root: "dist", failOn: "none", rendered: true, network: false, baseline: "b.json", ignore: ["drafts/**"] },
   { checks: { "links.internal": "warning", "images.alt": "off", "a11y.*": { severity: "note", options: { x: 1 } }, "a11y.color-contrast": { off: false } } },
+  { checks: { "links.internal": { maxFindings: 20 }, "images.*": { maxFindings: 5, severity: "warning" } } },
   { suppressions: [{ check: "links.internal", file: "blog/**", reason: "archive", expires: "2027-03-01" }, { check: "images.alt", fingerprint: "d6062a0613274944", reason: "decorative" }] },
 ];
 const invalid = [
@@ -26,6 +27,9 @@ const invalid = [
   { checks: { Links: "off" } },
   { checks: { "links.internal": "critical" } },
   { checks: { "links.internal": { sevrity: "note" } } },
+  { checks: { "links.internal": { maxFindings: 0 } } },
+  { checks: { "links.internal": { maxFindings: 2.5 } } },
+  { checks: { "links.internal": { maxFindings: "many" } } },
   { suppressions: [{ check: "links.internal", reason: "no target" }] },
   { suppressions: [{ check: "links.internal", file: "a.html" }] },
   { suppressions: [{ check: "links.internal", file: "a.html", reason: "ok then", expires: "soon" }] },

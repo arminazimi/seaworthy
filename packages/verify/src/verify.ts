@@ -30,6 +30,8 @@ export interface VerifyOptions {
   configLocation?: string;
   rendered?: boolean;
   network?: boolean;
+  /** Cap the report at this many findings, in report order. Default: `DEFAULT_MAX_FINDINGS`. */
+  maxFindings?: number;
   /** When set, findings it accepts are removed from the report and counted. */
   baseline?: Baseline;
   /** Under --changed: site-relative files that changed. Findings elsewhere are not reported. */
@@ -122,6 +124,8 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       pages: site.pages.size,
       checks: [...resolved.checks, ...SUPPRESSION_CHECKS],
       findings: reported,
+      ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
+      ...(Object.keys(resolved.maxFindings).length > 0 ? { checkMaxFindings: resolved.maxFindings } : {}),
       ...(options.changed ? { changedFiles: options.changed.size } : {}),
       ...(readability ? { readability } : {}),
       suppressed: suppression.suppressed,

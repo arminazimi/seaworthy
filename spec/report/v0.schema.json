@@ -66,6 +66,7 @@
         "bySeverity": {
           "type": "object",
           "additionalProperties": false,
+          "description": "Counts by severity over all findings the engine reported, including ones `--max-findings` or a per-check cap cut; `summary.findings` may be smaller. The exit code is decided from these counts, so a cap never hides a failure.",
           "properties": {
             "error": {
               "type": "integer",
@@ -92,6 +93,11 @@
         "baselineStale": {
           "type": "integer",
           "minimum": 0
+        },
+        "findingsOmitted": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Present when --max-findings or a per-check cap cut findings: how many the engine found but the report omits. The kept findings are the report's first, so the omitted ones are exactly the rest, in report order."
         },
         "changedFiles": {
           "type": "integer",

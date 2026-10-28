@@ -124,6 +124,7 @@ export interface Report {
   summary: {
     pages: number;
     findings: number;
+    /** Counts by severity over ALL reported findings, including ones a `--max-findings` or per-check cap cut, so the exit code can be decided from it. May be larger than `findings`. */
     bySeverity: Partial<Record<Severity, number>>;
     /** Findings hidden by a live suppression. They are listed in `suppressed`, with reasons. */
     suppressed: number;
@@ -131,6 +132,8 @@ export interface Report {
     baselined: number;
     /** Baseline entries that no longer match anything: problems that were fixed. */
     baselineStale: number;
+    /** Present when `--max-findings` or a per-check cap cut findings: how many the engine found but the report omits, in report order after the kept ones. */
+    findingsOmitted?: number;
     /** Present under --changed: findings are limited to files that changed. */
     changedFiles?: number;
     /** Present when a readability check applied to the site. */

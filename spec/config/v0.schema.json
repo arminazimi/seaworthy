@@ -81,6 +81,11 @@
               },
               "options": {
                 "type": "object"
+              },
+              "maxFindings": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Cap this check's findings: the report keeps the first n in report order and counts the rest under summary.findingsOmitted."
               }
             }
           }

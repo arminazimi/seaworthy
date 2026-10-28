@@ -15,6 +15,8 @@ export interface CheckSetting {
   off: boolean;
   severity?: Severity;
   options: Record<string, unknown>;
+  /** Cap this check's findings: the report keeps the first n in report order and counts the rest. */
+  maxFindings?: number;
 }
 
 export interface ConfigSuppression {
@@ -95,13 +97,14 @@ export function parseConfig(raw: unknown, source: string, knownCheckIds: readonl
         if (value === "off") setting.off = true;
         else if (typeof value === "string" && (SEVERITIES as readonly string[]).includes(value)) setting.severity = value as Severity;
         else if (isObject(value)) {
-          for (const key of Object.keys(value)) if (!["off", "severity", "options"].includes(key)) bad(`${where}.${key}`, `unknown key. Allowed keys: off, severity, options`);
+          for (const key of Object.keys(value)) if (!["off", "severity", "options", "maxFindings"].includes(key)) bad(`${where}.${key}`, `unknown key. Allowed keys: off, severity, options, maxFindings`);
           if (value.off !== undefined) typeof value.off === "boolean" ? (setting.off = value.off) : bad(`${where}.off`, `must be true or false, got ${show(value.off)}`);
           if (value.severity !== undefined) {
             if (typeof value.severity === "string" && (SEVERITIES as readonly string[]).includes(value.severity)) setting.severity = value.severity as Severity;
             else bad(`${where}.severity`, `got ${show(value.severity)}; allowed values: ${SEVERITIES.join(", ")}`);
           }
           if (value.options !== undefined) isObject(value.options) ? (setting.options = value.options) : bad(`${where}.options`, `must be an object, got ${show(value.options)}`);
+          if (value.maxFindings !== undefined) typeof value.maxFindings === "number" && Number.isInteger(value.maxFindings) && value.maxFindings >= 1 ? (setting.maxFindings = value.maxFindings) : bad(`${where}.maxFindings`, `must be a whole number of at least 1, got ${show(value.maxFindings)}`);
         } else bad(where, `got ${show(value)}; use "off", a severity (${SEVERITIES.join(", ")}), or an object with off, severity, or options`);
         config.checks[pattern] = setting;
       }
@@ -156,33 +159,38 @@ export interface ResolvedChecks {
   checks: Check[];
   severity: Record<string, Severity>;
   options: Record<string, Record<string, unknown>>;
+  /** Per-check findings cap, keyed by check ID. Absent for checks without a cap. */
+  maxFindings: Record<string, number>;
 }
 
 /**
- * Applies on/off, severity, and options. Entries apply from least to most specific, and the more specific entry
+ * Applies on/off, severity, options, and the findings cap. Entries apply from least to most specific, and the more specific entry
  * decides: a longer prefix beats a shorter one, and an exact check ID beats any prefix. So
  * `{ "a11y.*": "off", "a11y.color-contrast": "warning" }` turns every a11y check off except contrast, at warning.
  */
 export function resolveChecks(config: Config, checks: readonly Check[]): ResolvedChecks {
-  const result: ResolvedChecks = { checks: [], severity: {}, options: {} };
+  const result: ResolvedChecks = { checks: [], severity: {}, options: {}, maxFindings: {} };
   const specificity = (pattern: string) => (pattern.endsWith(".*") ? pattern.length : 10_000 + pattern.length);
   const patterns = Object.keys(config.checks).sort((a, b) => specificity(a) - specificity(b));
   for (const check of checks) {
     const id = check.meta.id;
     let off = false;
     let severity: Severity | undefined;
+    let maxFindings: number | undefined;
     const options: Record<string, unknown> = {};
     for (const pattern of patterns) {
       if (!matchesCheck(pattern, id)) continue;
       const setting = config.checks[pattern]!;
       off = setting.off;
       if (setting.severity !== undefined) severity = setting.severity;
+      if (setting.maxFindings !== undefined) maxFindings = setting.maxFindings;
       Object.assign(options, setting.options);
     }
     if (off) continue;
     result.checks.push(check);
     if (severity !== undefined) result.severity[id] = severity;
     if (Object.keys(options).length > 0) result.options[id] = options;
+    if (maxFindings !== undefined) result.maxFindings[id] = maxFindings;
   }
   return result;
 }

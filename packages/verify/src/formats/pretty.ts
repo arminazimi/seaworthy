@@ -60,6 +60,7 @@ export function formatPretty(report: Report, paint: Palette = PLAIN): string {
   if (report.summary.suppressed > 0) out.push(`${plural(report.summary.suppressed, "finding")} suppressed on purpose (see "suppressed" in the JSON report).`);
   if (report.summary.baselined > 0) out.push(`${plural(report.summary.baselined, "finding")} accepted by the baseline.`);
   if (report.summary.baselineStale > 0) out.push(`${plural(report.summary.baselineStale, "baseline entry")} no longer match anything: fixed. Run --update-baseline to prune.`);
+  if (report.summary.findingsOmitted !== undefined) out.push(`${plural(report.summary.findingsOmitted, "finding")} beyond the findings cap are omitted from the list above (see "findingsOmitted" in the JSON report). Raise the cap with --max-findings.`);
   const readability = readabilityLine(report);
   if (readability) out.push(readability);
   const files = new Set(report.findings.map((f) => f.location.file)).size;
