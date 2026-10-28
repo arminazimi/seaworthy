@@ -8,7 +8,7 @@ Each platform crops or rejects a preview image that does not fit its card. A wid
 
 ## What it checks
 
-For every page except redirect stubs, Seaworthy reads the local image named by `og:image` and, depending on the card type, `twitter:image`. Absolute URLs are matched to built files only when they share the page's origin, taken from `og:url` or the canonical link; images on other origins are skipped, because checks do not use the network.
+For every page except redirect stubs (`html.meta-refresh`), Seaworthy reads the local image named by `og:image` and, depending on the card type, `twitter:image`. Absolute URLs are matched to built files only when they share the page's origin, taken from `og:url` or the canonical link; images on other origins are skipped, because checks do not use the network.
 
 | Tag | Minimum | Recommended |
 |---|---|---|

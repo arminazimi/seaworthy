@@ -1,0 +1,11 @@
+# headers that apply to the whole build
+/*
+  X-Frame-Options: DENY
+
+No Colon Here
+
+/gone-file
+  Cache-Control: no-store
+
+/docs/:wrong*
+  Cache-Control: no-store
