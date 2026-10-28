@@ -14,10 +14,11 @@ export const OUTPUT_DEFAULTS: OutputOptions = { format: "pretty", out: undefined
 
 export const OUTPUT_FLAGS: readonly string[] = ["--format", "--out"];
 
-export const OUTPUT_HELP = `  --format <format>    pretty (default), json, markdown, sarif, llm, prompt, or html.
+export const OUTPUT_HELP = `  --format <format>    pretty (default), json, markdown, sarif, llm, prompt, html, or ndjson.
                        prompt: one copy-pasteable prompt that fixes every finding,
                        grouped by file (fewest findings first), to work through in order.
                        html: one self-contained page for people, with severity, check, and file filters
+                       ndjson: one JSON finding per line, as each check finishes.
   --out <file>         Write the report to a file; print a one-line summary instead
 `;
 

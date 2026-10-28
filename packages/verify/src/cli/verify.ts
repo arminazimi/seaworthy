@@ -13,6 +13,7 @@ import { type Palette, paletteFor, PLAIN } from "../color.js";
 import { builtInChecks } from "../checks/index.js";
 import { loadConfig } from "../config.js";
 import { formatReport } from "../formats/index.js";
+import { ndjsonLine } from "../formats/ndjson.js";
 import { SEVERITY_ORDER, severityCounts } from "../formats/pretty.js";
 import { appendHistory, buildHistoryRecord, runConfigHash } from "../history.js";
 import { buildSite } from "../site.js";
@@ -116,6 +117,12 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       record("changed", changedStarted);
     }
 
+    // NDJSON goes out one finding per line, as its check finishes. The lines are always
+    // collected here, so --out and the summary use the same bytes; with a `stream` sink and
+    // no file target they are also written while the run is still going. --update-baseline
+    // prints its summary, so it does not stream. Other formats render the finished report.
+    const streamedFormat = options.format === "ndjson";
+    let ndjson = "";
     const { report, unbaselined, timings: runTimings } = await verifySite({
       folder,
       site,
@@ -125,10 +132,19 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       config,
       ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
       rendered: options.rendered || config.rendered === true,
+      ...(options.browserPath === undefined ? {} : { browserPath: options.browserPath }),
       network: options.network || config.network === true,
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
       ...(collectTimings ? { timings: true } : {}),
+      ...(streamedFormat
+        ? {
+            streamFindings: (finding) => {
+              ndjson += ndjsonLine(finding);
+              if (options.out === undefined && options.updateBaseline === undefined) env.stream?.(ndjsonLine(finding));
+            },
+          }
+        : {}),
     });
     const timingText = (): string => (collectTimings ? formatTimings(performance.now() - startedAt, { stages: [...stages, ...(runTimings?.stages ?? [])], checks: runTimings?.checks ?? [] }) : "");
 
@@ -140,13 +156,18 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
 
     saveCache?.();
     // Paint the report only when it lands on a terminal as pretty output. Report files and the
-    // machine formats (json, markdown, sarif, llm) must stay byte-identical to the plain text everywhere.
+    // machine formats (json, markdown, sarif, llm, ndjson) must stay byte-identical to the plain text everywhere.
     const reportPaint: Palette = options.out === undefined && options.format === "pretty" ? stdoutPaint : PLAIN;
-    const text = formatReport(report, options.format, {
-      readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
-    }, reportPaint);
-    let stdout = text;
+    let stdout: string;
+    if (options.format === "ndjson") {
+      stdout = ndjson;
+    } else {
+      stdout = formatReport(report, options.format, {
+        readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
+      }, reportPaint);
+    }
     if (options.out !== undefined) {
+      const text = options.format === "ndjson" ? ndjson : stdout;
       const target = resolve(cwd, options.out);
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, text);

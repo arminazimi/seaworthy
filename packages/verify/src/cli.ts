@@ -25,6 +25,10 @@ function invokedDirectly(): boolean {
 if (invokedDirectly()) {
   /** The loop while the CLI is watching, so Ctrl-C can close the watcher before exiting. */
   let activeWatch: WatchLoop | undefined;
+  // ndjson chunks are written as each check finishes; when stdout came out entirely that
+  // way, the final write would repeat it byte for byte, so it is skipped. --watch's
+  // status lines stay on the same pipes it uses in tests.
+  let streamed = "";
   const result = await run(process.argv.slice(2), {
     color: detectColorEnvironment(),
     watch: {
@@ -32,8 +36,9 @@ if (invokedDirectly()) {
       writeError: (text: string): void => { process.stderr.write(text); },
       onLoop: (loop: WatchLoop): void => { activeWatch = loop; },
     },
+    stream: (chunk: string): void => { streamed += chunk; process.stdout.write(chunk); },
   });
-  process.stdout.write(result.stdout);
+  if (streamed !== result.stdout) process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
   process.exitCode = result.code;
   // Under --watch the process keeps running, one report per change; Ctrl-C must not leave the watcher open.

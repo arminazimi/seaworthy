@@ -51,6 +51,13 @@ init:
                        present"; --force overwrites the config and the workflow it owns, but a baseline is
                        never rewritten, because a baseline records findings you have accepted.
 
+ndjson:
+  --format ndjson      Writes one JSON finding per line, as each check finishes. The fields of a
+                       line are exactly those of one finding in \`--format json\`, including its fix
+                       prompt. Line order follows check completion, so it can differ between
+                       runs; every line alone is deterministic. Findings the baseline accepts,
+                       ignored files, and live suppressions are excluded, like in every format.
+
 Exit codes:
   0  no findings at or above --fail-on (verify); the diff completed (diff); all files present (init); the fix preview completed (fix)
   1  findings at or above --fail-on

@@ -50,6 +50,13 @@ export interface CliEnvironment {
   color?: ColorEnvironment;
   /** Test hooks for `--watch`. Default: status on stdout, failures on stderr. */
   watch?: WatchProbe;
+  /**
+   * Called with output as the run produces it, so streaming formats can go out live
+   * (currently ndjson, one finding per line). Chunks end in a newline and, when the whole
+   * stdout is streamed this way, the returned `stdout` holds exactly their concatenation,
+   * so a caller can avoid writing it twice.
+   */
+  stream?: (chunk: string) => void;
 }
 
 /** The folder as a relative label, so reports never contain absolute paths. */
