@@ -7,6 +7,7 @@ import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 
 import { BaselineError, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
+import { resolveBasePath } from "./base-path.js";
 import { ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js";
 import { type ColorEnvironment, detectColorEnvironment, paletteFor, type Palette, PLAIN } from "./color.js";
 import { builtInChecks } from "./checks/index.js";
@@ -51,6 +52,8 @@ Options:
   --format <format>    pretty (default), json, markdown, or sarif
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
+  --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath
+                        in seaworthy.config.json and base-path detection from generator configs.
   --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
   --baseline <file>    Accept the findings recorded in this file; report and fail only on new ones
   --update-baseline <file>
@@ -120,6 +123,7 @@ interface Options {
   format: Format;
   out: string | undefined;
   failOn: Severity | "none" | undefined;
+  base: string | undefined;
   config: string | undefined;
   baseline: string | undefined;
   updateBaseline: string | undefined;
@@ -133,7 +137,7 @@ interface Options {
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, timings: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, timings: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -169,11 +173,13 @@ function parseOptions(args: readonly string[]): Options {
       case "--config":
       case "--baseline":
       case "--update-baseline":
+      case "--base":
       case "--changed-since": {
         const [v, next] = value(flag, inline, i);
         if (flag === "--config") options.config = v;
         else if (flag === "--baseline") options.baseline = v;
         else if (flag === "--update-baseline") options.updateBaseline = v;
+        else if (flag === "--base") options.base = v;
         else options.changedSince = v;
         i = next;
         break;
@@ -255,7 +261,10 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
 
   const label = rootLabel(cwd, folder);
   const siteStarted = tick();
-  const site = buildSite(folder, config.basePath === undefined ? {} : { basePath: config.basePath });
+  // Precedence: `--base`, then the config's `basePath`, then a known generator config next to the
+  // output, then `/`. When detection examined a config but could not read a base path, say why.
+  const base = resolveBasePath({ folder, ...(options.base !== undefined ? { override: options.base } : {}), ...(config.basePath !== undefined ? { configBasePath: config.basePath } : {}) });
+  const site = buildSite(folder, base.basePath === "/" ? {} : { basePath: base.basePath });
   record("site", siteStarted);
   let saveCache: (() => void) | undefined;
   let changed: Set<string> | undefined;
