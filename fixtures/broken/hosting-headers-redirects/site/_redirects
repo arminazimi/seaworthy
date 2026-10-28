@@ -1,0 +1,9 @@
+# rules for the move
+/home /
+/no-node /about 301
+/late 302
+/dup /one 301
+/dup /two 301
+/loop /loop 301!
+/only-src
+/ext https://example.test/ok

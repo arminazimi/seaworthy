@@ -28,3 +28,12 @@ test("check patterns: exact IDs and prefix wildcards", () => {
   assert.ok(!matchesCheck("a11y.*", "a11yx.color-contrast"));
   assert.ok(!matchesCheck("a11y.*", "images.alt"));
 });
+
+test("globs written with Windows separators match forward-slash site paths", () => {
+  assert.ok(matchesGlob("docs\\*.html", "docs/a.html"));
+  assert.ok(!matchesGlob("docs\\*.html", "docs/x/a.html"), "* stays within one segment");
+  assert.ok(matchesGlob("docs\\**\\a.html", "docs/x/y/a.html"));
+  assert.ok(matchesGlob("**\\index.html", "index.html"), "** also matches zero directories");
+  assert.ok(matchesGlob("docs\\**", "docs/x/y/deep.html"));
+  assert.ok(matchesGlob("docs/über\\*.html", "docs/über/a.html"), "mixed separators still match");
+});

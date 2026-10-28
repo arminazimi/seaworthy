@@ -1,0 +1,7 @@
+{
+  "description": "chrome-only.html has no main and no text outside its navigation, header, and footer; empty-main.html has an empty <main> between the same chrome. The tiny note page passes (it has a few real words), the image page passes, the client-rendered shell is left to readability.ssr-content, and the meta-refresh page is left to html.meta-refresh.",
+  "findings": [
+    { "check": "quality.empty-pages", "file": "chrome-only.html", "line": 7, "column": 1 },
+    { "check": "quality.empty-pages", "file": "empty-main.html", "line": 9, "column": 1 }
+  ]
+}
