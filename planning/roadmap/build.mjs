@@ -54,6 +54,71 @@ export function loadBriefs(dir = join(here, "briefs")) {
   return briefs;
 }
 
+const BOLD_LABEL = /^\*\*[^*]+\*\*:?\s*$/;
+const FILES_HEADING = /^\*\*Files:?\*\*\s*$/i;
+const SECTION_HEADING = /^#{1,6}\s/;
+
+/** Reads the bullet paths under a brief's **Files** heading. Other sections are ignored. */
+export function parseBriefFiles(markdown) {
+  const files = [];
+  let inFiles = false;
+  for (const raw of markdown.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!inFiles) {
+      if (FILES_HEADING.test(line)) inFiles = true;
+      continue;
+    }
+    if (BOLD_LABEL.test(line) || SECTION_HEADING.test(line)) break;
+    if (!line.startsWith("- ")) continue;
+    const bullet = line.slice(2).trim();
+    const ticked = bullet.match(/`([^`]+)`/);
+    const path = (ticked ? ticked[1] : bullet.replace(/\s+\([^)]*\)\s*$/, "")).trim();
+    if (path) files.push(path);
+  }
+  return [...new Set(files)];
+}
+
+/**
+ * Pairs of tasks that can run at the same time: neither is reachable from the other
+ * through the transitive Depends graph. Same phase alone is not enough.
+ */
+export function concurrentPairs(tasks) {
+  const byKey = new Map(tasks.map((task) => [task.key, task]));
+  const closure = new Map();
+  const reachable = (key) => {
+    if (closure.has(key)) return closure.get(key);
+    const keys = new Set();
+    closure.set(key, keys);
+    for (const dep of byKey.get(key)?.deps ?? []) {
+      keys.add(dep);
+      for (const nested of reachable(dep)) keys.add(nested);
+    }
+    return keys;
+  };
+  const pairs = [];
+  for (let i = 0; i < tasks.length; i += 1) {
+    for (let j = i + 1; j < tasks.length; j += 1) {
+      const a = tasks[i].key;
+      const b = tasks[j].key;
+      if (!reachable(a).has(b) && !reachable(b).has(a)) pairs.push([a, b]);
+    }
+  }
+  return pairs;
+}
+
+/** One warning per unordered concurrent pair of tasks and shared **Files** path. */
+export function conflictWarnings(tasks, filesByKey) {
+  const warnings = [];
+  for (const [a, b] of concurrentPairs(tasks)) {
+    const bFiles = new Set(filesByKey.get(b) ?? []);
+    for (const path of new Set(filesByKey.get(a) ?? [])) {
+      if (!bFiles.has(path)) continue;
+      warnings.push({ tasks: [a, b], path, message: `${a} and ${b} can run at the same time and both list ${path}` });
+    }
+  }
+  return warnings;
+}
+
 /**
  * Turns parsed roadmap data into issues and validates everything.
  * `strict` also requires every EPIC_AREAS entry to match an epic (off for partial test roadmaps).
@@ -109,6 +174,10 @@ export function buildIssues(markdown, briefs = new Map(), { done = DONE, strict 
     state.set(key, "done");
   };
   for (const task of tasks) visit(task.key, []);
+
+  const filesByKey = new Map([...briefs].map(([key, brief]) => [key, parseBriefFiles(brief)]));
+  const conflicts = conflictWarnings(tasks, filesByKey);
+  const warnings = conflicts.map((conflict) => conflict.message);
 
   const phaseLine = (id) => {
     const p = phaseById.get(id);
@@ -209,10 +278,10 @@ export function buildIssues(markdown, briefs = new Map(), { done = DONE, strict 
     byPhase: Object.fromEntries(phases.map((p) => [p.id, { epics: count((i) => i.phase === p.id && i.kind === "epic"), tasks: count((i) => i.phase === p.id && i.kind === "task") }])),
   };
 
-  return { issues, labels: LABELS, phases, errors, stats };
+  return { issues, labels: LABELS, phases, errors, warnings, conflicts, stats };
 }
 
-function preview({ issues, phases, stats }) {
+export function preview({ issues, phases, stats, conflicts = [] }) {
   const lanes = Object.keys(LANES);
   const rows = phases.map((p) => {
     const s = stats.byPhase[p.id];
@@ -220,6 +289,9 @@ function preview({ issues, phases, stats }) {
     return `| ${p.id} | ${p.start} → ${p.end} | ${s.epics} | ${s.tasks} | ${lanes.map(lane).join(" | ")} |`;
   });
   const sampleKeys = ["E-verify", "foundation.layout", "check.links-internal", "brand.secure"];
+  const conflictRows = conflicts.length
+    ? ["| Tasks | File |", "|---|---|", ...conflicts.map((c) => `| \`${c.tasks.join("`, `")}\` | \`${c.path}\` |`)]
+    : ["No concurrent tasks share a **Files** path."];
   return [
     "# Seaworthy H1 roadmap — issue preview",
     "",
@@ -232,6 +304,12 @@ function preview({ issues, phases, stats }) {
     `| Phase | Dates | Epics | Tasks | ${lanes.join(" | ")} |`,
     `|---|---|---|---|${lanes.map(() => "---").join("|")}|`,
     ...rows,
+    "",
+    "## Conflict map",
+    "",
+    "Tasks can run at the same time when neither is reachable from the other through the transitive `Depends` graph.",
+    "",
+    ...conflictRows,
     "",
     "## Sample bodies",
     "",
@@ -250,6 +328,7 @@ function main() {
     console.error(result.errors.map((e) => `roadmap: ${e}`).join("\n"));
     process.exit(1);
   }
+  for (const warning of result.warnings) console.warn(`roadmap warning: ${warning}`);
   const { stats } = result;
   const summary = `OK: roadmap (${result.phases.length} phases, ${stats.epics} epics, ${stats.tasks} tasks, ${stats.withBrief} with briefs)`;
   if (check) {

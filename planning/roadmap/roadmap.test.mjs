@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
-import { buildIssues, loadBriefs } from "./build.mjs";
+import { buildIssues, concurrentPairs, loadBriefs, parseBriefFiles, preview } from "./build.mjs";
 import { parseRoadmap } from "./parse.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +46,33 @@ A repository people can contribute to.
 
 # Metrics
 `;
+
+// Adds a dependency chain (check → ci → release) and two independent tasks next to the SAMPLE.
+const PARALLEL_SAMPLE = SAMPLE.replace(
+  "| `foundation.check` | Add the check | free-agent | XS | `foundation.layout` |",
+  [
+    "| `foundation.check` | Add the check | free-agent | XS | `foundation.layout` |",
+    "| `foundation.ci` | Run CI | free-agent | XS | `foundation.check` |",
+    "| `foundation.release` | Cut a release | free-agent | XS | `foundation.ci` |",
+    "| `foundation.docs` | Write docs | free-agent | XS | none |",
+    "| `foundation.notes` | Write notes | free-agent | XS | none |",
+    "| `foundation.blank` | Do something else | free-agent | XS | none |",
+  ].join("\n"),
+);
+
+const briefWithFiles = (...files) =>
+  ["## Goal", "Do it.", "", "## Agent brief", "", "**Files**", ...files.map((file) => `- \`${file}\``), "", "**Steps**", "1. Do it."].join(
+    "\n",
+  );
+
+const PARALLEL_BRIEFS = new Map([
+  ["foundation.layout", briefWithFiles("docs/shared.md", "docs/ordered.md", "docs/extra.md")],
+  ["foundation.check", briefWithFiles("docs/ordered.md")],
+  ["foundation.ci", briefWithFiles("docs/ordered.md")],
+  ["foundation.release", briefWithFiles("docs/ordered.md")],
+  ["foundation.docs", briefWithFiles("docs/shared.md", "docs/extra.md")],
+  ["foundation.notes", "## Goal\nWrite notes.\n\n## Agent brief\n\n**Steps**\n1. Write them."],
+]);
 
 test("parses phases, epics, and tasks, and ignores fenced examples", () => {
   const { phases, epics, tasks, errors } = parseRoadmap(SAMPLE);
@@ -92,6 +119,71 @@ test("a brief replaces the generic section and earns good first issue", () => {
   assert.ok(!check.labels.includes("status: needs-brief"));
   assert.match(check.body, /## Goal\nAdd it\./);
   assert.doesNotMatch(check.body, /no detailed brief yet/);
+});
+
+test("parses only the bullet paths under **Files**", () => {
+  const brief = [
+    "## Agent brief",
+    "",
+    "**Files**",
+    "- `packages/a.ts` (new)",
+    "- docs/README.md (add the row)",
+    "",
+    "**Steps**",
+    "1. Do it.",
+    "",
+    "**Files**",
+    "- ignored.md",
+  ].join("\n");
+  assert.deepEqual(parseBriefFiles(brief), ["packages/a.ts", "docs/README.md"]);
+  assert.deepEqual(parseBriefFiles("## Goal\nNo files here."), []);
+  assert.deepEqual(parseBriefFiles("**Files**\n\n**Steps**\n- nope"), []);
+});
+
+test("concurrentPairs treats only reachable tasks as ordered", () => {
+  const tasks = [
+    { key: "a", deps: [] },
+    { key: "b", deps: ["a"] },
+    { key: "c", deps: ["b"] },
+    { key: "d", deps: [] },
+  ];
+  assert.deepEqual(concurrentPairs(tasks), [
+    ["a", "d"],
+    ["b", "d"],
+    ["c", "d"],
+  ]);
+});
+
+test("warns once per shared file between concurrent tasks", () => {
+  const { warnings, conflicts, errors } = buildIssues(PARALLEL_SAMPLE, PARALLEL_BRIEFS, PARTIAL);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(
+    conflicts.map((c) => [c.tasks, c.path]),
+    [
+      [["foundation.layout", "foundation.docs"], "docs/shared.md"],
+      [["foundation.layout", "foundation.docs"], "docs/extra.md"],
+    ],
+  );
+  assert.equal(warnings.length, 2);
+  for (const warning of warnings) {
+    assert.match(warning, /foundation\.layout/);
+    assert.match(warning, /foundation\.docs/);
+    assert.match(warning, /docs\/(shared|extra)\.md/);
+  }
+  assert.ok(!warnings.some((w) => w.includes("docs/ordered.md")), "a dependency chain is not concurrent");
+  assert.ok(!warnings.some((w) => w.includes("foundation.notes")), "a brief without Files is ignored");
+  assert.ok(!warnings.some((w) => w.includes("foundation.blank")), "a task without a brief is ignored");
+});
+
+test("preview includes the conflict map", () => {
+  const result = buildIssues(PARALLEL_SAMPLE, PARALLEL_BRIEFS, PARTIAL);
+  const markdown = preview(result);
+  const map = markdown.split("## Conflict map")[1]?.split("## Sample bodies")[0] ?? "";
+  assert.match(map, /foundation\.layout/);
+  assert.match(map, /foundation\.docs/);
+  assert.match(map, /docs\/shared\.md/);
+  assert.match(map, /docs\/extra\.md/);
+  assert.doesNotMatch(map, /docs\/ordered\.md/);
 });
 
 test("reports unknown dependencies, bad lanes, and cycles", () => {
