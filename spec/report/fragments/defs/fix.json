@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "summary",
+    "edits",
+    "appliesTo"
+  ],
+  "properties": {
+    "kind": {
+      "enum": [
+        "edit",
+        "manual"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edit"
+      }
+    },
+    "appliesTo": {
+      "const": "built-output"
+    }
+  }
+}

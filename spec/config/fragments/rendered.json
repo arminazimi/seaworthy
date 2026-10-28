@@ -1,0 +1,4 @@
+{
+  "type": "boolean",
+  "description": "Run checks that need a browser."
+}

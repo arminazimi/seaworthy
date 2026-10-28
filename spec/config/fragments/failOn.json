@@ -1,0 +1,9 @@
+{
+  "enum": [
+    "error",
+    "warning",
+    "note",
+    "none"
+  ],
+  "description": "Exit 1 when a finding has at least this severity. Default: error."
+}

@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "check",
+    "message"
+  ],
+  "properties": {
+    "check": {
+      "$ref": "#/$defs/checkId"
+    },
+    "message": {
+      "type": "string"
+    }
+  }
+}

@@ -9,49 +9,15 @@
     "$schema": {
       "type": "string"
     },
-    "root": {
-      "type": "string",
-      "minLength": 1,
-      "description": "The built site folder. Default: the first of dist, build, out, public, _site, site that exists."
-    },
     "basePath": {
       "type": "string",
       "pattern": "^/?[A-Za-z0-9._~%/-]*$",
       "description": "Where the site is deployed, such as /repo/ for a GitHub project page. Default /."
     },
-    "failOn": {
-      "enum": [
-        "error",
-        "warning",
-        "note",
-        "none"
-      ],
-      "description": "Exit 1 when a finding has at least this severity. Default: error."
-    },
-    "rendered": {
-      "type": "boolean",
-      "description": "Run checks that need a browser."
-    },
-    "network": {
-      "type": "boolean",
-      "description": "Run checks that make network requests."
-    },
-    "history": {
-      "type": "boolean",
-      "description": "Record a deterministic JSON summary of every verify run (timestamp, counts by severity and by check, run settings hash) in .seaworthy/history, keeping the most recent 30 runs. Default true; set false to opt out."
-    },
     "baseline": {
       "type": "string",
       "minLength": 1,
       "description": "Baseline file. Findings it records are accepted; only new findings are reported."
-    },
-    "ignore": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "description": "Site-relative globs. Findings in matching files are dropped."
     },
     "checks": {
       "type": "object",
@@ -85,16 +51,41 @@
               },
               "options": {
                 "type": "object"
-              },
-              "maxFindings": {
-                "type": "integer",
-                "minimum": 1,
-                "description": "Cap this check's findings: the report keeps the first n in report order and counts the rest under summary.findingsOmitted."
               }
             }
           }
         ]
       }
+    },
+    "failOn": {
+      "enum": [
+        "error",
+        "warning",
+        "note",
+        "none"
+      ],
+      "description": "Exit 1 when a finding has at least this severity. Default: error."
+    },
+    "ignore": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Site-relative globs. Findings in matching files are dropped."
+    },
+    "network": {
+      "type": "boolean",
+      "description": "Run checks that make network requests."
+    },
+    "rendered": {
+      "type": "boolean",
+      "description": "Run checks that need a browser."
+    },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The built site folder. Default: the first of dist, build, out, public, _site, site that exists."
     },
     "suppressions": {
       "type": "array",

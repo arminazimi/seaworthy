@@ -1,0 +1,5 @@
+{
+  "type": "string",
+  "minLength": 1,
+  "description": "The built site folder. Default: the first of dist, build, out, public, _site, site that exists."
+}

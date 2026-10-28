@@ -62,6 +62,7 @@ npm run build:brand     # regenerate brand SVGs after editing brand/tokens.json 
 | Path | Regenerate with |
 |---|---|
 | `planning/roadmap/out/` | `npm run roadmap:build` (source: `ROADMAP.md` and `planning/roadmap/briefs/`) |
+| `spec/config/v0.schema.json`, `spec/report/v0.schema.json` | `npm run schema:build` (source: `spec/config/fragments/` and `spec/report/fragments/`) |
 | `brand/assets/*.svg`, `brand/templates/*.svg`, `brand/seaworthy-logo-sheet.svg`, `brand/tokens.css`, `brand/export-presets.json` | `npm run build:brand` (source: `brand/tokens.json` and `tools/brand/`) |
 | `brand/assets/*.png`, `brand/exports/*.png` | `npm run export:brand` (needs Chrome or Chromium) |
 

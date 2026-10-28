@@ -1,0 +1,5 @@
+{
+  "type": "string",
+  "minLength": 1,
+  "description": "One ready-to-paste prompt that fixes every finding, in report order. Present when the report has findings; generated per finding from its data alone."
+}

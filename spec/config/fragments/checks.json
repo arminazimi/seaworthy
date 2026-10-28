@@ -1,0 +1,38 @@
+{
+  "type": "object",
+  "description": "Per-check settings, keyed by check ID or a prefix pattern such as a11y.*. An exact ID beats a prefix.",
+  "propertyNames": {
+    "pattern": "^[a-z][a-z0-9-]*(\\.([a-z][a-z0-9-]*|\\*))+$"
+  },
+  "additionalProperties": {
+    "oneOf": [
+      {
+        "enum": [
+          "off",
+          "error",
+          "warning",
+          "note"
+        ]
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "off": {
+            "type": "boolean"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning",
+              "note"
+            ]
+          },
+          "options": {
+            "type": "object"
+          }
+        }
+      }
+    ]
+  }
+}

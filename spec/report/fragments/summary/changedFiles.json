@@ -1,0 +1,5 @@
+{
+  "type": "integer",
+  "minimum": 0,
+  "description": "Present under --changed: findings are limited to files that changed."
+}

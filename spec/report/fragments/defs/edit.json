@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "file",
+    "line",
+    "action",
+    "find",
+    "replace"
+  ],
+  "properties": {
+    "file": {
+      "type": "string"
+    },
+    "line": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "action": {
+      "const": "replace"
+    },
+    "find": {
+      "type": "string",
+      "minLength": 1
+    },
+    "replace": {
+      "type": "string"
+    },
+    "needsInput": {
+      "type": "boolean"
+    }
+  }
+}

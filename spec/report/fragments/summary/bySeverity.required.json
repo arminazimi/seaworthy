@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "error": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "warning": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "note": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

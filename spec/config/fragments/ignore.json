@@ -1,0 +1,8 @@
+{
+  "type": "array",
+  "items": {
+    "type": "string",
+    "minLength": 1
+  },
+  "description": "Site-relative globs. Findings in matching files are dropped."
+}

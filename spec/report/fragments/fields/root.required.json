@@ -1,0 +1,7 @@
+{
+  "type": "string",
+  "description": "The folder that was verified, as given. Never an absolute path.",
+  "not": {
+    "pattern": "^([a-zA-Z]:)?[\\\\/]"
+  }
+}
