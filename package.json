@@ -8,15 +8,16 @@
   ],
   "scripts": {
     "build": "tsc -b packages/verify packages/mcp packages/action",
-    "test": "npm run build --silent && node --test \"packages/*/dist/tests/**/*.test.js\" \"planning/roadmap/*.test.mjs\" \"tools/brand/*.test.mjs\"",
+    "test": "npm run build --silent && node --test \"packages/*/dist/tests/**/*.test.js\" \"planning/roadmap/*.test.mjs\" \"tools/brand/*.test.mjs\" \"tools/*.test.mjs\"",
     "roadmap:build": "node planning/roadmap/build.mjs",
     "roadmap:apply": "node planning/roadmap/apply.mjs",
     "check:roadmap": "node planning/roadmap/build.mjs --check",
     "check:layout": "node tools/check-layout.mjs",
+    "check:startup": "node tools/check-startup.mjs",
     "build:brand": "node tools/brand/build.mjs",
     "export:brand": "node tools/brand/export.mjs",
     "check:brand": "node tools/brand/build.mjs --check",
-    "check": "npm run build && npm test && npm run check:roadmap && npm run check:layout && npm run check:brand",
+    "check": "npm run build && npm test && npm run check:startup && npm run check:roadmap && npm run check:layout && npm run check:brand",
     "clean": "tsc -b --clean packages/verify packages/mcp packages/action"
   },
   "engines": {

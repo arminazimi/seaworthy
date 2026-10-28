@@ -16,6 +16,8 @@ Every page is scanned for `<meta http-equiv="refresh">` (the value is case-insen
 
 Each finding points at the `content` attribute. The check suggests a fix but does not edit the page, because removing a timed redirect is a content decision.
 
+**Redirect stubs.** A page is a *redirect stub* when its only job is to hand people to another address: it has an immediate redirect (`delay` 0 with a destination), or a refresh with a destination whose page shows no readable text beyond at most scripts and styles. The content checks — `meta.*`, `headings.*`, `a11y.landmarks`, `social.*`, `readability.ssr-content` — skip stubs, because they have nothing to check. A delayed refresh on a page people can still read, and a delayed reload without a destination, do not make the page a stub.
+
 ## How to fix
 
 Remove the timed refresh and let the reader choose when to move:

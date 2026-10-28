@@ -8,7 +8,7 @@ Search results and link previews use the description as the page's summary. With
 
 ## What it checks
 
-Every page needs `<meta name="description" content="...">` with some text. Redirect stubs are skipped.
+Every page needs `<meta name="description" content="...">` with some text. Redirect stubs (`html.meta-refresh`) are skipped.
 
 ## How to fix
 

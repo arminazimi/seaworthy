@@ -1,0 +1,8 @@
+{
+  "description": "A legacy HTML 4.01 doctype (note), a page with no doctype at all (warning, quirks mode), and a doctype no browser recognizes (warning, located at the token).",
+  "findings": [
+    { "check": "html.doctype", "file": "legacy.html", "line": 1, "column": 1 },
+    { "check": "html.doctype", "file": "missing.html", "line": 2, "column": 1 },
+    { "check": "html.doctype", "file": "unrecognized.html", "line": 1, "column": 1 }
+  ]
+}
