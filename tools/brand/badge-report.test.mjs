@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import { badgeForReport, badgeSvg, README_SNIPPET } from "./badge.mjs";
-import { BRAND_DIR, tokens } from "./mark.mjs";
+import { BRAND_DIR, markFragment, tokens } from "./mark.mjs";
 
 const hex = (name) => tokens.colors[name].value;
 
@@ -91,6 +91,19 @@ test("untrusted input is rejected with a message, never evaluated", () => {
   // Malicious content is data, not code: it throws, it never runs.
   const poison = { summary: { bySeverity: { error: { run: () => "evil" } } } };
   assert.throws(() => badgeForReport(poison), /bySeverity\.error must be a whole number/);
+});
+
+test("the badge keeps its own copy of the mono mark in step with mark.mjs", () => {
+  for (const state of ["passing", "warnings", "failing"]) {
+    const svg = badgeSvg(state, state === "passing" ? undefined : 3);
+    assert.ok(svg.includes(markFragment("mono")), "the badge must carry the same mono mark mark.mjs draws");
+  }
+});
+
+test("the badge has one source: tools/brand/badge.mjs re-exports packages/action/src/badge-svg.ts", () => {
+  const readme = readFileSync(join(BRAND_DIR, "..", "tools", "brand", "badge.mjs"), "utf8");
+  assert.match(readme, /packages\/action\/dist\/src\/badge-svg\.js/, "badge.mjs must be a re-export, not a second implementation");
+  assert.ok(!readme.includes("badgeSvg = "), "badge.mjs must not redefine the SVG function");
 });
 
 test("docs/badge.md carries the README snippet verbatim", () => {

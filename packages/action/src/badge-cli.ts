@@ -11,7 +11,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { badgeForReport, badgeModule, writeBadgeFile } from "./badge.js";
+import { badgeForReport, writeBadgeFile, README_SNIPPET } from "./badge.js";
 
 const HELP = `seaworthy-badge — write the Seaworthy status badge from a verify report
 
@@ -133,7 +133,7 @@ export async function run(argv: readonly string[], env: { stdin?: string } = {})
   }
   try {
     if (options.readme) {
-      return { code: 0, stdout: `${(await badgeModule()).README_SNIPPET}\n`, stderr: "" };
+      return { code: 0, stdout: `${README_SNIPPET}\n`, stderr: "" };
     }
     const text = await readReport(options.report, env.stdin);
     let report: unknown;

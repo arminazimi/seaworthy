@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { badgeForReport, badgeModule, readmeSnippet, writeBadgeFile } from "../src/badge.js";
+import { badgeForReport, readmeSnippet, writeBadgeFile, badgeSvg, README_SNIPPET } from "../src/badge.js";
 import { run } from "../src/badge-cli.js";
 
 const SNIPPET =
@@ -24,16 +24,13 @@ async function tempDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "seaworthy-badge-"));
 }
 
-test("the adapter loads the brand module and agrees with it", async () => {
-  const mod = await badgeModule();
-  assert.equal(typeof mod.badgeForReport, "function");
-  assert.equal(typeof mod.badgeSvg, "function");
-  assert.equal(mod.README_SNIPPET, SNIPPET);
-  assert.equal((await mod.badgeForReport(report(1))).state, "failing");
-  assert.equal(await readmeSnippet(), SNIPPET);
-  assert.equal((await badgeForReport(report(1))).state, "failing");
-  assert.equal((await badgeForReport(report(0, 2))).state, "warnings");
-  assert.equal((await badgeForReport(report())).state, "passing");
+test("the badge module is self-contained: state mapping and SVG bytes live here, and it agrees with README_SNIPPET", () => {
+  assert.equal(typeof badgeSvg, "function");
+  assert.equal(README_SNIPPET, SNIPPET);
+  assert.equal(readmeSnippet(), SNIPPET);
+  assert.equal(badgeForReport(report(1)).state, "failing");
+  assert.equal(badgeForReport(report(0, 2)).state, "warnings");
+  assert.equal(badgeForReport(report()).state, "passing");
 });
 
 test("writeBadgeFile is idempotent across reruns", async () => {
