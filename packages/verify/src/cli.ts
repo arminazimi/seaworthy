@@ -83,6 +83,9 @@ Options:
   --watch              Verify again whenever the build folder changes; after the first report, print only
                         what is new, fixed, and unchanged since the previous run. Ctrl-C to stop.
   --rendered           Run checks that need a browser
+  --browser-path <path>
+                       Browser executable for --rendered. Default: SEAWORTHY_BROWSER,
+                       then an installed Chrome, Chromium, or Edge
   --network            Run checks that make network requests
   --timings            Time each stage and check, printed to stderr; the report is unchanged
   --help, -h           Print this help
@@ -239,6 +242,7 @@ interface Options {
   changedSince: string | undefined;
   watch: boolean;
   rendered: boolean;
+  browserPath: string | undefined;
   network: boolean;
   /** Record the run in .seaworthy/history. Default on; `--no-history` is the per-run opt-out. */
   history: boolean;
@@ -248,7 +252,7 @@ interface Options {
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, maxFindings: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, watch: false, rendered: false, network: false, history: true, timings: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, maxFindings: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, watch: false, rendered: false, browserPath: undefined, network: false, history: true, timings: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -315,6 +319,12 @@ function parseOptions(args: readonly string[]): Options {
       case "--rendered":
         options.rendered = true;
         break;
+      case "--browser-path": {
+        const [v, next] = value(flag, inline, i);
+        options.browserPath = v;
+        i = next;
+        break;
+      }
       case "--network":
         options.network = true;
         break;
@@ -428,6 +438,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
       config,
       ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
       rendered: options.rendered || config.rendered === true,
+      ...(options.browserPath === undefined ? {} : { browserPath: options.browserPath }),
       network: options.network || config.network === true,
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),

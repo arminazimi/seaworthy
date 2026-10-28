@@ -33,6 +33,8 @@ export interface VerifyOptions {
   network?: boolean;
   /** Cap the report at this many findings, in report order. Default: `DEFAULT_MAX_FINDINGS`. */
   maxFindings?: number;
+  /** The browser to launch for checks that render pages, from --browser-path. Default: SEAWORTHY_BROWSER, then an installed Chrome, Chromium, or Edge. */
+  browserPath?: string;
   /** When set, findings it accepts are removed from the report and counted. */
   baseline?: Baseline;
   /** Under --changed: site-relative files that changed. Findings elsewhere are not reported. */
@@ -124,6 +126,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       site,
       checks: resolved.checks,
       enable: { browser: options.rendered === true, network: options.network === true },
+      ...(options.browserPath === undefined ? {} : { browser: { path: options.browserPath } }),
       options: resolved.options,
       severity: resolved.severity,
       ...(options.changed ? { changed: options.changed } : {}),

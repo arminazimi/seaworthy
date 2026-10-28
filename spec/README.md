@@ -14,6 +14,7 @@ The report schema is checked by `npm test`: the engine's output is validated aga
 
 ## Additive check IDs
 
+- `a11y.axe`: an `error`, `warning`, or `note` per axe-core violation on the rendered page, only under `--rendered`, with axe's rule ID, impact-mapped severity, and the offending element's selector and snippet. Rules the static checks already cover are disabled in axe so one page problem is one finding. See the [check contract](../docs/checks/a11y.axe.md).
 - `a11y.iframe-title`: an `error` for an iframe with an absent, empty or whitespace-only `title`. See the [check contract](../docs/checks/a11y.iframe-title.md).
 - `html.charset`: an `error` for a page with no character encoding declaration, or one that ends after the first 1,024 bytes. See the [check contract](../docs/checks/html.charset.md).
 - `html.meta-refresh`: a `warning` for `<meta http-equiv="refresh">` with a delay greater than 0 seconds, which moves people before they can read (WCAG 2.2.1). See the [check contract](../docs/checks/html.meta-refresh.md).
