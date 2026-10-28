@@ -39,3 +39,6 @@ export type { StageTiming, Timings, VerifyOptions, VerifyResult } from "./verify
 export { builtInChecks } from "./checks/index.js";
 export { SUPPRESSION_CHECKS } from "./suppress.js";
 export { CACHE_FILE, ChangedError, changedSinceLastRun, changedSinceRef } from "./changed.js";
+export { formatDiffComment } from "./formats/markdown.js";
+export { diffReports, diffToJson, readReport } from "./diff.js";
+export type { DiffReport, ReportDiff } from "./diff.js";
