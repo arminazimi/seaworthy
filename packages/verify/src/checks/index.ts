@@ -5,8 +5,8 @@ import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete
 import { assetsMissing } from "./assets.js";
 import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
+import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlObsolete, htmlParseErrors } from "./html.js";
 import { hostingHeaders, hostingRedirects } from "./hosting.js";
-import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlObsolete } from "./html.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { htmlMetaRefresh, metaCanonical, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
@@ -43,6 +43,7 @@ export const builtInChecks: readonly Check[] = [
   htmlDoctype,
   htmlMetaRefresh,
   htmlObsolete,
+  htmlParseErrors,
   imagesAlt,
   imagesDimensions,
   imagesSize,
