@@ -1,6 +1,6 @@
 // meta.*: the document-level tags every page needs: title, description, language, viewport, canonical URL.
 
-import { attr } from "../site.js";
+import { type Page, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
 import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, replaceEdit, textOf } from "./helpers.js";
 
@@ -46,6 +46,37 @@ export const metaTitle = check(meta("meta.title", "Page has no title", "error", 
       location: title ? locate(page, title) : documentLocation(page),
       fix: { kind: edit ? "edit" : "manual", summary: "Give the page a short title that says what it is. It appears in browser tabs, search results, and screen reader announcements.", edits: edit ? [edit] : [] },
       key: "title",
+    });
+  }
+  return out;
+});
+
+// The same title on several pages: grouped across the site, so a template that repeats one title
+// reports once, not once per page.
+const DUPLICATE_TITLE_PAGE_CAP = 5;
+
+export const metaDuplicateTitles = check(meta("meta.duplicate-titles", "The same title on several pages", "warning"), (ctx) => {
+  const byTitle = new Map<string, Page[]>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const title = firstElement(page, "title");
+    const text = title ? textOf(title) : "";
+    // Missing and empty titles are meta.title findings; only pages that have a title can duplicate one.
+    if (title === undefined || text === "") continue;
+    byTitle.set(text, [...(byTitle.get(text) ?? []), page]);
+  }
+  const out: FindingDraft[] = [];
+  for (const [title, pages] of [...byTitle].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    if (pages.length < 2) continue;
+    const sorted = pages.slice().sort((a, b) => (a.url < b.url ? -1 : 1));
+    const listed = sorted.slice(0, DUPLICATE_TITLE_PAGE_CAP).map((p) => p.url);
+    const rest = sorted.length - listed.length;
+    const list = `${listed.join(", ")}${rest > 0 ? `, and ${rest} more` : ""}`;
+    out.push({
+      message: `The title "${title}" appears on ${sorted.length} pages (${list}); every page should have a title that says what it is.`,
+      location: documentLocation(sorted[0] as Page),
+      fix: { kind: "manual", summary: "Give each page a title of its own: the page's name first, then the site name, for example \"Install the CLI | Seaworthy\". Titles usually come from the layout or front matter that produces the page; the same title on every page often means a missing page name there.", edits: [] },
+      key: title,
     });
   }
   return out;
