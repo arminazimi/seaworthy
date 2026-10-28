@@ -19,6 +19,18 @@ The report schema is checked by `npm test`: the engine's output is validated aga
 - `meta.duplicate-description`: a `warning` that groups pages whose meta description is the same text, with one finding per duplicated description. See the [check contract](../docs/checks/meta.duplicate-description.md).
 - `social.twitter-card`: a `note` for a page with no `twitter:card`, and a `warning` for an orphaned Twitter tag, an unknown card type, or a card with no image. See the [check contract](../docs/checks/social.twitter-card.md).
 - `social.image-size`: a `warning` for a local social preview image below the platform minimum dimensions or over the 5 MB limit. See the [check contract](../docs/checks/social.image-size.md).
+- `html.doctype`: a `warning` for a page with no doctype, or a non-standard one that puts the browser in quirks mode. See the [check contract](../docs/checks/html.doctype.md).
+- `html.parse-errors`: a `warning` for errors the HTML parser itself reports, such as stray end tags, bad nesting and duplicate attributes. See the [check contract](../docs/checks/html.parse-errors.md).
+- `html.inline-handlers`: a `note` for inline event handlers and `javascript:` URLs, which a strict Content Security Policy blocks. See the [check contract](../docs/checks/html.inline-handlers.md).
+- `html.nesting`: a `warning` for content nested outside its parent's content model: interactive inside interactive, block inside `<p>`, `<a>` inside `<a>`. See the [check contract](../docs/checks/html.nesting.md).
+- `quality.orphans`: a `warning` for a page that no other page links to. See the [check contract](../docs/checks/quality.orphans.md).
+- `quality.not-found-page`: a `warning` for a missing 404 page, or one that is empty or only redirects. See the [check contract](../docs/checks/quality.not-found-page.md).
+- `quality.empty-pages`: a `warning` for a page whose HTML has no main text outside the navigation, header and footer. See the [check contract](../docs/checks/quality.empty-pages.md).
+- `meta.duplicate-titles`: a `warning` for the same `<title>` on two or more pages. See the [check contract](../docs/checks/meta.duplicate-titles.md).
+- `meta.canonical-target`: a `warning` for a canonical link that points at a URL the built site does not serve. See the [check contract](../docs/checks/meta.canonical-target.md).
+- `meta.canonical-cycle`: a `warning` for canonical links that point at each other in a circle. See the [check contract](../docs/checks/meta.canonical-cycle.md).
+- `hosting.headers`: a `warning` for a malformed `_headers` line, or headers set on a path the built site does not serve. See the [check contract](../docs/checks/hosting.headers.md).
+- `hosting.redirects`: an `error` for a malformed `_redirects` line, or a redirect to a path the built site does not serve. See the [check contract](../docs/checks/hosting.redirects.md).
 
 ## Additive report fields
 
