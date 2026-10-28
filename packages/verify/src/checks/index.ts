@@ -13,6 +13,7 @@ import { linksBaseUrl, linksInternal } from "./links.js";
 import { htmlMetaRefresh, htmlRedirectChain, metaCanonical, metaCanonicalCycle, metaCanonicalTarget, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans } from "./quality.js";
+import { rtlBidi } from "./rtl.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
@@ -80,6 +81,7 @@ export const builtInChecks: readonly Check[] = [
   readabilityMcpCard,
   readabilityMdAlternates,
   readabilitySsrContent,
+  rtlBidi,
   robotsBlocksAll,
   robotsSitemap,
   securityMixedContent,

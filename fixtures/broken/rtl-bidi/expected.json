@@ -1,0 +1,10 @@
+{
+  "description": "An Arabic page with no dir, unscoped mixed-direction text, physical declarations in inline and linked CSS.",
+  "findings": [
+    { "check": "rtl.bidi", "file": "index.html", "line": 2, "column": 7 },
+    { "check": "rtl.bidi", "file": "index.html", "line": 7, "column": 9 },
+    { "check": "rtl.bidi", "file": "index.html", "line": 8, "column": 10 },
+    { "check": "rtl.bidi", "file": "index.html", "line": 12, "column": 1 },
+    { "check": "rtl.bidi", "file": "main.css", "line": 1, "column": 8 }
+  ]
+}
