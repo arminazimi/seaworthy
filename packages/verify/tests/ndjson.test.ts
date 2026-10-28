@@ -28,14 +28,18 @@ const crash: Check = {
   },
 };
 
-const slow: Check = {
-  meta: { id: "x.slow", title: "finishes last", severity: "error", needs: ["html"], docs: "https://example.test/x", standards: [] },
-  run: async function* (ctx) {
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    const page = ctx.site.pages.get("/a.html")!;
-    yield { message: "slow on /a.html", location: { file: page.file, line: 3, column: 7 }, fix: { kind: "manual" as const, summary: "fix the slow" }, key: page.url };
-  },
-};
+function slowCheck(wait: () => Promise<void>): Check {
+  return {
+    meta: { id: "x.slow", title: "finishes last", severity: "error", needs: ["html"], docs: "https://example.test/x", standards: [] },
+    run: async function* (ctx) {
+      await wait();
+      const page = ctx.site.pages.get("/a.html")!;
+      yield { message: "slow on /a.html", location: { file: page.file, line: 3, column: 7 }, fix: { kind: "manual" as const, summary: "fix the slow" }, key: page.url };
+    },
+  };
+}
+
+const slow = slowCheck(() => new Promise((resolve) => setTimeout(resolve, 30)));
 
 // Finishes first: a plain iterable, no awaits at all.
 const fast: Check = {
@@ -83,7 +87,13 @@ test("--format ndjson writes one exact line per finding, in the check's order", 
 
 test("ndjson lines arrive as checks finish, while the JSON report keeps its sorted order", async () => {
   const site = makeSite({ "a.html": PAGE, "z.html": PAGE });
-  const ndjson = await run(["verify", site, "--format", "ndjson"], { checks: [slow, fast] });
+  let release!: () => void;
+  const slowGate = new Promise<void>((resolve) => { release = resolve; });
+  // Hold x.slow until the first line streams. With fast-first the gate releases immediately;
+  // if the ordering regresses, the watchdog releases it and the assertions below explain why.
+  const watchdog = setTimeout(release, 10_000);
+  const gatedSlow = slowCheck(() => slowGate);
+  const ndjson = await run(["verify", site, "--format", "ndjson"], { checks: [gatedSlow, fast], stream: () => release() }).finally(() => clearTimeout(watchdog));
   const [fastLine, slowLine] = ndjson.stdout.split("\n").filter(Boolean);
 
   assert.equal(JSON.parse(fastLine!).checkId, "x.fast", "the fast check's finding lines first: it finished while x.slow was still waiting");

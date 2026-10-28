@@ -94,7 +94,7 @@ test("timings name each check that ran, including a crashed one, and leave out s
   const slow: Check = {
     meta: meta("x.slow"),
     async *run() {
-      await new Promise((resolve) => setTimeout(resolve, 5));
+      await new Promise((resolve) => setTimeout(resolve, 20));
       yield draft("a.html", 1, "s");
     },
   };

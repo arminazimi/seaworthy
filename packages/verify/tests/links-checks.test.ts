@@ -174,31 +174,45 @@ test("links.external honors ignore patterns and reports unreachable servers as w
   assert.match(out[0]!.message, /could not be reached/);
 });
 
-test("links.external respects the per-host limit", async () => {
+/**
+ * A fetch that holds every caller until `expected` calls are in flight, so the asserted
+ * concurrency is reached by construction, not by racing fixed sleeps. The fallback releases
+ * a broken pool after five seconds, which fails `reached()` instead of hanging the test.
+ */
+function gatedFetch(expected: number): { fetchImpl: typeof fetch; peak: () => number; reached: () => boolean } {
   let active = 0;
   let peak = 0;
-  const slowFetch = (async (url: string, init?: RequestInit) => {
+  let reached = false;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const fallback = setTimeout(() => release(), 5_000);
+  const fetchImpl = (async () => {
     active++;
     peak = Math.max(peak, active);
-    await new Promise((r) => setTimeout(r, 20));
+    if (active >= expected && !reached) {
+      reached = true;
+      clearTimeout(fallback);
+      release();
+    }
+    await gate;
     active--;
     return new Response(null, { status: 200 });
   }) as unknown as typeof fetch;
+  return { fetchImpl, peak: () => peak, reached: () => reached };
+}
+
+test("links.external respects the per-host limit", async () => {
+  const sameHost = gatedFetch(2);
   const links = Array.from({ length: 12 }, (_, i) => `<a href="http://one.test/${i}">${i}</a>`).join("\n");
-  await findings(externalLinksCheck(slowFetch), { "index.html": PAGE(links) }, { network: true });
-  assert.ok(peak <= 2, `at most 2 requests per host at once, saw ${peak}`);
-  let wide = 0;
-  let widePeak = 0;
-  const wideFetch = (async () => {
-    wide++;
-    widePeak = Math.max(widePeak, wide);
-    await new Promise((r) => setTimeout(r, 20));
-    wide--;
-    return new Response(null, { status: 200 });
-  }) as unknown as typeof fetch;
+  await findings(externalLinksCheck(sameHost.fetchImpl), { "index.html": PAGE(links) }, { network: true });
+  assert.equal(sameHost.peak(), 2, "the two per-host slots are used, never more");
+  assert.ok(sameHost.reached(), "the gate saw two requests in flight");
+
+  const wide = gatedFetch(5);
   const hosts = Array.from({ length: 20 }, (_, i) => `<a href="http://h${i}.test/">${i}</a>`).join("\n");
-  await findings(externalLinksCheck(wideFetch), { "index.html": PAGE(hosts) }, { network: true, options: { concurrency: 5 } });
-  assert.ok(widePeak <= 5 && widePeak > 2, `overall limit 5, saw ${widePeak}`);
+  await findings(externalLinksCheck(wide.fetchImpl), { "index.html": PAGE(hosts) }, { network: true, options: { concurrency: 5 } });
+  assert.equal(wide.peak(), 5, "the overall limit of five is reached, never exceeded");
+  assert.ok(wide.reached(), "the gate saw five requests in flight");
 });
 
 test("srcsetUrls follows the HTML parsing rules", () => {
