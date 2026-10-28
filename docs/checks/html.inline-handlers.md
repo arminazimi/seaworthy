@@ -1,0 +1,42 @@
+# html.inline-handlers
+
+An element registers an inline event handler, or points a `javascript:` URL at one.
+
+## Why it matters
+
+A strict Content Security Policy cannot run inline handlers or `javascript:` URLs: allowing them means `script-src` includes `"unsafe-inline"`, which also lets code injected into the page run (XSS). The site still works today — browsers run both without a CSP — so the page loses its behavior only once the CSP lands. Finding these before adopting a CSP is much easier than debugging it after.
+
+## What it checks
+
+Every attribute whose name starts with `on` is an inline event handler (`onclick`, `onload`, `onfocusin`, and so on, on any element).
+
+Every element attribute that executes a `javascript:` URL when followed: `a href`, `area href`, `form action`, `button formaction`, `input formaction`, and `iframe src`. Matching is case-insensitive and ignores leading whitespace; `" javascript:void(0)"` counts.
+
+Attributes that other checks already cover are not reported again, and handlers whose code lives in an external script are fine.
+
+## How to fix
+
+```html
+<!-- before -->
+<button onclick="addToCart()">Add to cart</button>
+
+<!-- after -->
+<button type="button" data-add-to-cart>Add to cart</button>
+<script src="/js/cart.js" defer></script>
+```
+
+```js
+// /js/cart.js
+document.querySelectorAll("[data-add-to-cart]").forEach((b) => b.addEventListener("click", addToCart));
+```
+
+For `javascript:` URLs, replace the URL with a real address, or make the element a `<button>` whose click listener lives in an external script. A `javascript:` URL sent as an `href` also breaks middle-click, Ctrl+click, and use of the link from keyboard or agent navigation.
+
+## Options
+
+None.
+
+## Standards
+
+- [HTML Standard: javascript: URLs](https://html.spec.whatwg.org/multipage/webappapis.html#javascript-urls)
+- [Content Security Policy Level 3: script-src](https://www.w3.org/TR/CSP3/#directive-script-src)
