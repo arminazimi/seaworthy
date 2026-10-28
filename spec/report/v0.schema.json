@@ -93,6 +93,11 @@
           "type": "integer",
           "minimum": 0
         },
+        "findingsOmitted": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Present when --max-findings or a per-check cap cut findings: how many the engine found but the report omits. The kept findings are the report's first, so the omitted ones are exactly the rest, in report order."
+        },
         "changedFiles": {
           "type": "integer",
           "minimum": 0,

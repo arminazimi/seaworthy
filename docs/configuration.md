@@ -25,7 +25,7 @@ Seaworthy works with no config. Add `seaworthy.config.json` in the folder you ru
 | `failOn` | Exit 1 when a finding has at least this severity: `error` (default), `warning`, `note`, or `none`. `--fail-on` overrides it. |
 | `rendered`, `network` | Turn on checks that need a browser or the network. Off by default. |
 | `ignore` | Site-relative globs (`*`, `**`, `?`). Findings in matching files are dropped. |
-| `checks` | Per-check settings by check ID or prefix such as `a11y.*`: `"off"`, a severity, or `{ "off", "severity", "options" }`. An exact ID beats a prefix, and a longer prefix beats a shorter one, regardless of order. |
+| `checks` | Per-check settings by check ID or prefix such as `a11y.*`: `"off"`, a severity, or `{ "off", "severity", "options", "maxFindings" }`. An exact ID beats a prefix, and a longer prefix beats a shorter one, regardless of order. |
 | `baseline` | A baseline file to apply on every run. |
 | `suppressions` | Findings to accept on purpose; see below. |
 
@@ -41,6 +41,26 @@ npx seaworthy config check ci.json  # validates an explicit file
 ```
 
 Exit 0 when the config is valid, and 2 when the file is missing, is not JSON, or has problems. With no config file at all there is nothing to reject: checks would run with their defaults, so it still exits 0 and says so.
+
+## Capping giant reports
+
+A broken site can produce thousands of findings, more than anyone needs at once. Caps keep the report readable without changing what the checks find:
+
+```bash
+npx seaworthy verify --max-findings 200   # report at most 200 findings
+```
+
+The cap is deterministic: findings stay in report order and the report keeps the first `n`, so the omitted ones are exactly the rest. When anything was cut, the summary says how many under `findingsOmitted`; when nothing was cut, the report is byte-identical to a run without the flag. `--update-baseline` and `--baseline` still see every finding the engine found, capped or not, so adopting with a baseline records all of them.
+
+Cap one noisy check on its own in the config:
+
+```json
+"checks": {
+  "links.internal": { "maxFindings": 20 }
+}
+```
+
+Per-check caps and `maxFindings` resolve like every other check setting: an exact ID beats a prefix, and a longer prefix beats a shorter one. Raise the cap with `--max-findings`, or turn the check down in the config when the volume is the real signal.
 
 ## Suppressions
 

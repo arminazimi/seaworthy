@@ -17,6 +17,7 @@ import { FORMATS, type Format, formatReport } from "./formats/index.js";
 import { SEVERITY_ORDER, severityCounts } from "./formats/pretty.js";
 import { BASELINE_FILE, detectGenerator, INIT_MARKERS, INIT_MARKERS_HINT, planInit, WORKFLOW_FILE, type PlanOptions } from "./init.js";
 import type { Check, Report, Severity } from "./types.js";
+import { DEFAULT_MAX_FINDINGS } from "./report.js";
 import { VERSION } from "./version.js";
 import { buildSite } from "./site.js";
 import { type StageTiming, type Timings, verifySite } from "./verify.js";
@@ -58,6 +59,8 @@ Options:
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
   --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath
                         in seaworthy.config.json and base-path detection from generator configs.
+  --max-findings <n>   Cap the report at n findings, in report order; the rest are omitted and counted
+                       in the report as findingsOmitted. Default: ${DEFAULT_MAX_FINDINGS}
   --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
   --baseline <file>    Accept the findings recorded in this file; report and fail only on new ones
   --update-baseline <file>
@@ -174,6 +177,7 @@ interface Options {
   out: string | undefined;
   failOn: Severity | "none" | undefined;
   base: string | undefined;
+  maxFindings: number | undefined;
   config: string | undefined;
   baseline: string | undefined;
   updateBaseline: string | undefined;
@@ -187,7 +191,7 @@ interface Options {
 class UsageError extends Error {}
 
 function parseOptions(args: readonly string[]): Options {
-  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, timings: false };
+  const options: Options = { dir: undefined, format: "pretty", out: undefined, failOn: undefined, base: undefined, maxFindings: undefined, config: undefined, baseline: undefined, updateBaseline: undefined, changed: false, changedSince: undefined, rendered: false, network: false, timings: false };
   const value = (flag: string, inline: string | undefined, index: number): [string, number] => {
     if (inline !== undefined) return [inline, index];
     const next = args[index + 1];
@@ -217,6 +221,14 @@ function parseOptions(args: readonly string[]): Options {
         const [v, next] = value(flag, inline, i);
         if (!["error", "warning", "note", "none"].includes(v)) throw new UsageError(`unknown --fail-on level "${v}"; use error, warning, note, or none`);
         options.failOn = v as Options["failOn"];
+        i = next;
+        break;
+      }
+      case "--max-findings": {
+        const [v, next] = value(flag, inline, i);
+        const n = /^\d+$/.test(v) ? Number(v) : NaN;
+        if (!Number.isInteger(n) || n < 1) throw new UsageError(`--max-findings must be a whole number of at least 1, got "${v}"`);
+        options.maxFindings = n;
         i = next;
         break;
       }
@@ -340,6 +352,7 @@ async function verify(args: readonly string[], env: CliEnvironment): Promise<Cli
     ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
     rendered: options.rendered || config.rendered === true,
     network: options.network || config.network === true,
+    ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
     ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
     ...(collectTimings ? { timings: true } : {}),
   });
