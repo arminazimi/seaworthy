@@ -64,8 +64,8 @@ test("baseline files are deterministic and round-trip", () => {
 test("readBaseline explains what is wrong", () => {
   const dir = makeSite({ "notjson.json": "{", "wrong.json": '{"hello":1}', "old.json": '{"spec":9,"tool":"seaworthy","entries":[]}', "bad.json": '{"spec":0,"tool":"seaworthy","entries":[{"fingerprint":"x","count":0}]}' });
   assert.throws(() => readBaseline(join(dir, "missing.json")), BaselineError);
-  assert.throws(() => readBaseline(join(dir, "notjson.json")), /cannot read baseline/);
-  assert.throws(() => readBaseline(join(dir, "wrong.json")), /is not a Seaworthy baseline file/);
+  assert.throws(() => readBaseline(join(dir, "notjson.json")), /cannot read baseline.*--update-baseline/);
+  assert.throws(() => readBaseline(join(dir, "wrong.json")), /is not a Seaworthy baseline file.*--update-baseline/);
   assert.throws(() => readBaseline(join(dir, "old.json")), /written for spec 9.*--update-baseline/);
-  assert.throws(() => readBaseline(join(dir, "bad.json")), /malformed entry/);
+  assert.throws(() => readBaseline(join(dir, "bad.json")), /malformed entry.*--update-baseline/);
 });

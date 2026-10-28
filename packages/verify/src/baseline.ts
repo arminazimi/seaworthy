@@ -48,12 +48,12 @@ export function readBaseline(path: string): Baseline {
   try {
     raw = JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
-    throw new BaselineError(`cannot read baseline ${path}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new BaselineError(`cannot read baseline ${path}: ${error instanceof Error ? error.message : String(error)}; check the path, or re-record the baseline with --update-baseline`);
   }
   const b = raw as Partial<Baseline> | null;
-  if (!b || b.tool !== "seaworthy" || !Array.isArray(b.entries)) throw new BaselineError(`${path} is not a Seaworthy baseline file`);
+  if (!b || b.tool !== "seaworthy" || !Array.isArray(b.entries)) throw new BaselineError(`${path} is not a Seaworthy baseline file; pass a file written by \`seaworthy verify --update-baseline\``);
   if (b.spec !== REPORT_SPEC_VERSION) throw new BaselineError(`${path} was written for spec ${String(b.spec)}, but this version of Seaworthy uses spec ${REPORT_SPEC_VERSION}; run again with --update-baseline`);
-  for (const e of b.entries) if (typeof e?.fingerprint !== "string" || !Number.isInteger(e.count) || e.count < 1) throw new BaselineError(`${path} has a malformed entry: ${JSON.stringify(e)}`);
+  for (const e of b.entries) if (typeof e?.fingerprint !== "string" || !Number.isInteger(e.count) || e.count < 1) throw new BaselineError(`${path} has a malformed entry: ${JSON.stringify(e)}; re-record the baseline with --update-baseline`);
   return b as Baseline;
 }
 

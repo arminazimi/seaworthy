@@ -24,12 +24,12 @@ export function readReport(path: string): DiffReport {
   try {
     raw = JSON.parse(readFileSync(path, "utf8"));
   } catch (error) {
-    throw new ReportDiffError(`cannot read report ${path}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new ReportDiffError(`cannot read report ${path}: ${error instanceof Error ? error.message : String(error)}; pass report files written by \`seaworthy verify --format json\``);
   }
   const r = raw as { spec?: unknown; tool?: { name?: unknown }; root?: unknown; findings?: unknown } | null;
-  if (!r || r.tool?.name !== "seaworthy" || !Array.isArray(r.findings)) throw new ReportDiffError(`${path} is not a Seaworthy report file`);
-  if (r.spec !== REPORT_SPEC_VERSION) throw new ReportDiffError(`${path} was written for spec ${String(r.spec)}, but this version of Seaworthy uses spec ${REPORT_SPEC_VERSION}`);
-  if (typeof r.root !== "string") throw new ReportDiffError(`${path} names no site root`);
+  if (!r || r.tool?.name !== "seaworthy" || !Array.isArray(r.findings)) throw new ReportDiffError(`${path} is not a Seaworthy report file; pass a report written by \`seaworthy verify --format json\``);
+  if (r.spec !== REPORT_SPEC_VERSION) throw new ReportDiffError(`${path} was written for spec ${String(r.spec)}, but this version of Seaworthy uses spec ${REPORT_SPEC_VERSION}; re-generate the report with \`seaworthy verify --format json\``);
+  if (typeof r.root !== "string") throw new ReportDiffError(`${path} names no site root; use a report written by \`seaworthy verify --format json\``);
   const findings: Finding[] = [];
   for (const value of r.findings) {
     const f = value as Partial<Finding> | null;

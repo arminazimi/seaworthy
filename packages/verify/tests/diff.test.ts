@@ -123,10 +123,10 @@ test("diff argument and file mistakes are usage errors with a way back", async (
     assert.match(result.stderr, /^seaworthy: diff takes exactly two report files/);
   }
   for (const [argv, message] of [
-    [["diff", "missing.json", "other.json"], /cannot read report/],
-    [["diff", "other.json", "missing.json"], /not a Seaworthy report file/],
-    [["diff", "nojson.json", "other.json"], /cannot read report/],
-    [["diff", "other.json", "nojson.json"], /not a Seaworthy report file/],
+    [["diff", "missing.json", "other.json"], /cannot read report.*verify --format json/],
+    [["diff", "other.json", "missing.json"], /not a Seaworthy report file.*verify --format json/],
+    [["diff", "nojson.json", "other.json"], /cannot read report.*verify --format json/],
+    [["diff", "other.json", "nojson.json"], /not a Seaworthy report file.*verify --format json/],
   ] as const) {
     const result = await run(argv, { cwd });
     assert.equal(result.code, EXIT.usage, argv.join(" "));
