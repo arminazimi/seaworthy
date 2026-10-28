@@ -70,9 +70,66 @@ export function metaTags(page: Page): Map<string, { element: HtmlElement; conten
   return tags;
 }
 
-/** True for pages that only redirect elsewhere (`<meta http-equiv="refresh">`): they have no content to check. */
+// The HTML refresh algorithm: digits, then an optional `;`, `,`, or whitespace separator, then an optional URL.
+// `url=` before the URL is only required for conforming markup; without it the whole remainder is the URL.
+const ASCII_WHITESPACE = /^[\t\n\f\r ]+/;
+
+/** The delay in seconds from a refresh `content` value a browser would act on, with its optional URL. */
+export function refreshOf(content: string): { delay: number; url: string } | undefined {
+  const input = content.replace(ASCII_WHITESPACE, "");
+  const digits = /^\d+/.exec(input);
+  if (!digits) return undefined;
+  const delay = Number(digits[0]);
+  let rest = input.slice(digits[0].length);
+
+  if (rest !== "") {
+    const first = rest[0];
+    if (first === ";" || first === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
+    else if (ASCII_WHITESPACE.test(rest)) {
+      rest = rest.replace(ASCII_WHITESPACE, "");
+      if (rest[0] === ";" || rest[0] === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
+    } else return undefined;
+  }
+
+  let url = rest.replace(/[\t\n\f\r ]+$/, "").replace(/^url[\t\n\f\r ]*=/i, "").replace(ASCII_WHITESPACE, "");
+  if ((url.startsWith("'") && url.endsWith("'")) || (url.startsWith('"') && url.endsWith('"'))) url = url.slice(1, -1);
+  url = url.replace(ASCII_WHITESPACE, "").replace(/[\t\n\f\r ]+$/, "");
+  if (/^javascript:/i.test(url)) return undefined;
+  return { delay, url };
+}
+
+// Text inside these is markup for the browser, not something a reader sees.
+const INVISIBLE_TEXT = new Set(["script", "style", "template", "noscript"]);
+
+/** True when the `<body>` shows any readable text, so someone waiting on a timed refresh can read the page. */
+function hasReadableText(page: Page): boolean {
+  const body = firstElement(page, "body");
+  if (!body) return false;
+  const parts: string[] = [];
+  const visit = (node: { nodeName: string; childNodes?: unknown[]; value?: string }): void => {
+    if (node.nodeName !== "#text" && INVISIBLE_TEXT.has(node.nodeName)) return;
+    if (node.nodeName === "#text" && node.value) parts.push(node.value);
+    for (const child of (node.childNodes ?? []) as (typeof node)[]) visit(child);
+  };
+  visit(body as unknown as Parameters<typeof visit>[0]);
+  return parts.join(" ").replace(/\s+/g, " ").trim() !== "";
+}
+
+/**
+ * True for pages that only hand people to another address through `<meta http-equiv="refresh">`:
+ * an immediate redirect (a browser acts on it before the page shows), or a refresh with a destination
+ * whose page has no readable text. A delayed reload, and a delayed redirect whose page still shows
+ * content people read before the move, are ordinary pages and stay under the content checks.
+ */
 export function isRedirectStub(page: Page): boolean {
-  return page.elements.some((e) => e.tagName === "meta" && attr(e, "http-equiv")?.toLowerCase() === "refresh");
+  const readable = hasReadableText(page);
+  const stub = (refresh: { delay: number; url: string } | undefined): boolean =>
+    refresh !== undefined && refresh.url !== "" && (refresh.delay === 0 || !readable);
+  for (const element of page.elements) {
+    if (element.tagName !== "meta" || (attr(element, "http-equiv") ?? "").trim().toLowerCase() !== "refresh") continue;
+    if (stub(refreshOf(attr(element, "content") ?? ""))) return true;
+  }
+  return false;
 }
 
 /** An edit that adds text just before `</head>`, when that closing tag is on a line of its own source. */

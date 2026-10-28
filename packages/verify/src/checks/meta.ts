@@ -2,37 +2,9 @@
 
 import { type Page, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, replaceEdit, textOf } from "./helpers.js";
+import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, refreshOf, replaceEdit, textOf } from "./helpers.js";
 
 const LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
-
-// The HTML refresh algorithm: digits, then an optional `;`, `,`, or whitespace separator, then an optional URL.
-// `url=` before the URL is only required for conforming markup; without it the whole remainder is the URL.
-const ASCII_WHITESPACE = /^[\t\n\f\r ]+/;
-
-/** The delay in seconds from a refresh content value a browser would act on, with its optional URL. */
-function refreshOf(content: string): { delay: number; url: string } | undefined {
-  const input = content.replace(ASCII_WHITESPACE, "");
-  const digits = /^\d+/.exec(input);
-  if (!digits) return undefined;
-  const delay = Number(digits[0]);
-  let rest = input.slice(digits[0].length);
-
-  if (rest !== "") {
-    const first = rest[0];
-    if (first === ";" || first === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
-    else if (ASCII_WHITESPACE.test(rest)) {
-      rest = rest.replace(ASCII_WHITESPACE, "");
-      if (rest[0] === ";" || rest[0] === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
-    } else return undefined;
-  }
-
-  let url = rest.replace(/[\t\n\f\r ]+$/, "").replace(/^url[\t\n\f\r ]*=/i, "").replace(ASCII_WHITESPACE, "");
-  if ((url.startsWith("'") && url.endsWith("'")) || (url.startsWith('"') && url.endsWith('"'))) url = url.slice(1, -1);
-  url = url.replace(ASCII_WHITESPACE, "").replace(/[\t\n\f\r ]+$/, "");
-  if (/^javascript:/i.test(url)) return undefined;
-  return { delay, url };
-}
 
 export const metaTitle = check(meta("meta.title", "Page has no title", "error", ["WCAG 2.4.2"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -46,6 +18,37 @@ export const metaTitle = check(meta("meta.title", "Page has no title", "error", 
       location: title ? locate(page, title) : documentLocation(page),
       fix: { kind: edit ? "edit" : "manual", summary: "Give the page a short title that says what it is. It appears in browser tabs, search results, and screen reader announcements.", edits: edit ? [edit] : [] },
       key: "title",
+    });
+  }
+  return out;
+});
+
+// The same title on several pages: grouped across the site, so a template that repeats one title
+// reports once, not once per page.
+const DUPLICATE_TITLE_PAGE_CAP = 5;
+
+export const metaDuplicateTitles = check(meta("meta.duplicate-titles", "The same title on several pages", "warning"), (ctx) => {
+  const byTitle = new Map<string, Page[]>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const title = firstElement(page, "title");
+    const text = title ? textOf(title) : "";
+    // Missing and empty titles are meta.title findings; only pages that have a title can duplicate one.
+    if (title === undefined || text === "") continue;
+    byTitle.set(text, [...(byTitle.get(text) ?? []), page]);
+  }
+  const out: FindingDraft[] = [];
+  for (const [title, pages] of [...byTitle].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    if (pages.length < 2) continue;
+    const sorted = pages.slice().sort((a, b) => (a.url < b.url ? -1 : 1));
+    const listed = sorted.slice(0, DUPLICATE_TITLE_PAGE_CAP).map((p) => p.url);
+    const rest = sorted.length - listed.length;
+    const list = `${listed.join(", ")}${rest > 0 ? `, and ${rest} more` : ""}`;
+    out.push({
+      message: `The title "${title}" appears on ${sorted.length} pages (${list}); every page should have a title that says what it is.`,
+      location: documentLocation(sorted[0] as Page),
+      fix: { kind: "manual", summary: "Give each page a title of its own: the page's name first, then the site name, for example \"Install the CLI | Seaworthy\". Titles usually come from the layout or front matter that produces the page; the same title on every page often means a missing page name there.", edits: [] },
+      key: title,
     });
   }
   return out;
