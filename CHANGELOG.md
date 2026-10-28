@@ -4,6 +4,7 @@
 
 ### Added
 
+- Every output format now carries ready-to-paste fix prompts: one per finding and one for the whole report, generated from each finding's data alone (check ID, location, fix hint) so they are identical, deterministic, and free of private run state everywhere (#264).
 - `a11y.iframe-title` reports iframes with missing or blank titles, with source locations and a manual fix hint (#232).
 - `html.obsolete` reports obsolete elements and presentational attributes (`<center>`, `<font>`, `<marquee>`, `align`, `bgcolor`, and similar) with exact source locations and CSS fix hints (#245).
 - `seaworthy verify --timings` prints time per stage and per check to stderr. The report is unchanged, so default output stays deterministic (#216).
