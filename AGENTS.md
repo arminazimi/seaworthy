@@ -57,14 +57,22 @@ npm run build:brand     # regenerate brand SVGs after editing brand/tokens.json 
 - Do not reformat unrelated files. Do not add dependencies without stating the reason in the PR.
 - Versioned contracts (`spec/`, report JSON, check IDs, MCP tool shapes, CLI JSON output) change only additively unless an accepted RFC says otherwise.
 
-## Generated files: do not edit by hand
+## Shared files: append-only, regenerate, or never touch
 
-| Path | Regenerate with |
-|---|---|
-| `planning/roadmap/out/` | `npm run roadmap:build` (source: `ROADMAP.md` and `planning/roadmap/briefs/`) |
-| `spec/config/v0.schema.json`, `spec/report/v0.schema.json` | `npm run schema:build` (source: `spec/config/fragments/` and `spec/report/fragments/`) |
-| `brand/assets/*.svg`, `brand/templates/*.svg`, `brand/seaworthy-logo-sheet.svg`, `brand/tokens.css`, `brand/export-presets.json` | `npm run build:brand` (source: `brand/tokens.json` and `tools/brand/`) |
-| `brand/assets/*.png`, `brand/exports/*.png` | `npm run export:brand` (needs Chrome or Chromium) |
+These files are where parallel PRs collide, so each has exactly one rule. Never edit a generated or never-touch file by hand; if a change seems to need it, the rule points at the file to change instead.
+
+| Path | Rule | How |
+|---|---|---|
+| `CHANGELOG.md` | Never touch | Folded from `changelog.d/` by `npm run changelog:fold`; maintainers run it before a release |
+| `changelog.d/` | Append-only | One fragment per PR, named `<issue>.added.md`, `.changed.md`, or `.fixed.md` (see its README) |
+| `packages/verify/src/checks/registry.ts`, `packages/verify/src/formats/registry.ts` | Regenerate | `npm run build && node tools/gen-registries.mjs` (generated from the modules in `src/checks/` and `src/formats/`) |
+| `packages/verify/src/checks/index.ts`, `packages/verify/src/formats/index.ts` | Never touch | Thin re-exports of the generated registry; a new check or format is a new module in that folder, not an edit here |
+| `spec/config/v0.schema.json`, `spec/report/v0.schema.json` | Regenerate | `npm run schema:build` (built from `spec/config/fragments/` and `spec/report/fragments/` — edit those) |
+| `planning/roadmap/out/` | Regenerate | `npm run roadmap:build` (generated from `ROADMAP.md` and `planning/roadmap/briefs/`) |
+| `brand/assets/*.svg`, `brand/templates/*.svg`, `brand/seaworthy-logo-sheet.svg`, `brand/tokens.css`, `brand/export-presets.json` | Regenerate | `npm run build:brand` (generated from `brand/tokens.json` and `tools/brand/`) |
+| `brand/assets/*.png`, `brand/exports/*.png` | Regenerate | `npm run export:brand` (needs Chrome or Chromium) |
+| `package-lock.json` | Never hand-edit | Change `package.json` and run `npm install`; commit the lockfile that produces |
+| `spec/` contracts (schemas, check IDs, report JSON, MCP tool shapes, CLI JSON output) | Append-only | Additive changes only (say, a new optional field); anything else waits for an accepted RFC (see [CONTRIBUTING.md](CONTRIBUTING.md)) |
 
 ## More
 
