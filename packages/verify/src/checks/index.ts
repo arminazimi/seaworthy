@@ -7,6 +7,7 @@ import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
 import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlNesting, htmlObsolete, htmlParseErrors } from "./html.js";
 import { hostingHeaders, hostingRedirects } from "./hosting.js";
+import { i18nHreflang } from "./i18n.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { htmlMetaRefresh, htmlRedirectChain, metaCanonical, metaCanonicalCycle, metaCanonicalTarget, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
@@ -46,6 +47,7 @@ export const builtInChecks: readonly Check[] = [
   htmlObsolete,
   htmlRedirectChain,
   htmlParseErrors,
+  i18nHreflang,
   imagesAlt,
   imagesDimensions,
   imagesSize,
