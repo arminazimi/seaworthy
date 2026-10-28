@@ -14,7 +14,7 @@ const IDS = ["links.internal", "images.alt", "a11y.color-contrast"];
 
 const valid = [
   {},
-  { root: "dist", failOn: "none", rendered: true, network: false, baseline: "b.json", ignore: ["drafts/**"] },
+  { root: "dist", failOn: "none", rendered: true, network: false, history: false, baseline: "b.json", ignore: ["drafts/**"] },
   { checks: { "links.internal": "warning", "images.alt": "off", "a11y.*": { severity: "note", options: { x: 1 } }, "a11y.color-contrast": { off: false } } },
   { checks: { "links.internal": { maxFindings: 20 }, "images.*": { maxFindings: 5, severity: "warning" } } },
   { suppressions: [{ check: "links.internal", file: "blog/**", reason: "archive", expires: "2027-03-01" }, { check: "images.alt", fingerprint: "d6062a0613274944", reason: "decorative" }] },
@@ -23,6 +23,7 @@ const invalid = [
   { failOn: "fatal" },
   { chekcs: {} },
   { rendered: "yes" },
+  { history: "yes" },
   { ignore: "drafts" },
   { checks: { Links: "off" } },
   { checks: { "links.internal": "critical" } },

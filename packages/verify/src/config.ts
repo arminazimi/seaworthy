@@ -37,6 +37,8 @@ export interface Config {
   network?: boolean;
   /** Keyed by check ID or by a prefix pattern such as `a11y.*`. */
   checks: Record<string, CheckSetting>;
+  /** Record a summary of every run in .seaworthy/history. Default true; false is the opt-out. */
+  history?: boolean;
   /** Site-relative globs. Findings in matching files are dropped. */
   ignore: string[];
   suppressions: ConfigSuppression[];
@@ -45,7 +47,7 @@ export interface Config {
 
 export class ConfigError extends Error {}
 
-const TOP_LEVEL = ["$schema", "root", "basePath", "failOn", "rendered", "network", "checks", "ignore", "suppressions", "baseline"];
+const TOP_LEVEL = ["$schema", "root", "basePath", "failOn", "rendered", "network", "history", "checks", "ignore", "suppressions", "baseline"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function suggest(word: string, options: readonly string[]): string {
@@ -71,7 +73,7 @@ export function parseConfig(raw: unknown, source: string, knownCheckIds: readonl
     if (typeof raw.failOn === "string" && [...SEVERITIES, "none"].includes(raw.failOn)) config.failOn = raw.failOn as Severity | "none";
     else bad("failOn", `got ${show(raw.failOn)}; allowed values: error, warning, note, none`);
   }
-  for (const flag of ["rendered", "network"] as const) {
+  for (const flag of ["rendered", "network", "history"] as const) {
     if (raw[flag] === undefined) continue;
     if (typeof raw[flag] === "boolean") config[flag] = raw[flag] as boolean;
     else bad(flag, `must be true or false, got ${show(raw[flag])}`);

@@ -36,6 +36,10 @@
       "type": "boolean",
       "description": "Run checks that make network requests."
     },
+    "history": {
+      "type": "boolean",
+      "description": "Record a deterministic JSON summary of every verify run (timestamp, counts by severity and by check, run settings hash) in .seaworthy/history, keeping the most recent 30 runs. Default true; set false to opt out."
+    },
     "baseline": {
       "type": "string",
       "minLength": 1,
