@@ -1,6 +1,6 @@
 // readability.*: can agents and AI search read this site? See spec/agent-readability/v1.md.
 
-import { type HtmlElement, attr } from "../site.js";
+import { type HtmlElement, type Page, attr } from "../site.js";
 import type { Check, FindingDraft } from "../types.js";
 import { createHash } from "node:crypto";
 
@@ -268,6 +268,37 @@ export const readabilityAiRobots = check(meta("readability.ai-robots", "robots.t
 
 const APP_ROOTS = new Set(["root", "app", "__next", "__nuxt", "svelte", "q-app", "outlet", "main-app"]);
 
+interface ClientShell {
+  /** An empty application root or an enable-JavaScript `<noscript>`, which names the shell in the source. */
+  at?: HtmlElement;
+  /** True when the body holds nothing but scripts and metadata and no named root covers it. */
+  bareOnly: boolean;
+}
+
+/** The scripts that can build the page in a browser; JSON data blocks (JSON-LD, import maps, speculation rules) are data, not rendering code. */
+export function contentScripts(page: Page): HtmlElement[] {
+  return page.elements.filter((e) => e.tagName === "script" && ((attr(e, "src") ?? "").trim() !== "" || textOf(e).trim() !== "") && !/json|ld\+json|importmap|speculationrules/i.test(attr(e, "type") ?? ""));
+}
+
+/**
+ * The shape a client-rendered page has in its built HTML: at most a few words anywhere, scripts that create the
+ * content, and an empty skeleton (an application root, an enable-JavaScript `<noscript>`, or a bare body).
+ * `readability.ssr-content` reports this shape, and `quality.empty-pages` defers to it there.
+ */
+export function clientShell(page: Page): ClientShell | undefined {
+  const body = firstElement(page, "body");
+  if (!body) return undefined;
+  if (wordsOf(visibleText(body)).size >= 10) return undefined; // a short static page is not a rendering problem
+  const scripts = contentScripts(page);
+  if (scripts.length === 0) return undefined;
+  const emptyRoot = page.elements.find((e) => APP_ROOTS.has(attr(e, "id") ?? "") && textOf(e).trim() === "" && !descendants(e).some((d) => ["img", "svg", "picture", "video", "canvas"].includes(d.tagName)));
+  const noscript = page.elements.find((e) => e.tagName === "noscript" && /javascript/i.test(textOf(e)));
+  const bareBody = !descendants(body).some((e) => !["script", "style", "noscript", "template", "link", "meta"].includes(e.tagName));
+  if (!emptyRoot && !noscript && !bareBody) return undefined; // little text, but something is there: an image page, a canvas, a short note
+  const at = emptyRoot ?? noscript;
+  return at ? { at, bareOnly: false } : { bareOnly: true };
+}
+
 export const readabilitySsrContent = check(meta("readability.ssr-content", "Page content only appears after JavaScript runs", "warning", ["agent-readability spec"], ["html"]), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
@@ -275,17 +306,13 @@ export const readabilitySsrContent = check(meta("readability.ssr-content", "Page
     const body = firstElement(page, "body");
     if (!body) continue;
     const words = wordsOf(visibleText(body)).size;
-    if (words >= 10) continue;
-    const scripts = page.elements.filter((e) => e.tagName === "script" && ((attr(e, "src") ?? "").trim() !== "" || textOf(e).trim() !== "") && !/json|ld\+json|importmap|speculationrules/i.test(attr(e, "type") ?? ""));
-    if (scripts.length === 0) continue; // a short static page is not a rendering problem
-    const emptyRoot = page.elements.find((e) => APP_ROOTS.has(attr(e, "id") ?? "") && textOf(e).trim() === "" && !descendants(e).some((d) => ["img", "svg", "picture", "video", "canvas"].includes(d.tagName)));
-    const noscript = page.elements.find((e) => e.tagName === "noscript" && /javascript/i.test(textOf(e)));
-    const bareBody = !descendants(body).some((e) => !["script", "style", "noscript", "template", "link", "meta"].includes(e.tagName));
-    if (!emptyRoot && !noscript && !bareBody) continue; // little text, but something is there: an image page, a canvas, a short note
-    const at = emptyRoot ?? noscript;
+    const shell = clientShell(page);
+    if (!shell) continue;
+    const scripts = contentScripts(page);
+    const emptyRoot = shell.at && APP_ROOTS.has(attr(shell.at, "id") ?? "") ? shell.at : undefined;
     out.push({
       message: `The HTML has ${words === 0 ? "no readable text" : `only ${words} words`} but loads ${scripts.length} script${scripts.length === 1 ? "" : "s"}${emptyRoot ? ` and ends with an empty <${emptyRoot.tagName} id="${attr(emptyRoot, "id")}">` : ""}. The content seems to be created in the browser, so agents, crawlers, and link previews that do not run JavaScript see an empty page.`,
-      location: at ? locate(page, at) : documentLocation(page),
+      location: shell.at ? locate(page, shell.at) : documentLocation(page),
       fix: {
         kind: "manual",
         summary: "Render the page's content into the HTML at build time (static site generation, or server-side rendering) so the built file contains the text. Client-side code can still take over afterward.",
