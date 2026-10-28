@@ -1,0 +1,73 @@
+// The root `seaworthy --help` page. The Options section is assembled from the option
+// groups, so a flag's help lines live beside its parser; the rest of the page is the
+// dispatcher's own text.
+
+import { VERSION } from "../version.js";
+import { OPTION_GROUPS } from "./options/index.js";
+import { DEFAULT_FOLDERS } from "./types.js";
+
+// Each group's help ends with a newline, so the meta flags continue straight on.
+const OPTIONS_HELP = OPTION_GROUPS.map((group) => group.help).join("");
+
+export const HELP = `seaworthy ${VERSION}
+
+Verify any built static site for agents and humans.
+
+Usage:
+  seaworthy verify [dir] [options]
+  seaworthy init [dir] [options]
+  seaworthy fix [dir] [options]
+  seaworthy diff <before.json> <after.json>
+  seaworthy config check [file]
+
+Arguments:
+  dir                  verify: built site folder, default the first of ${DEFAULT_FOLDERS.join(", ")} that exists.
+                       init: the project folder (the source), default the current folder.
+
+Commands:
+  config check [file]  Validate a config file without running checks. See \`seaworthy config check --help\`.
+  init [dir]           Write a config, a CI workflow, and an empty baseline in one step. See \`seaworthy init --help\`.
+  fix --dry-run        Preview every suggested edit as one unified diff. See \`seaworthy fix --help\`.
+
+Options:
+${OPTIONS_HELP}  --help, -h           Print this help
+  --version, -v        Print the version
+
+diff:
+  seaworthy diff before.json after.json
+                       Compare two report JSON files from \`verify --format json\` runs. Prints
+                       one JSON object with the counts and finding lists for what is new, fixed,
+                       and unchanged. Findings match by fingerprint, so the same problem is
+                       unchanged even when it moves to another line.
+
+init:
+  seaworthy init [dir]
+                       Run in dir (default: the current folder), where it detects the site generator from
+                       marker file names only (Jekyll, Astro, Docusaurus, Hugo, or GitHub Pages) and writes:
+                         seaworthy.config.json            root and baseline, per the published config schema
+                         .github/workflows/seaworthy.yml  a build step for the generator, then seaworthy verify
+                         seaworthy-baseline.json          an EMPTY first baseline, so CI fails on new findings only
+                       Non-interactive, offline, and never a write outside dir. A second run says "already
+                       present"; --force overwrites the config and the workflow it owns, but a baseline is
+                       never rewritten, because a baseline records findings you have accepted.
+
+Exit codes:
+  0  no findings at or above --fail-on (verify); the diff completed (diff); all files present (init); the fix preview completed (fix)
+  1  findings at or above --fail-on
+  2  usage error
+  4  a check or the engine crashed
+  130  interrupted with Ctrl-C (verify --watch)
+
+fix (always passes --dry-run):
+  seaworthy fix [dir] --dry-run
+                       Run the checks, then print ONE unified diff of every edit the suggested
+                       fixes would apply to the built output, with paths relative to the site
+                       folder. Seaworthy never writes or edits files: applying the diff with
+                       \`git apply\` (run from the site folder) is an agent's or a person's move.
+                       Findings whose fixes cannot be turned into safe edits — manual fixes,
+                       edits that need content a person must supply (such as alt text), or
+                       edits whose anchor text no longer matches the file — are listed on
+                       stderr as manual guidance instead. See \`seaworthy fix --help\`.
+
+Status: pre-alpha. See ROADMAP.md.
+`;

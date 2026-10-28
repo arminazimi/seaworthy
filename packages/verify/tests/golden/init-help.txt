@@ -1,0 +1,33 @@
+seaworthy init
+
+Create the three files that adopt Seaworthy in one step, for people and agents. It detects the
+site generator from marker file names only (Jekyll, Astro, Docusaurus, Hugo, or GitHub Pages)
+and writes, without ever reading or editing your own files, without running any checks, and with
+no writes outside the folder you name:
+
+  seaworthy.config.json             built site folder and the baseline, per the config schema
+  .github/workflows/seaworthy.yml   the generator's build step, then `seaworthy verify`
+  seaworthy-baseline.json           an EMPTY first baseline: today's findings are accepted by
+                                    recording them with --update-baseline (docs/configuration.md),
+                                    while CI fails on every new one
+
+The workflow is commented, and the config is plain JSON (JSON has no comments and the schema
+rejects unknown keys), so the guidance a commented config would carry lives in the workflow and
+in the docs page.
+
+Usage:
+  seaworthy init [dir]
+
+Arguments:
+  dir                  The project folder (the source, not the built site). Default: the current folder.
+
+Options:
+  --force              Overwrite seaworthy.config.json and seaworthy.yml with init's version. A second run
+                       without it says "already present" and changes nothing. A baseline file that already
+                       exists is never rewritten -- not even with --force -- because it records findings
+                       you have accepted.
+  --help, -h           Print this help
+
+Exit codes:
+  0  every file is present now (written, or kept and reported)
+  2  usage error

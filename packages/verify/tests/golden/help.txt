@@ -1,0 +1,85 @@
+seaworthy 0.0.0
+
+Verify any built static site for agents and humans.
+
+Usage:
+  seaworthy verify [dir] [options]
+  seaworthy init [dir] [options]
+  seaworthy fix [dir] [options]
+  seaworthy diff <before.json> <after.json>
+  seaworthy config check [file]
+
+Arguments:
+  dir                  verify: built site folder, default the first of dist, build, out, public, _site, site that exists.
+                       init: the project folder (the source), default the current folder.
+
+Commands:
+  config check [file]  Validate a config file without running checks. See `seaworthy config check --help`.
+  init [dir]           Write a config, a CI workflow, and an empty baseline in one step. See `seaworthy init --help`.
+  fix --dry-run        Preview every suggested edit as one unified diff. See `seaworthy fix --help`.
+
+Options:
+  --format <format>    pretty (default), json, markdown, sarif, llm, prompt, or html.
+                       prompt: one copy-pasteable prompt that fixes every finding,
+                       grouped by file (fewest findings first), to work through in order.
+                       html: one self-contained page for people, with severity, check, and file filters
+  --out <file>         Write the report to a file; print a one-line summary instead
+  --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
+  --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath
+                        in seaworthy.config.json and base-path detection from generator configs.
+  --max-findings <n>   Cap the report at n findings, in report order; the rest are omitted and counted
+                       in the report as findingsOmitted. Default: 1000. Caps never
+                       change the exit code; it is decided from all findings, cut or not
+  --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
+  --baseline <file>    Accept the findings recorded in this file; report and fail only on new ones
+  --update-baseline <file>
+                       Record all current findings in this file, then exit 0
+  --changed            Report only findings in files that changed since the last run (hashes in .seaworthy/cache.json)
+  --changed-since <ref>
+                       Report only findings in files that differ from a git ref (for sites that commit their output)
+  --no-history         Do not record this run in .seaworthy/history (default on; also "history": false in the config)
+  --watch              Verify again whenever the build folder changes; after the first report, print only
+                        what is new, fixed, and unchanged since the previous run. Ctrl-C to stop.
+  --rendered           Run checks that need a browser
+  --network            Run checks that make network requests
+  --timings            Time each stage and check, printed to stderr; the report is unchanged
+  --help, -h           Print this help
+  --version, -v        Print the version
+
+diff:
+  seaworthy diff before.json after.json
+                       Compare two report JSON files from `verify --format json` runs. Prints
+                       one JSON object with the counts and finding lists for what is new, fixed,
+                       and unchanged. Findings match by fingerprint, so the same problem is
+                       unchanged even when it moves to another line.
+
+init:
+  seaworthy init [dir]
+                       Run in dir (default: the current folder), where it detects the site generator from
+                       marker file names only (Jekyll, Astro, Docusaurus, Hugo, or GitHub Pages) and writes:
+                         seaworthy.config.json            root and baseline, per the published config schema
+                         .github/workflows/seaworthy.yml  a build step for the generator, then seaworthy verify
+                         seaworthy-baseline.json          an EMPTY first baseline, so CI fails on new findings only
+                       Non-interactive, offline, and never a write outside dir. A second run says "already
+                       present"; --force overwrites the config and the workflow it owns, but a baseline is
+                       never rewritten, because a baseline records findings you have accepted.
+
+Exit codes:
+  0  no findings at or above --fail-on (verify); the diff completed (diff); all files present (init); the fix preview completed (fix)
+  1  findings at or above --fail-on
+  2  usage error
+  4  a check or the engine crashed
+  130  interrupted with Ctrl-C (verify --watch)
+
+fix (always passes --dry-run):
+  seaworthy fix [dir] --dry-run
+                       Run the checks, then print ONE unified diff of every edit the suggested
+                       fixes would apply to the built output, with paths relative to the site
+                       folder. Seaworthy never writes or edits files: applying the diff with
+                       `git apply` (run from the site folder) is an agent's or a person's move.
+                       Findings whose fixes cannot be turned into safe edits — manual fixes,
+                       edits that need content a person must supply (such as alt text), or
+                       edits whose anchor text no longer matches the file — are listed on
+                       stderr as manual guidance instead. See `seaworthy fix --help`.
+
+Status: pre-alpha. See ROADMAP.md.
