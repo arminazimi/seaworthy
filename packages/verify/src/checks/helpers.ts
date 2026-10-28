@@ -53,6 +53,20 @@ export function textOf(element: HtmlElement): string {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
+const INVISIBLE = new Set(["script", "style", "template", "noscript"]);
+
+/** The words in an element that a person would see, with scripts, styles, and templates left out. */
+export function visibleTextOf(element: HtmlElement): string {
+  const parts: string[] = [];
+  const visit = (node: { nodeName: string; childNodes?: unknown[]; value?: string }): void => {
+    if (INVISIBLE.has(node.nodeName)) return;
+    if (node.nodeName === "#text" && node.value) parts.push(node.value);
+    for (const child of (node.childNodes ?? []) as (typeof node)[]) visit(child);
+  };
+  visit(element as unknown as Parameters<typeof visit>[0]);
+  return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
 export const pagesOf = (ctx: { site: { pages: ReadonlyMap<string, Page> } }): Page[] => [...ctx.site.pages.values()];
 
 // ---- page structure helpers --------------------------------------------------------------------------------

@@ -1,0 +1,6 @@
+{
+  "description": "404.html exists but only redirects with a meta refresh, so it is not a real not-found page.",
+  "findings": [
+    { "check": "quality.not-found-page", "file": "404.html", "line": 3, "column": 1 }
+  ]
+}
