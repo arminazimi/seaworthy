@@ -4,6 +4,7 @@
 
 ### Added
 
+- Every output format now carries ready-to-paste fix prompts: one per finding and one for the whole report, generated from each finding's data alone (check ID, location, fix hint) so they are identical, deterministic, and free of private run state everywhere (#264).
 - `quality.empty-pages` reports pages whose built HTML has no main text — an empty `<main>`, or no text outside the navigation, header, and footer — so an agent that reads it gets only the site frame (#329).
 - `html.nesting` reports content models the parser accepts but browsers mishandle: interactive elements inside interactive ones, block elements inside `<p>`, and nested `<a>` or `<button>`, each at the inner element's exact location with a fix hint (#244).
 - `hosting.headers` and `hosting.redirects` validate the `_headers` and `_redirects` files of Netlify and Cloudflare Pages: malformed lines, splats and placeholders the hosts cannot match, paths and destinations the built site does not serve, dead duplicate rules, and redirects that answer their own address (#325).

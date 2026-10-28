@@ -41,6 +41,7 @@ export function formatPretty(report: Report, paint: Palette = PLAIN): string {
     }
     out.push(`  ${describeLocation(finding).padEnd(8)}${paint[finding.severity](finding.severity.padEnd(8))}${finding.checkId}  ${finding.message}`);
     out.push(`          fix: ${finding.fix.summary}`);
+    if (finding.prompt !== undefined) out.push(`          prompt: ${finding.prompt}`);
   }
   if (report.findings.length > 0) out.push("");
 
@@ -63,6 +64,10 @@ export function formatPretty(report: Report, paint: Palette = PLAIN): string {
   if (readability) out.push(readability);
   const files = new Set(report.findings.map((f) => f.location.file)).size;
   out.push(report.findings.length === 0 ? paint.ok("No findings.") : `${plural(report.findings.length, "finding")} in ${plural(files, "file")}: ${severityCounts(report, paint)}.`);
+  if (report.prompt !== undefined) {
+    out.push("", "Prompt to fix every finding at once (paste it into an agent):");
+    for (const line of report.prompt.split("\n")) out.push(`  ${line}`);
+  }
   return out.join("\n") + "\n";
 }
 
