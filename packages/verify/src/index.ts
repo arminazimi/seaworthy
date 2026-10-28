@@ -30,6 +30,7 @@ export type { ReportInput } from "./report.js";
 export { FORMATS, formatReport } from "./formats/index.js";
 export type { Format, FormatContext } from "./formats/index.js";
 export { formatSarif, toSarif } from "./formats/sarif.js";
+export type { SarifContext } from "./formats/sarif.js";
 export { CONFIG_FILE, ConfigError, loadConfig, parseConfig, resolveChecks } from "./config.js";
 export type { CheckSetting, Config, ConfigSuppression } from "./config.js";
 export { applySuppressions, parseInlineSuppressions } from "./suppress.js";
