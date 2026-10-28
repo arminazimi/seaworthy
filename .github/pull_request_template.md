@@ -8,7 +8,8 @@ Closes #
 
 - [ ] `npm run check` passes
 - [ ] Tests added or updated for observable behavior
-- [ ] No versioned contract changed (report schema, check IDs, config schema), or the spec and changelog are updated
+- [ ] No versioned contract changed (report schema, check IDs, config schema), or the spec is updated
+- [ ] Changelog entry added as a fragment in `changelog.d/` (`CHANGELOG.md` untouched)
 
 Commands run:
 

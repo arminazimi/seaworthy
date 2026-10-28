@@ -21,6 +21,7 @@ export const EPIC_AREAS = {
   "E-foundation": ["area: core", "area: devops"],
   "E-spikes": ["area: core"],
   "E-brand": ["area: brand"],
+  "E-parallel": ["area: devops", "area: dx"],
   "E-verify": ["area: core"],
   "E-checks": ["area: checks"],
   "E-agent-readability": ["area: checks", "area: standards"],

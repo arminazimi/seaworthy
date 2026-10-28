@@ -22,7 +22,7 @@ const REQUIRED_FILES = [
   ".github/workflows/ci.yml",
   ".github/pull_request_template.md",
 ];
-const DOCUMENTED_DIRS = ["skills", "fixtures", "spec", "brand", "docs/adr", "planning/roadmap"];
+const DOCUMENTED_DIRS = ["skills", "fixtures", "spec", "brand", "docs/adr", "planning/roadmap", "changelog.d"];
 
 for (const file of REQUIRED_FILES) {
   if (!existsSync(join(root, file))) errors.push(`missing ${file}`);
