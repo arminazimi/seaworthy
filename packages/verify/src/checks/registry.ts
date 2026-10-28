@@ -3,6 +3,7 @@
 
 import type { Check } from "../types.js";
 import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete, a11yDuplicateId, a11yEmptyHeadings, a11yHiddenFocusable, a11yIframeTitle, a11yLandmarks, a11yLangParts, a11yMediaCaptions, a11yRadioGroups, a11ySkipLink, a11yTabindex, a11yTableHeaders } from "./a11y.js";
+import { a11yAxe } from "./a11y-axe.js";
 import { assetsMissing } from "./assets.js";
 import { headingsH1, headingsOrder } from "./headings.js";
 import { hostingHeaders, hostingRedirects } from "./hosting.js";
@@ -26,6 +27,7 @@ export const builtInChecks: readonly Check[] = [
   a11yAriaReferences,
   a11yAriaRoles,
   a11yAutocomplete,
+  a11yAxe,
   a11yDuplicateId,
   a11yEmptyHeadings,
   a11yHiddenFocusable,

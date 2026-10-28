@@ -24,6 +24,11 @@ export interface CheckMeta {
   readonly standards: readonly string[];
 }
 
+export interface BrowserContext {
+  /** Path of the browser to launch. Default: `SEAWORTHY_BROWSER`, then an installed Chrome, Chromium, or Edge. */
+  readonly path?: string;
+}
+
 export interface CheckContext {
   readonly site: SiteGraph;
   /** Options for this check from the config file. */
@@ -31,10 +36,26 @@ export interface CheckContext {
   readonly signal: AbortSignal;
   /** Set under --changed: site-relative files that changed. Expensive checks may limit themselves to these. */
   readonly changed?: ReadonlySet<string>;
+  /** Set for checks that need a browser, from --browser-path. */
+  readonly browser?: BrowserContext;
+}
+
+/**
+ * Why a check that is enabled cannot run on this machine, for example no browser installed.
+ * Reported under `skipped` with its reason and hint, exactly like a capability the user did not turn on.
+ */
+export interface ProbeSkip {
+  readonly reason: string;
+  readonly hint: string;
 }
 
 export interface Check {
   readonly meta: CheckMeta;
+  /**
+   * Optional pre-flight: when it returns a `ProbeSkip`, the check is skipped instead of run,
+   * so a rendered check on a browser-less machine is reported as skipped, never passed.
+   */
+  readonly probe?: (context: CheckContext) => Promise<ProbeSkip | undefined>;
   run(context: CheckContext): AsyncIterable<FindingDraft> | Iterable<FindingDraft>;
 }
 

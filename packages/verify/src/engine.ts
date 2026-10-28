@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
-import type { Check, CheckError, CheckMeta, Finding, FindingDraft, Needs, Severity, SkippedCheck } from "./types.js";
+import type { Check, CheckContext, CheckError, CheckMeta, Finding, FindingDraft, Needs, ProbeSkip, Severity, SkippedCheck } from "./types.js";
 import type { SiteGraph } from "./site.js";
 
 export interface RunOptions {
@@ -16,6 +16,8 @@ export interface RunOptions {
   options?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /** Overrides each check's default severity, keyed by check ID. */
   severity?: Readonly<Record<string, Severity>>;
+  /** The browser to launch, for checks that render pages. Default: SEAWORTHY_BROWSER, then an installed Chrome, Chromium, or Edge. */
+  browser?: { path?: string };
   signal?: AbortSignal;
   /** Passed to checks as `context.changed`. Findings are not filtered here; the pipeline does that. */
   changed?: ReadonlySet<string>;
@@ -74,6 +76,16 @@ async function collect(drafts: AsyncIterable<FindingDraft> | Iterable<FindingDra
   return out;
 }
 
+function contextFor(check: Check, options: RunOptions): CheckContext {
+  return {
+    site: options.site,
+    options: options.options?.[check.meta.id] ?? {},
+    signal: options.signal ?? new AbortController().signal,
+    ...(options.changed ? { changed: options.changed } : {}),
+    ...(options.browser ? { browser: options.browser } : {}),
+  };
+}
+
 function toFinding(meta: CheckMeta, draft: FindingDraft, severity: Severity): Finding {
   return {
     checkId: meta.id,
@@ -103,14 +115,19 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
   }
 
   const collectTimings = options.timings === true;
-  const signal = options.signal ?? new AbortController().signal;
   const results = await Promise.all(
     runnable.map(async (check) => {
       const startedAt = collectTimings ? performance.now() : 0;
       const ms = (): number => (collectTimings ? performance.now() - startedAt : 0);
+      const ctx = contextFor(check, options);
       try {
+        // A check that cannot run where it was enabled (no browser, say) skips itself before it runs.
+        if (check.probe) {
+          const probe = await check.probe(ctx);
+          if (probe) return { check: check.meta.id, skipped: probe, ms: ms() };
+        }
         const severity = options.severity?.[check.meta.id] ?? check.meta.severity;
-        const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal, ...(options.changed ? { changed: options.changed } : {}) }));
+        const drafts = await collect(check.run(ctx));
         const findings = drafts.map((draft) => toFinding(check.meta, draft, severity));
         options.onCheckFindings?.(check.meta.id, findings);
         return { check: check.meta.id, findings, ms: ms() };
@@ -124,9 +141,10 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
   const errors: CheckError[] = [];
   const timings: CheckTiming[] = [];
   for (const result of results) {
-    if ("error" in result) errors.push(result.error);
+    if ("skipped" in result) skipped.push({ check: result.check, ...result.skipped });
+    else if ("error" in result) errors.push(result.error);
     else findings.push(...result.findings);
-    if (collectTimings) timings.push({ check: result.check, ms: result.ms });
+    if (collectTimings && !("skipped" in result)) timings.push({ check: result.check, ms: result.ms });
   }
   skipped.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
   errors.sort((a, b) => (a.check < b.check ? -1 : a.check > b.check ? 1 : 0));
