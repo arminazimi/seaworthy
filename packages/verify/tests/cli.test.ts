@@ -241,6 +241,70 @@ test("a bad config is a usage error that names the problem", async () => {
   assert.match(missing.stderr, /config file not found: nope\.json/);
 });
 
+test("config check accepts a valid config, named by default, by path, or with --config", async () => {
+  const cwd = makeSite({
+    "seaworthy.config.json": JSON.stringify({
+      failOn: "warning",
+      ignore: ["drafts/**"],
+      checks: { "images.alt": "warning" },
+      suppressions: [{ check: "images.alt", fingerprint: "d6062a0613274944", reason: "decorative" }],
+    }),
+  });
+  const ok = await run(["config", "check"], { cwd });
+  assert.equal(ok.code, EXIT.ok, "nothing runs: no site folder is needed");
+  assert.equal(ok.stdout, "seaworthy: seaworthy.config.json is a valid config (1 check setting, 1 ignore glob, 1 suppression)\n");
+  assert.equal((await run(["config", "check", "seaworthy.config.json"], { cwd })).code, EXIT.ok);
+  assert.equal((await run(["config", "check", "--config", "seaworthy.config.json"], { cwd })).code, EXIT.ok);
+  const inline = await run(["config", "check", "--config=seaworthy.config.json"], { cwd });
+  assert.equal(inline.code, EXIT.ok);
+});
+
+test("config check reports every problem and exits 2", async () => {
+  const cwd = makeSite({ "seaworthy.config.json": JSON.stringify({ failOn: "fatal", chekcs: {} }) });
+  const result = await run(["config", "check"], { cwd, checks: [] });
+  assert.equal(result.code, EXIT.usage);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /^seaworthy: seaworthy\.config\.json has 2 problems:\n/);
+  assert.match(result.stderr, /failOn: got "fatal"; allowed values: error, warning, note, none/);
+  assert.match(result.stderr, /chekcs: unknown key\. Did you mean "checks"\?/);
+});
+
+test("config check: bad JSON is explained, a missing file is an error, and no config found is not one", async () => {
+  const badJson = await run(["config", "check"], { cwd: makeSite({ "seaworthy.config.json": "{ not json" }), checks: [] });
+  assert.equal(badJson.code, EXIT.usage);
+  assert.match(badJson.stderr, /seaworthy\.config\.json is not valid JSON/);
+
+  const missing = await run(["config", "check", "other.json"], { cwd: makeSite({}), checks: [] });
+  assert.equal(missing.code, EXIT.usage);
+  assert.match(missing.stderr, /config file not found: other\.json/);
+
+  const none = await run(["config", "check"], { cwd: makeSite({}), checks: [] });
+  assert.equal(none.code, EXIT.ok, "with no config file, verify runs with defaults, so there is nothing to reject");
+  assert.equal(none.stderr, "");
+  assert.match(none.stdout, /^seaworthy: no config found \(looked for seaworthy\.config\.json\); verify would run with its defaults\n$/);
+});
+
+test("config check argument mistakes are usage errors, and --help prints its own page", async () => {
+  assert.equal((await run(["config"])).code, EXIT.ok, "config alone prints help");
+  assert.match((await run(["config"])).stdout, /Usage:\n {2}seaworthy config check \[file\]/);
+  assert.match((await run(["config", "check", "--help"])).stdout, /Exit codes:/);
+  assert.equal((await run(["config", "frobnicate"])).code, EXIT.usage);
+  assert.equal((await run(["kongfig"])).code, EXIT.usage, "still an unknown command");
+
+  const cwd = makeSite({ "seaworthy.config.json": "{}" });
+  const expectations: [string[], RegExp][] = [
+    [["config", "check", "a.json", "b.json"], /config check takes one file/],
+    [["config", "check", "--bogus"], /unknown option --bogus/],
+    [["config", "check", "--config"], /--config needs a value/],
+    [["config", "check", "seaworthy.config.json", "--config", "seaworthy.config.json"], /give the config file once/],
+  ];
+  for (const [argv, message] of expectations) {
+    const result = await run(argv, { cwd, checks: [] });
+    assert.equal(result.code, EXIT.usage, argv.join(" "));
+    assert.match(result.stderr, message);
+  }
+});
+
 test("adopting with a baseline: record once, then only new findings fail", async () => {
   const cwd = makeSite({ "dist/index.html": IMG, "dist/about.html": IMG });
   const first = await run(["verify", "dist"], { cwd, checks: [imgCheck] });

@@ -6,13 +6,16 @@ const cache = new Map<string, RegExp>();
 export function globToRegExp(glob: string): RegExp {
   const cached = cache.get(glob);
   if (cached) return cached;
+  // Site-relative paths always use forward slashes (site.ts normalizes them), so a glob
+  // written on Windows with backslash separators must match the same paths.
+  const pattern = glob.replace(/\\/g, "/");
   let out = "";
-  for (let i = 0; i < glob.length; i++) {
-    const c = glob[i] as string;
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i] as string;
     if (c === "*") {
-      if (glob[i + 1] === "*") {
+      if (pattern[i + 1] === "*") {
         i++;
-        if (glob[i + 1] === "/") {
+        if (pattern[i + 1] === "/") {
           i++;
           out += "(?:.*/)?";
         } else out += ".*";
