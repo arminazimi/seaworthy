@@ -1,0 +1,17 @@
+seaworthy config check
+
+Validate a config file with the same rules `verify` applies, without running any checks or reading the site.
+
+Usage:
+  seaworthy config check [file]
+
+Arguments:
+  file                 Config file. Default: seaworthy.config.json in the current folder, if present
+
+Options:
+  --config <file>      The config file, as a flag instead of a positional argument
+  --help, -h           Print this help
+
+Exit codes:
+  0  the config is valid; with no config file, checks would run with their defaults
+  2  the file is missing, is not valid JSON, or has problems (every problem is listed)

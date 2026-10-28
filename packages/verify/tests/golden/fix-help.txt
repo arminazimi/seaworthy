@@ -1,0 +1,26 @@
+seaworthy fix
+
+Preview the edits Seaworthy's fix suggestions would make: one unified diff, and no file is touched.
+
+Usage:
+  seaworthy fix [dir] [options]
+
+Arguments:
+  dir                  Built site folder. Default: the first of dist, build, out, public, _site, site that exists.
+
+Options:
+  --dry-run            Print the unified diff of every suggested edit to stdout and change no
+                       files. Running without it is an error: Seaworthy never writes or edits
+                       files, so dry-run is the only mode.
+  --config <file>      Config file. Default: seaworthy.config.json in the current folder, if present
+  --help, -h           Print this help
+
+The diff is standard unified format with a/ and b/ paths relative to the site folder, so piping it to
+`git apply` run from that folder applies it. Findings Seaworthy cannot turn into safe edits — manual
+fixes, edits that need content only a person can supply (such as alt text), and edits whose anchor
+text no longer matches the built file — are listed on stderr as manual guidance instead.
+
+Exit codes:
+  0  the preview completed (the diff may be empty when every fix is manual)
+  2  usage error
+  4  a check or the engine crashed
