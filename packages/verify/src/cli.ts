@@ -58,9 +58,10 @@ Commands:
   fix --dry-run        Preview every suggested edit as one unified diff. See \`seaworthy fix --help\`.
 
 Options:
-  --format <format>    pretty (default), json, markdown, sarif, llm, or prompt.
+  --format <format>    pretty (default), json, markdown, sarif, llm, prompt, or html.
                        prompt: one copy-pasteable prompt that fixes every finding,
                        grouped by file (fewest findings first), to work through in order.
+                       html: one self-contained page for people, with severity, check, and file filters
   --out <file>         Write the report to a file; print a one-line summary instead
   --fail-on <level>    error (default), warning, note, or none. Exit 1 at or above this severity.
   --base <path>        The path the site is deployed under, such as /repo/. Overrides basePath

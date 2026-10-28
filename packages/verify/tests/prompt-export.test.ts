@@ -186,8 +186,8 @@ test("the CLI surfaces are consistent: machine formats byte-identical across run
   assert.equal(once.stdout, again.stdout, "the machine format is byte-identical across runs");
   assert.deepEqual(reportErrors(JSON.parse(once.stdout)), [], "the JSON report still conforms to the report schema");
   assert.ok(!once.stdout.includes("grouped by file"), "the export prompt stays out of the machine format");
-  assert.match((await run(["--help"])).stdout, /json, markdown, sarif, llm, or prompt/);
+  assert.match((await run(["--help"])).stdout, /json, markdown, sarif, llm, prompt, or html/);
   const bad = await run(["verify", "dist", "--format", "xml"]);
   assert.equal(bad.code, EXIT.usage);
-  assert.match(bad.stderr, /use pretty, json, markdown, sarif, llm, prompt/);
+  assert.match(bad.stderr, /use pretty, json, markdown, sarif, llm, prompt, html/);
 });
