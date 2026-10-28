@@ -4,6 +4,7 @@
 
 ### Added
 
+- The CLI colors human output when the stream is an interactive terminal: severity tokens in the pretty report, the `seaworthy:` summary lines, and crash notices get color, `NO_COLOR` turns it off everywhere, and JSON, markdown, SARIF, and report files are never colored (#291).
 - `a11y.iframe-title` reports iframes with missing or blank titles, with source locations and a manual fix hint (#232).
 - `html.obsolete` reports obsolete elements and presentational attributes (`<center>`, `<font>`, `<marquee>`, `align`, `bgcolor`, and similar) with exact source locations and CSS fix hints (#245).
 - `seaworthy verify --timings` prints time per stage and per check to stderr. The report is unchanged, so default output stays deterministic (#216).
