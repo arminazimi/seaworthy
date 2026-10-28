@@ -32,6 +32,43 @@ export const OBSOLETE_ELEMENTS: ReadonlyMap<string, string> = new Map([
   ["xmp", "Use <pre><code> and escape the markup."],
 ]);
 
+// ---- Content-model nesting (html.nesting) ---------------------------------------------------------------------------------
+// These tables describe content models on which the HTML parser and browsers disagree in markup that stays
+// parseable: the parser splices it apart, so the parsed tree does not show what the source says.
+
+/**
+ * Interactive HTML content: element name -> the attribute that makes the element interactive,
+ * or the empty string when it is always interactive (HTML Standard §3.2.6 Interactive content).
+ */
+export const INTERACTIVE_ELEMENTS: ReadonlyMap<string, string> = new Map([
+  ["a", "href"],
+  ["audio", "controls"],
+  ["button", ""],
+  ["embed", ""],
+  ["iframe", ""],
+  ["img", "usemap"],
+  ["input", ""],
+  ["label", ""],
+  ["select", ""],
+  ["textarea", ""],
+  ["video", "controls"],
+]);
+
+/** Elements whose content model forbids interactive content descendants. */
+export const NO_INTERACTIVE_DESCENDANTS: ReadonlySet<string> = new Set(["a", "button", "label"]);
+
+/** Form controls a label may label; the first labelable descendant is the control when `for` is absent. */
+export const LABELABLE: ReadonlySet<string> = new Set(["button", "input", "meter", "output", "progress", "select", "textarea"]);
+
+/** Elements `<p>` cannot contain: before each of these start tags the HTML parser closes an open `<p>`. */
+export const BLOCK_OUT_OF_P: ReadonlySet<string> = new Set([
+  "address", "article", "aside", "blockquote", "center", "dd", "details", "dialog", "dir", "div", "dl", "dt",
+  "fieldset", "figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hgroup",
+  "hr", "li", "main", "menu", "nav", "ol", "p", "pre", "section", "summary", "table", "ul",
+]);
+
+// ---- obsolete attributes --------------------------------------------------------------------------------------------------
+
 export interface ObsoleteAttribute {
   /** Elements the attribute is obsolete on, or "all" when it is obsolete on every element. */
   readonly elements: ReadonlySet<string> | "all";
