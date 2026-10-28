@@ -1,35 +1,8 @@
-import { PLAIN, type Palette } from "../color.js";
-import { reportToJson } from "../report.js";
-import type { Report } from "../types.js";
-import { formatHtml } from "./html.js";
-import { formatLlm } from "./llm.js";
-import { formatMarkdown } from "./markdown.js";
-import { formatPretty } from "./pretty.js";
-import { formatPrompt } from "./prompt.js";
-import { type SarifContext, formatSarif } from "./sarif.js";
+// Public surface for output formats. The wiring lives in the generated registry:
+// each format module in this folder exports one `render`, and `node tools/gen-registries.mjs`
+// regenerates registry.ts (the FORMATS tuple and the formatReport switch). To add a format,
+// create formats/<id>.ts exporting `render`, run `npm run build`, then the generator.
 
-export const FORMATS = ["pretty", "json", "markdown", "sarif", "llm", "prompt", "html"] as const;
-export type Format = (typeof FORMATS)[number];
-
-export type FormatContext = SarifContext;
-
-export { formatHtml } from "./html.js";
-
-export function formatReport(report: Report, format: Format, context: FormatContext = {}, paint: Palette = PLAIN): string {
-  switch (format) {
-    case "json":
-      return reportToJson(report);
-    case "markdown":
-      return formatMarkdown(report);
-    case "pretty":
-      return formatPretty(report, paint);
-    case "prompt":
-      return formatPrompt(report);
-    case "sarif":
-      return formatSarif(report, context);
-    case "llm":
-      return formatLlm(report);
-    case "html":
-      return formatHtml(report);
-  }
-}
+export { FORMATS, formatReport } from "./registry.js";
+export type { Format } from "./registry.js";
+export type { FormatContext } from "./base.js";

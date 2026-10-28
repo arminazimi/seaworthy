@@ -4,6 +4,7 @@
 
 import { PLAIN, type Palette } from "../color.js";
 import type { Finding, Report, Severity } from "../types.js";
+import type { Formatter } from "./base.js";
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -71,5 +72,7 @@ export function formatPretty(report: Report, paint: Palette = PLAIN): string {
   }
   return out.join("\n") + "\n";
 }
+
+export const render: Formatter = (report, _context, paint) => formatPretty(report, paint);
 
 export const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warning: 1, note: 2 };

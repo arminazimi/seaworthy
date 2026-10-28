@@ -189,5 +189,5 @@ test("the CLI surfaces are consistent: machine formats byte-identical across run
   assert.match((await run(["--help"])).stdout, /json, markdown, sarif, llm, prompt, or html/);
   const bad = await run(["verify", "dist", "--format", "xml"]);
   assert.equal(bad.code, EXIT.usage);
-  assert.match(bad.stderr, /use pretty, json, markdown, sarif, llm, prompt, html/);
+  assert.match(bad.stderr, /use html, json, llm, markdown, pretty, prompt, sarif/);
 });

@@ -6,6 +6,7 @@
 // escaped before it enters the markup (see the attacker-fixture test).
 
 import { SEVERITIES, type Finding, type Report, type Severity } from "../types.js";
+import type { Formatter } from "./base.js";
 import { describeLocation, readabilityLine } from "./pretty.js";
 
 const escapeHtml = (text: string): string =>
@@ -220,3 +221,5 @@ export function formatHtml(report: Report): string {
     `</html>`,
   ]).join("") + "\n";
 }
+
+export const render: Formatter = (report) => formatHtml(report);

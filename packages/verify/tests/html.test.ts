@@ -190,7 +190,7 @@ test("a malicious check title stays text in the group heading", async () => {
 
 test("adding html leaves the machine-readable formats' wiring untouched", async () => {
   const report = await sample();
-  assert.deepEqual([...FORMATS], ["pretty", "json", "markdown", "sarif", "llm", "prompt", "html"]);
+  assert.deepEqual([...FORMATS], ["html", "json", "llm", "markdown", "pretty", "prompt", "sarif"]);
   assert.equal(formatReport(report, "json"), reportToJson(report));
   assert.equal(formatReport(report, "markdown"), formatMarkdown(report));
   assert.equal(formatReport(report, "sarif"), formatSarif(report, {}));
