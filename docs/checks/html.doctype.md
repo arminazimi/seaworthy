@@ -1,0 +1,46 @@
+# html.doctype
+
+A page has no doctype a browser can act on, or its doctype is a legacy one.
+
+## Why it matters
+
+The doctype is what tells a browser to render in standards mode. Without it, or with a doctype the browser ignores, the page renders in quirks mode: boxes are sized differently, tables inherit font styles, and every CSS rule that depends on the difference can look wrong. A page that was rendered in a browser and looked fine can be laid out differently for the next developer.
+
+## What it checks
+
+The page must start with the one doctype the HTML Standard defines, in any letter case:
+
+```html
+<!doctype html>
+```
+
+A byte order mark, whitespace, comments, and bogus comments such as `<?xml ...?>` may come first: a browser then still sees the doctype and renders in standards mode. The legacy-compat form `<!DOCTYPE html SYSTEM "about:legacy-compat">` also passes.
+
+The check reports three cases:
+
+- The page has no doctype before its first element: either there is none, or text or an element comes first and a browser ignores or never reaches the doctype. Severity: `warning`.
+- The doctype names some other document type than `html`, so browsers render the page in quirks mode. Severity: `warning`.
+- The doctype names `html` but carries a legacy public or system identifier, such as an HTML 4.01 or XHTML doctype. Browsers may render such documents in quirks or limited-quirks mode. Severity: `note`.
+
+## How to fix
+
+```html
+<!-- before -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+
+<!-- after -->
+<!doctype html>
+<html lang="en">
+```
+
+Replace the legacy or unknown doctype with `<!doctype html>`, or add it as the first line of the document when it is missing. In a template or layout, put it at the very top of the outermost partial, before any element or text. The report suggests the exact replacement when the doctype is on one line, and an insertion before `<html>` otherwise.
+
+## Options
+
+None. Default severity: `warning` (the legacy-doctype case reports at `note`).
+
+## Standards
+
+- [HTML Standard: the DOCTYPE](https://html.spec.whatwg.org/multipage/syntax.html#the-doctype)
+- [HTML Standard: document metadata — DOCTYPE quirk detection](https://html.spec.whatwg.org/multipage/parsing.html#the-initial-insertion-mode)

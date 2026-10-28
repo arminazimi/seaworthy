@@ -1,0 +1,11 @@
+{
+  "description": "A sitemap index lists a sitemap that lists two linked pages; draft.html has no inbound link at all, 404.html is unlinked but exempt.",
+  "findings": [
+    {
+      "check": "quality.orphans",
+      "file": "draft.html",
+      "line": 3,
+      "column": 1
+    }
+  ]
+}

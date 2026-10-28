@@ -1,0 +1,12 @@
+{
+  "description": "Valid blocks and a redirect to / pass, alongside the broken ones: a _headers line that is neither a path nor a header, a path the build has no file for, a splat and a placeholder in one segment; a redirect with a status but no destination, a repeated source (the first match wins), a rule that answers its own address, and a one-token line.",
+  "findings": [
+    { "check": "hosting.headers", "file": "_headers", "line": 5, "column": 1 },
+    { "check": "hosting.headers", "file": "_headers", "line": 7, "column": 1 },
+    { "check": "hosting.headers", "file": "_headers", "line": 10, "column": 1 },
+    { "check": "hosting.redirects", "file": "_redirects", "line": 4, "column": 1 },
+    { "check": "hosting.redirects", "file": "_redirects", "line": 6, "column": 1 },
+    { "check": "hosting.redirects", "file": "_redirects", "line": 7, "column": 1 },
+    { "check": "hosting.redirects", "file": "_redirects", "line": 8, "column": 1 }
+  ]
+}

@@ -29,6 +29,39 @@ function servedByThisSite(site: SiteGraph, url: string): boolean {
   return target.kind === "internal" && target.file !== undefined;
 }
 
+/**
+ * The files of every page listed in sitemap.xml and, through a sitemap index, in its child sitemaps.
+ * Shared with quality.orphans: a page the sitemap names is published on purpose and is not an orphan.
+ */
+export function sitemapListedFiles(site: SiteGraph): ReadonlySet<string> {
+  const listed = new Set<string>();
+  const visited = new Set<string>();
+  const queue = ["/sitemap.xml"];
+  while (queue.length > 0) {
+    const path = queue.shift() as string;
+    if (visited.has(path)) continue;
+    visited.add(path);
+    const text = textOf(site, path);
+    if (text === undefined) continue;
+    const isIndex = /<sitemapindex[\s>]/.test(text);
+    for (const match of text.matchAll(/<loc>\s*([\s\S]*?)\s*<\/loc>/g)) {
+      const url = decodeXml(match[1] ?? "").trim();
+      if (!/^https?:\/\//i.test(url)) continue;
+      let parsed: URL;
+      try {
+        parsed = new URL(url);
+      } catch {
+        continue;
+      }
+      const target = site.resolveLink("/", `${parsed.pathname}${parsed.search}`);
+      if (target.kind !== "internal" || target.file === undefined) continue;
+      if (isIndex) queue.push(target.path); // the entry is another sitemap
+      else if (site.pages.has(target.file)) listed.add(target.file);
+    }
+  }
+  return listed;
+}
+
 export const sitemapEntries = check(meta("sitemap.entries", "Sitemap lists a page that is not in the built site", "error"), (ctx) => {
   const out: FindingDraft[] = [];
   const visited = new Set<string>();

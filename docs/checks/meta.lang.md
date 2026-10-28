@@ -8,7 +8,7 @@ Screen readers pick their voice and pronunciation from the page language; browse
 
 ## What it checks
 
-`<html lang="...">` must be present and look like a language code: two or three letters, optionally followed by subtags (`en`, `fa`, `pt-BR`, `zh-Hant`). Redirect stubs are skipped.
+`<html lang="...">` must be present and look like a language code: two or three letters, optionally followed by subtags (`en`, `fa`, `pt-BR`, `zh-Hant`). Redirect stubs (`html.meta-refresh`) are skipped.
 
 ## How to fix
 

@@ -5,12 +5,13 @@ import { a11yAriaAttributes, a11yAriaReferences, a11yAriaRoles, a11yAutocomplete
 import { assetsMissing } from "./assets.js";
 import { linksExternal } from "./external.js";
 import { headingsH1, headingsOrder } from "./headings.js";
-import { htmlCharset, htmlObsolete } from "./html.js";
+import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlNesting, htmlObsolete, htmlParseErrors } from "./html.js";
+import { hostingHeaders, hostingRedirects } from "./hosting.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
-import { htmlMetaRefresh, metaCanonical, metaDescription, metaLang, metaTitle, metaViewport } from "./meta.js";
+import { htmlMetaRefresh, metaCanonical, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
-import { qualityEmptyPages } from "./quality.js";
+import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans } from "./quality.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
@@ -35,9 +36,15 @@ export const builtInChecks: readonly Check[] = [
   assetsMissing,
   headingsH1,
   headingsOrder,
+  hostingHeaders,
+  hostingRedirects,
   htmlCharset,
+  htmlInlineHandlers,
+  htmlDoctype,
   htmlMetaRefresh,
+  htmlNesting,
   htmlObsolete,
+  htmlParseErrors,
   imagesAlt,
   imagesDimensions,
   imagesSize,
@@ -46,6 +53,8 @@ export const builtInChecks: readonly Check[] = [
   linksInternal,
   metaCanonical,
   metaDescription,
+  metaDuplicateDescription,
+  metaDuplicateTitles,
   metaLang,
   metaTitle,
   metaViewport,
@@ -53,6 +62,8 @@ export const builtInChecks: readonly Check[] = [
   namesLabel,
   namesLink,
   qualityEmptyPages,
+  qualityNotFoundPage,
+  qualityOrphans,
   readabilityA2aCard,
   readabilityAgentSkills,
   readabilityAiRobots,

@@ -14,7 +14,7 @@ Requires Node.js 22 or newer.
 
 ```bash
 npm ci              # install
-npm run check       # build, tests, roadmap validation, layout and brand checks — must pass before every PR
+npm run check       # build, tests, the CLI startup budget, roadmap validation, layout and brand checks — must pass before every PR
 npm test            # tests only
 npm run roadmap:build   # regenerate the issue preview from ROADMAP.md
 npm run build:brand     # regenerate brand SVGs after editing brand/tokens.json or tools/brand/
