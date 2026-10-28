@@ -8,7 +8,7 @@ The title is what a browser tab, a search result, a bookmark, and a screen reade
 
 ## What it checks
 
-Every page needs a non-empty `<title>`. Pages that only redirect (`<meta http-equiv="refresh">`) are skipped.
+Every page needs a non-empty `<title>`. Redirect stubs (`html.meta-refresh`) are skipped.
 
 ## How to fix
 

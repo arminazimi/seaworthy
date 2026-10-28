@@ -8,7 +8,7 @@ The `h1` names the page. Screen reader users jump to it to find the start of the
 
 ## What it checks
 
-Visible `h1` elements per page must be exactly one. Headings with `hidden` or `aria-hidden="true"` are not counted. Redirect stubs are skipped.
+Visible `h1` elements per page must be exactly one. Headings with `hidden` or `aria-hidden="true"` are not counted. Redirect stubs (`html.meta-refresh`) are skipped.
 
 ## How to fix
 

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Broken markup</title>
+</head>
+<body>
+  <main>
+    <div id="ad" id="anchor">Two id attributes on one element.</div>
+    <div>The first div closes itself. The second does not, so everything below is inside it.
+      <p>A paragraph is fine, and a stray end tag closes nothing:</p>
+      <img src="/logo.png" alt="Seaworthy"></img>
+    <script>
+      var notMarkup = "</div> after a </main> in a script is text.";
+    </script>
+    <!-- </div> in a comment is text.
+    </main> -->
+    <a title="</div> after </main> in an attribute">an attribute value is not markup</a>
+  </main>
+</body>
+</html>

@@ -14,7 +14,7 @@ A page is reported when all of these hold:
 - the page loads at least one script (JSON data blocks such as JSON-LD are not scripts here); and
 - one of: an application root (`#root`, `#app`, `#__next`, `#__nuxt`, `#svelte`, `#q-app`, `#outlet`, `#main-app`) with no text and no image or media inside; a `<noscript>` that tells people to enable JavaScript; or a body with nothing in it but scripts and metadata.
 
-Short pages without scripts, pages with little text but real content such as an image, a canvas, or a note, and redirect pages are not reported. The check reads the built file and does not run it. It is a warning, never an error.
+Short pages without scripts, pages with little text but real content such as an image, a canvas, or a note, and redirect stubs (`html.meta-refresh`) are not reported. The check reads the built file and does not run it. It is a warning, never an error.
 
 ## How to fix
 

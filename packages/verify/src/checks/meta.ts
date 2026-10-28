@@ -1,39 +1,10 @@
 // meta.*: the document-level tags every page needs: title, description, language, viewport, canonical URL.
 
-import { attr } from "../site.js";
+import { type HtmlElement, type Page, type SiteGraph, attr } from "../site.js";
 import type { FindingDraft } from "../types.js";
-import type { Page, SiteGraph } from "../site.js";
-import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, replaceEdit, textOf } from "./helpers.js";
+import { check, documentLocation, firstElement, insertInHead, isRedirectStub, locate, meta, metaTags, pagesOf, refreshOf, replaceEdit, textOf } from "./helpers.js";
 
 const LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
-
-// The HTML refresh algorithm: digits, then an optional `;`, `,`, or whitespace separator, then an optional URL.
-// `url=` before the URL is only required for conforming markup; without it the whole remainder is the URL.
-const ASCII_WHITESPACE = /^[\t\n\f\r ]+/;
-
-/** The delay in seconds from a refresh content value a browser would act on, with its optional URL. */
-function refreshOf(content: string): { delay: number; url: string } | undefined {
-  const input = content.replace(ASCII_WHITESPACE, "");
-  const digits = /^\d+/.exec(input);
-  if (!digits) return undefined;
-  const delay = Number(digits[0]);
-  let rest = input.slice(digits[0].length);
-
-  if (rest !== "") {
-    const first = rest[0];
-    if (first === ";" || first === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
-    else if (ASCII_WHITESPACE.test(rest)) {
-      rest = rest.replace(ASCII_WHITESPACE, "");
-      if (rest[0] === ";" || rest[0] === ",") rest = rest.slice(1).replace(ASCII_WHITESPACE, "");
-    } else return undefined;
-  }
-
-  let url = rest.replace(/[\t\n\f\r ]+$/, "").replace(/^url[\t\n\f\r ]*=/i, "").replace(ASCII_WHITESPACE, "");
-  if ((url.startsWith("'") && url.endsWith("'")) || (url.startsWith('"') && url.endsWith('"'))) url = url.slice(1, -1);
-  url = url.replace(ASCII_WHITESPACE, "").replace(/[\t\n\f\r ]+$/, "");
-  if (/^javascript:/i.test(url)) return undefined;
-  return { delay, url };
-}
 
 export const metaTitle = check(meta("meta.title", "Page has no title", "error", ["WCAG 2.4.2"]), (ctx) => {
   const out: FindingDraft[] = [];
@@ -52,6 +23,37 @@ export const metaTitle = check(meta("meta.title", "Page has no title", "error", 
   return out;
 });
 
+// The same title on several pages: grouped across the site, so a template that repeats one title
+// reports once, not once per page.
+const DUPLICATE_TITLE_PAGE_CAP = 5;
+
+export const metaDuplicateTitles = check(meta("meta.duplicate-titles", "The same title on several pages", "warning"), (ctx) => {
+  const byTitle = new Map<string, Page[]>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const title = firstElement(page, "title");
+    const text = title ? textOf(title) : "";
+    // Missing and empty titles are meta.title findings; only pages that have a title can duplicate one.
+    if (title === undefined || text === "") continue;
+    byTitle.set(text, [...(byTitle.get(text) ?? []), page]);
+  }
+  const out: FindingDraft[] = [];
+  for (const [title, pages] of [...byTitle].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    if (pages.length < 2) continue;
+    const sorted = pages.slice().sort((a, b) => (a.url < b.url ? -1 : 1));
+    const listed = sorted.slice(0, DUPLICATE_TITLE_PAGE_CAP).map((p) => p.url);
+    const rest = sorted.length - listed.length;
+    const list = `${listed.join(", ")}${rest > 0 ? `, and ${rest} more` : ""}`;
+    out.push({
+      message: `The title "${title}" appears on ${sorted.length} pages (${list}); every page should have a title that says what it is.`,
+      location: documentLocation(sorted[0] as Page),
+      fix: { kind: "manual", summary: "Give each page a title of its own: the page's name first, then the site name, for example \"Install the CLI | Seaworthy\". Titles usually come from the layout or front matter that produces the page; the same title on every page often means a missing page name there.", edits: [] },
+      key: title,
+    });
+  }
+  return out;
+});
+
 export const metaDescription = check(meta("meta.description", "Page has no meta description", "warning"), (ctx) => {
   const out: FindingDraft[] = [];
   for (const page of pagesOf(ctx)) {
@@ -64,6 +66,48 @@ export const metaDescription = check(meta("meta.description", "Page has no meta 
       location: tag ? locate(page, tag.element) : documentLocation(page),
       fix: { kind: edit ? "edit" : "manual", summary: "Add a one-sentence description. Search engines and link previews show it.", edits: edit ? [edit] : [] },
       key: "description",
+    });
+  }
+  return out;
+});
+
+/** Pages listed in one finding, so a site with one description everywhere stays one line. */
+const MAX_GROUP_PAGES = 5;
+/** The description quoted in the message, so an accidental paragraph does not swallow the report. */
+const MAX_DESCRIPTION_CHARS = 80;
+
+/** Comma-plus-`and` list; when more than `max` pages, the list is capped and the rest are counted. */
+function pageList(urls: string[], max: number): string {
+  const extra = urls.length - max;
+  if (extra > 0) return `${urls.slice(0, max).join(", ")}, and ${extra} more`;
+  const shown = urls.length > 1 ? `${urls.slice(0, -1).join(", ")} and ${urls[urls.length - 1] as string}` : (urls[0] as string);
+  return shown;
+}
+
+export const metaDuplicateDescription = check(meta("meta.duplicate-description", "Pages share the same meta description", "warning"), (ctx) => {
+  // Group by the description with whitespace collapsed: spacing does not make two descriptions different.
+  const groups = new Map<string, Page[]>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const tag = metaTags(page).get("description");
+    if (!tag || tag.content === "") continue;
+    const description = tag.content.replace(/\s+/g, " ").trim();
+    const group = groups.get(description);
+    if (group) group.push(page);
+    else groups.set(description, [page]);
+  }
+  const out: FindingDraft[] = [];
+  for (const [description, group] of groups) {
+    if (group.length < 2) continue;
+    // Pages arrive in sorted file order, so the first page is the one the report lists the finding under.
+    const first = group[0]!;
+    const tag = metaTags(first).get("description")!;
+    const quoted = description.length > MAX_DESCRIPTION_CHARS ? `${description.slice(0, MAX_DESCRIPTION_CHARS)}…` : description;
+    out.push({
+      message: `The meta description "${quoted}" is the same on ${group.length} pages: ${pageList(group.map((page) => page.url), MAX_GROUP_PAGES)}. Search engines show the same preview for all of them.`,
+      location: locate(first, tag.element, "content"),
+      fix: { kind: "manual", summary: "Write a one-sentence description that says what each page is about, in its <meta name=\"description\">. Reusing one text gives every page the same search-result preview.", edits: [] },
+      key: description,
     });
   }
   return out;
@@ -163,6 +207,104 @@ export const htmlMetaRefresh = check(meta("html.meta-refresh", "Page moves itsel
         key: `refresh:${content.trim()}`,
       });
     }
+  }
+  return out;
+});
+
+// The first canonical link on a page is the one that applies (HTML canonical rule).
+interface Canonical {
+  link: HtmlElement;
+  href: string;
+}
+
+function canonicalOf(page: Page): Canonical | undefined {
+  const link = page.elements.find((e) => e.tagName === "link" && (attr(e, "rel") ?? "").toLowerCase().split(/\s+/).includes("canonical"));
+  if (!link) return undefined;
+  return { link, href: (attr(link, "href") ?? "").trim() };
+}
+
+/** The root-relative URL path a canonical link names, resolved the way a static host serves it; undefined when it names nothing this site graph can check. */
+function canonicalTargetOf(site: SiteGraph, page: Page, href: string): { path: string; file: string | undefined } | undefined {
+  // An absolute canonical names another deployment, whose origin cannot be verified offline; only its path can.
+  let path: string | undefined = href;
+  if (/^https?:\/\//i.test(href)) {
+    try {
+      path = new URL(href).pathname;
+    } catch {
+      return undefined;
+    }
+  }
+  if (path === undefined || path === "") return undefined;
+  // resolveLink strips the configured base path the way links.internal does, for both absolute and relative paths.
+  const target = site.resolveLink(page.url, path);
+  if (target.kind !== "internal") return undefined;
+  return { path: target.path, file: target.file };
+}
+
+const FIX_CANONICAL = "Point the canonical at the full public URL of the page's content: its own URL, unless this page is a duplicate of another, in which case use that page's URL.";
+
+const FIX_CYCLE = "Point each page's canonical at the one real address of the content — usually the page's own URL — so the chain ends at a page instead of at another canonical.";
+
+export const metaCanonicalTarget = check(meta("meta.canonical-target", "Canonical link points at a page that does not exist", "warning"), (ctx) => {
+  const out: FindingDraft[] = [];
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const canonical = canonicalOf(page);
+    if (!canonical) continue;
+    const target = canonicalTargetOf(ctx.site, page, canonical.href);
+    // The canonical names a page in the built site; an address that resolves to no page cannot be canonicalized.
+    if (target === undefined || (target.file !== undefined && ctx.site.pages.has(target.file))) continue;
+    out.push({
+      message: `The canonical link ${canonical.href} points at ${target.path}, which is not a page in the built site.`,
+      location: locate(page, canonical.link, "href"),
+      fix: { kind: "manual", summary: FIX_CANONICAL, edits: [] },
+      key: canonical.href,
+    });
+  }
+  return out;
+});
+
+export const metaCanonicalCycle = check(meta("meta.canonical-cycle", "Canonical links point at each other in a circle", "warning"), (ctx) => {
+  const out: FindingDraft[] = [];
+  const edges = new Map<string, { page: Page; link: HtmlElement; href: string; target: string }>();
+  for (const page of pagesOf(ctx)) {
+    if (isRedirectStub(page)) continue;
+    const canonical = canonicalOf(page);
+    if (!canonical) continue;
+    const target = canonicalTargetOf(ctx.site, page, canonical.href);
+    if (target === undefined || target.file === undefined || !ctx.site.pages.has(target.file)) continue;
+    edges.set(page.url, { page, link: canonical.link, href: canonical.href, target: target.file });
+  }
+
+  // Follow every canonical chain once (pages sorted, so runs are deterministic). A cycle is found where a
+  // walk re-enters the chain it is walking; each member of a circle is named once, on its own canonical link.
+  const color = new Map<string, "walking" | "done">();
+  for (const start of [...ctx.site.pages.keys()].sort()) {
+    if (color.has(start) || !edges.has(start)) continue;
+    const chain: string[] = [];
+    let node: string | undefined = start;
+    while (node !== undefined && !color.has(node)) {
+      color.set(node, "walking");
+      chain.push(node);
+      node = edges.get(node)?.target; // a page without a canonical ends the chain
+    }
+    if (node !== undefined && color.get(node) === "walking") {
+      const circle = chain.slice(chain.indexOf(node!));
+      if (circle.length > 1) {
+        // A page whose canonical points at itself is a normal self-canonical, not a circle.
+        const loop = [...circle, node!].join(" → ");
+        for (const member of circle) {
+          const edge = edges.get(member)!;
+          out.push({
+            message: `The canonical link ${edge.href} helps form a circle of canonical links (${loop}), so none of these pages has a canonical URL search engines can use.`,
+            location: locate(edge.page, edge.link, "href"),
+            fix: { kind: "manual", summary: FIX_CYCLE, edits: [] },
+            key: `circle:${loop}`,
+          });
+        }
+      }
+    }
+    for (const walked of chain) color.set(walked, "done");
   }
   return out;
 });

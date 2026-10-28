@@ -1,0 +1,41 @@
+{
+  "description": "One canonical points at a page the site never builds, a two-page circle and a three-page circle of canonical links, while self-canonical and canonical-to-original pages are fine.",
+  "findings": [
+    {
+      "check": "meta.canonical-target",
+      "file": "index.html",
+      "line": 4,
+      "column": 23
+    },
+    {
+      "check": "meta.canonical-cycle",
+      "file": "one.html",
+      "line": 4,
+      "column": 23
+    },
+    {
+      "check": "meta.canonical-cycle",
+      "file": "three-a.html",
+      "line": 4,
+      "column": 23
+    },
+    {
+      "check": "meta.canonical-cycle",
+      "file": "three-b.html",
+      "line": 4,
+      "column": 23
+    },
+    {
+      "check": "meta.canonical-cycle",
+      "file": "three-c.html",
+      "line": 4,
+      "column": 23
+    },
+    {
+      "check": "meta.canonical-cycle",
+      "file": "two.html",
+      "line": 4,
+      "column": 23
+    }
+  ]
+}
