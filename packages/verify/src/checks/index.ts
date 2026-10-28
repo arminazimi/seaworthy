@@ -10,6 +10,7 @@ import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { htmlMetaRefresh, metaCanonical, metaDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
+import { qualityOrphans } from "./quality.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
@@ -52,6 +53,7 @@ export const builtInChecks: readonly Check[] = [
   namesButton,
   namesLabel,
   namesLink,
+  qualityOrphans,
   readabilityA2aCard,
   readabilityAgentSkills,
   readabilityAiRobots,
