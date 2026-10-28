@@ -4,6 +4,7 @@
 
 ### Added
 
+- `npm run check:startup` gates `seaworthy --version` at the 150 ms startup budget from ADR 0004: one warm-up, five timed runs judged on the best run, with settle-delayed retry passes (up to 15 runs) so a loaded CI runner does not flakily fail (#299).
 - `a11y.iframe-title` reports iframes with missing or blank titles, with source locations and a manual fix hint (#232).
 - `html.obsolete` reports obsolete elements and presentational attributes (`<center>`, `<font>`, `<marquee>`, `align`, `bgcolor`, and similar) with exact source locations and CSS fix hints (#245).
 - `seaworthy verify --timings` prints time per stage and per check to stderr. The report is unchanged, so default output stays deterministic (#216).
