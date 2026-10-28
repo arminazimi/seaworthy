@@ -1,0 +1,12 @@
+{
+  "description": "Inline handlers (onclick, onmouseover, oncopy with an empty value, document-argument code) and javascript: URLs in a href, form action, formaction (upper case) and iframe src, each at the attribute's exact position. Ordinary links without handlers stay quiet.",
+  "findings": [
+    { "check": "html.inline-handlers", "file": "index.html", "line": 8, "column": 25 },
+    { "check": "html.inline-handlers", "file": "index.html", "line": 9, "column": 8 },
+    { "check": "html.inline-handlers", "file": "index.html", "line": 10, "column": 6 },
+    { "check": "html.inline-handlers", "file": "index.html", "line": 11, "column": 9 },
+    { "check": "html.inline-handlers", "file": "index.html", "line": 12, "column": 24 },
+    { "check": "html.inline-handlers", "file": "index.html", "line": 13, "column": 11 },
+    { "check": "html.inline-handlers", "file": "index.html", "line": 14, "column": 14 }
+  ]
+}
