@@ -8,12 +8,13 @@ import { render as renderHtml } from "./html.js";
 import { render as renderJson } from "./json.js";
 import { render as renderLlm } from "./llm.js";
 import { render as renderMarkdown } from "./markdown.js";
+import { render as renderNdjson } from "./ndjson.js";
 import { render as renderPretty } from "./pretty.js";
 import { render as renderPrompt } from "./prompt.js";
 import { render as renderSarif } from "./sarif.js";
 
 /** Every output format, sorted by format ID so the order never depends on the filesystem. */
-export const FORMATS = ["html", "json", "llm", "markdown", "pretty", "prompt", "sarif"] as const;
+export const FORMATS = ["html", "json", "llm", "markdown", "ndjson", "pretty", "prompt", "sarif"] as const;
 export type Format = (typeof FORMATS)[number];
 
 export function formatReport(report: Report, format: Format, context: FormatContext = {}, paint: Palette = PLAIN): string {
@@ -26,6 +27,8 @@ export function formatReport(report: Report, format: Format, context: FormatCont
       return renderLlm(report, context, paint);
     case "markdown":
       return renderMarkdown(report, context, paint);
+    case "ndjson":
+      return renderNdjson(report, context, paint);
     case "pretty":
       return renderPretty(report, context, paint);
     case "prompt":

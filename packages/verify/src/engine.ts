@@ -21,6 +21,12 @@ export interface RunOptions {
   changed?: ReadonlySet<string>;
   /** Collect wall time per check in `RunResult.timings`. Off by default; timings never reach the report. */
   timings?: boolean;
+  /**
+   * Called with one check's findings the moment that check finishes, in completion order.
+   * Reporting only: the returned arrays are unchanged, so consumers that do not pass this
+   * see the exact same run.
+   */
+  onCheckFindings?: (checkId: string, findings: readonly Finding[]) => void;
 }
 
 /** Wall time of one check, in milliseconds. Checks run in parallel, so these overlap. */
@@ -105,7 +111,9 @@ export async function runChecks(options: RunOptions): Promise<RunResult> {
       try {
         const severity = options.severity?.[check.meta.id] ?? check.meta.severity;
         const drafts = await collect(check.run({ site, options: options.options?.[check.meta.id] ?? {}, signal, ...(options.changed ? { changed: options.changed } : {}) }));
-        return { check: check.meta.id, findings: drafts.map((draft) => toFinding(check.meta, draft, severity)), ms: ms() };
+        const findings = drafts.map((draft) => toFinding(check.meta, draft, severity));
+        options.onCheckFindings?.(check.meta.id, findings);
+        return { check: check.meta.id, findings, ms: ms() };
       } catch (error) {
         return { check: check.meta.id, error: { check: check.meta.id, message: error instanceof Error ? error.message : String(error) }, ms: ms() };
       }
