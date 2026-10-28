@@ -8,7 +8,7 @@ import { headingsH1, headingsOrder } from "./headings.js";
 import { htmlCharset, htmlDoctype, htmlObsolete } from "./html.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
-import { htmlMetaRefresh, metaCanonical, metaDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
+import { htmlMetaRefresh, metaCanonical, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityOrphans } from "./quality.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
@@ -47,6 +47,7 @@ export const builtInChecks: readonly Check[] = [
   linksInternal,
   metaCanonical,
   metaDescription,
+  metaDuplicateDescription,
   metaDuplicateTitles,
   metaLang,
   metaTitle,
