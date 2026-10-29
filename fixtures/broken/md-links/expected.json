@@ -1,0 +1,7 @@
+{
+  "description": "A link to a renamed file that the graph can repair by basename, and a link to a file that was never written. A resolvable link, an external link, a mailto link, and a fragment-only link are all fine.",
+  "findings": [
+    { "check": "md.links", "file": "notes.md", "line": 5 },
+    { "check": "md.links", "file": "notes.md", "line": 7 }
+  ]
+}

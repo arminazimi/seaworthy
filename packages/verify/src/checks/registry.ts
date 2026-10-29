@@ -13,6 +13,7 @@ import { i18nHreflang } from "./i18n.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
+import { mdLinks } from "./md-links.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans, qualityPageWeight } from "./quality.js";
 import { qualityFontCount } from "./font-count.js";
@@ -60,6 +61,7 @@ export const builtInChecks: readonly Check[] = [
   linksBaseUrl,
   linksExternal,
   linksInternal,
+  mdLinks,
   metaCanonical,
   metaCanonicalCycle,
   metaCanonicalTarget,
