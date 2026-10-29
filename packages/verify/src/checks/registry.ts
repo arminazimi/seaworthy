@@ -15,6 +15,7 @@ import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans, qualityPageWeight } from "./quality.js";
+import { qualityFontCount } from "./font-count.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { rtlBidi } from "./rtl.js";
@@ -72,6 +73,7 @@ export const builtInChecks: readonly Check[] = [
   namesLabel,
   namesLink,
   qualityEmptyPages,
+  qualityFontCount,
   qualityNotFoundPage,
   qualityOrphans,
   qualityPageWeight,

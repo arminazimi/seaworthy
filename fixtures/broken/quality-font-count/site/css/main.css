@@ -1,0 +1,11 @@
+@font-face{font-family:Body;src:url(/fonts/body-regular.woff2) format("woff2")}
+@font-face{font-family:Body;src:url(/fonts/body-bold.woff2) format("woff2")}
+@font-face{font-family:Head;src:url(/fonts/head-light.woff) format("woff")}
+@font-face{font-family:Head;src:url(/fonts/head-regular.woff2) format("woff2")}
+@font-face{font-family:Mono;src:url(/fonts/mono-regular.ttf) format("truetype")}
+@font-face{font-family:Serif;src:url(/fonts/serif-regular.otf) format("opentype")}
+@font-face{font-family:Icon;src:url(/fonts/icon.woff2) format("woff2")}
+/* the same file again, with a cache-busting query: two references, one font file */
+@font-face{font-family:BodyFallback;src:url(/fonts/body-bold.woff2?v=2) format("woff2")}
+/* a url() at a file the build does not serve: assets.missing reports it, this check ignores it */
+@font-face{font-family:Ghost;src:url(/fonts/ghost.woff2) format("woff2")}
