@@ -99,10 +99,16 @@ const env = (threshold: string | undefined): Record<string, string | undefined> 
   SEAWORTHY_SARIF: "out.sarif",
 });
 
-test("parseInputs keeps the inputs as given and defaults site and sarif to disabled", () => {
-  assert.deepEqual(parseInputs(env("error")), { site: "dist", threshold: "error", sarif: "out.sarif" });
-  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { site: "dist", threshold: "error", sarif: "" });
-  assert.deepEqual(parseInputs({}), { site: "", threshold: "error", sarif: "" });
+test("parseInputs keeps the inputs as given and defaults site, sarif and markdown to disabled", () => {
+  assert.deepEqual(parseInputs(env("error")), { site: "dist", threshold: "error", sarif: "out.sarif", markdown: [] });
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { site: "dist", threshold: "error", sarif: "", markdown: [] });
+  assert.deepEqual(parseInputs({}), { site: "", threshold: "error", sarif: "", markdown: [] });
+});
+
+test("parseInputs reads the markdown input as one path per line or comma", () => {
+  assert.deepEqual(parseInputs({ SEAWORTHY_MARKDOWN: "README.md\ndocs/, skills/" }).markdown, ["README.md", "docs/", "skills/"]);
+  // A block scalar in a workflow ends in a newline; it must not become an empty path.
+  assert.deepEqual(parseInputs({ SEAWORTHY_MARKDOWN: "  README.md \n\n" }).markdown, ["README.md"]);
 });
 
 test("parseInputs accepts every threshold value, case-insensitively and trimmed", () => {
@@ -225,4 +231,17 @@ test("a clean site passes and writes no SARIF when the input is empty", async ()
   const { code } = await runAction(root, { SEAWORTHY_THRESHOLD: "error" });
   assert.equal(code, 0);
   assert.equal(existsSync(join(root, "out.sarif")), false);
+});
+
+test("the markdown input points the Markdown checks at sources outside the built folder", async () => {
+  const root = workspace({
+    "dist/index.html": PAGE,
+    "seaworthy.config.json": onlyChecks(),
+    "README.md": "# Readme\n\nRead [the guide](./docs/guide.md).\n",
+  });
+  const unwritten = await runAction(root, { SEAWORTHY_THRESHOLD: "error" });
+  assert.equal(unwritten.code, 0, "without the input, README.md outside dist/ is not read");
+  const verified = await runAction(root, { SEAWORTHY_THRESHOLD: "error", SEAWORTHY_MARKDOWN: "README.md" });
+  assert.equal(verified.code, 1, "the missing link target in README.md is a finding of its own");
+  assert.match(verified.stdout, /1 finding/, "exactly the Markdown finding, nothing else");
 });
