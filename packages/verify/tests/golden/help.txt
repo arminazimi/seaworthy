@@ -7,6 +7,7 @@ Usage:
   seaworthy init [dir] [options]
   seaworthy fix [dir] [options]
   seaworthy diff <before.json> <after.json>
+  seaworthy history [options]
   seaworthy config check [file]
 
 Arguments:
@@ -17,6 +18,7 @@ Commands:
   config check [file]  Validate a config file without running checks. See `seaworthy config check --help`.
   init [dir]           Write a config, a CI workflow, and an empty baseline in one step. See `seaworthy init --help`.
   fix --dry-run        Preview every suggested edit as one unified diff. See `seaworthy fix --help`.
+  history              Export the run history as CSV or JSON. See `seaworthy history --help`.
 
 Options:
   --format <format>    pretty (default), json, markdown, sarif, llm, prompt, html, or ndjson.
@@ -67,6 +69,17 @@ init:
                        Non-interactive, offline, and never a write outside dir. A second run says "already
                        present"; --force overwrites the config and the workflow it owns, but a baseline is
                        never rewritten, because a baseline records findings you have accepted.
+
+history:
+  seaworthy history
+                       Export the runs recorded in .seaworthy/history (the newest 30 verify runs).
+                       Reads only: nothing is written to the store and a missing store exports as
+                       empty. `--format csv` gives one row per run, oldest first — runAt, root,
+                       findings, errors, warnings, notes, then one check:<id> column per check
+                       present in the store, sorted; a count a run does not carry is an empty cell.
+                       `--format json` (the default) gives the stored records as an array, oldest
+                       run first, keys and timestamps exactly as on disk. `--out <file>` writes
+                       the export to a file and prints a one-line summary. See `seaworthy history --help`.
 
 ndjson:
   --format ndjson      Writes one JSON finding per line, as each check finishes. The fields of a

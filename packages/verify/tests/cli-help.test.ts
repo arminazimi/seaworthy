@@ -15,6 +15,7 @@ import { makeSite } from "./helpers.js";
 //   node packages/verify/dist/src/cli.js config check --help > tests/golden/config-check-help.txt
 //   node packages/verify/dist/src/cli.js init --help > tests/golden/init-help.txt
 //   node packages/verify/dist/src/cli.js fix --help > tests/golden/fix-help.txt
+//   node packages/verify/dist/src/cli.js history --help > tests/golden/history-help.txt
 
 // The compiled test runs from dist/tests, so the goldens are read from the source tree.
 const golden = (name: string): string => readFileSync(fileURLToPath(new URL(`../../tests/golden/${name}`, import.meta.url)), "utf8");
@@ -27,6 +28,7 @@ const HELP_CASES: [string[], string][] = [
   [["config", "check", "--help"], "config-check-help.txt"],
   [["init", "--help"], "init-help.txt"],
   [["fix", "--help"], "fix-help.txt"],
+  [["history", "--help"], "history-help.txt"],
 ];
 
 test("every help page is byte-identical to its golden", async () => {

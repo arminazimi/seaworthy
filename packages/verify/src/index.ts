@@ -52,3 +52,5 @@ export { diffReports, diffToJson, readReport } from "./diff.js";
 export type { DiffReport, ReportDiff } from "./diff.js";
 export { WATCH_DEBOUNCE_MS, WatchLoop, WatchScheduler, watchDiffText, watchStatusText } from "./watch.js";
 export type { WatchLoopOptions, WatchSchedulerOptions } from "./watch.js";
+export { appendHistory, buildHistoryRecord, HISTORY_DIR, HISTORY_KEEP, HISTORY_SPEC_VERSION, readHistory, runConfigHash, stableStringify } from "./history.js";
+export type { HistoryCounts, HistoryRecord, HistoryRun } from "./history.js";

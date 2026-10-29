@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // `seaworthy` entry point: `seaworthy verify [dir]`, `seaworthy init [dir]`, `seaworthy fix [dir]`,
-// `seaworthy diff`, `seaworthy config check`, `--help`, `--version`. One module per command and
-// per option group lives in ./cli/; this file only detects direct invocation, runs the CLI, and
-// closes the `--watch` loop on Ctrl-C, then re-exports the API tests and tools import.
+// `seaworthy diff`, `seaworthy history`, `seaworthy config check`, `--help`, `--version`. One module
+// per command and per option group lives in ./cli/; this file only detects direct invocation, runs
+// the CLI, and closes the `--watch` loop on Ctrl-C, then re-exports the API tests and tools import.
 
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
