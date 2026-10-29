@@ -1,0 +1,9 @@
+{
+  "description": "A Markdown image whose file was never committed, a Markdown image that only moved folders (one file in the site carries its basename, so the report can repair it), an <img> written as raw HTML with no alt attribute, and a remote <img> with no alt. An existing image with alt text, an intentional empty alt in Markdown syntax, an alt=\"\" tag, a decorative remote tag, and an image inside a fenced code block are all fine.",
+  "findings": [
+    { "check": "md.images", "file": "notes.md", "line": 3 },
+    { "check": "md.images", "file": "notes.md", "line": 5 },
+    { "check": "md.images", "file": "notes.md", "line": 9 },
+    { "check": "md.images", "file": "notes.md", "line": 11 }
+  ]
+}
