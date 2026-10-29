@@ -152,7 +152,7 @@ test("--max-findings caps output exactly and counts what it omitted", async () =
   assert.equal((await run([...args, ...["--max-findings", "5"].slice(0, 0), "--max-findings", "5", "--format", "markdown"], env)).stdout.match(/findings cap/)?.length, 1, "markdown mentions the omission");
 
   const pretty = (await run(["verify", site, "--max-findings", "5"], env)).stdout;
-  assert.match(pretty, /^5 findings beyond the findings cap are omitted/m, "pretty output names the omitted count");
+  assert.match(pretty, /^5 findings were found but omitted/m, "pretty output names the omitted count");
   const listed = (pretty.match(/x\.noisy  noisy /g) ?? []).length;
   assert.equal(listed, 5, "pretty lists exactly the kept findings");
 

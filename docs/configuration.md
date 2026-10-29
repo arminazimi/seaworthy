@@ -51,7 +51,7 @@ A broken site can produce thousands of findings, more than anyone needs at once.
 npx seaworthy verify --max-findings 200   # report at most 200 findings
 ```
 
-The cap is deterministic: findings stay in report order and the report keeps the first `n`, so the omitted ones are exactly the rest. When anything was cut, the summary says how many under `findingsOmitted`; when nothing was cut, the report is byte-identical to a run without the flag. `--update-baseline` and `--baseline` still see every finding the engine found, capped or not, so adopting with a baseline records all of them.
+The cap is deterministic: findings stay in report order and the report keeps the first `n`, so the omitted ones are exactly the rest. When anything was cut, the summary says how many under `findingsOmitted`; when nothing was cut, the report is byte-identical to a run without the flag. `--update-baseline` and `--baseline` still see every finding the engine found, capped or not, so adopting with a baseline records all of them. `--new-only` drops its hidden findings into the same `findingsOmitted` counter (see [Run history](#run-history)).
 
 A cap never changes the exit code. `summary.bySeverity` counts every finding, cut or not, and the exit code is decided from those counts: a run that reported 5 warnings and cut an error under `--max-findings` still fails with the default `--fail-on error`.
 
@@ -102,6 +102,8 @@ The baseline stores fingerprints with counts, not line numbers, so it survives e
 
 Every verify run appends one JSON summary to `.seaworthy/history/0001-<timestamp>.json`: the timestamp, the site root and page count, a hash of the run's settings, and finding counts by severity and by check. The most recent 30 runs are kept and the oldest are pruned, so the store stays bounded.
 
+The newest record also stores `findings`: the sorted, deduplicated fingerprints of every finding that run located — the same identity the baseline and `seaworthy diff` match on. Only the newest record carries them (older copies are stripped when the next run is written), and a run that located more than 2000 findings stores none instead of a partial list, so the store never grows past one key set. The field is optional: records written before it existed still read cleanly and simply mean "keys unknown". `seaworthy history --format csv` is unaffected by it, and `--format json` exports the records verbatim, keys included.
+
 Records have sorted keys and stable ordering, so a plain `diff` between two record files is meaningful, and they are one file per run, so a partial write damages at most that one record and the next run is unaffected. The special-case files this write creates live next to the `--changed` cache (`.seaworthy/`); add `.seaworthy/` to your `.gitignore`.
 
 If a new file appearing after a verify run surprises you, opt out:
@@ -110,7 +112,7 @@ If a new file appearing after a verify run surprises you, opt out:
 { "history": false }
 ```
 
-or pass `--no-history` for a single run. Nothing else changes: the report, every output format, and the exit codes are identical with history on and off.
+or pass `--no-history` for a single run. Nothing else changes: the report, every output format, and the exit codes are identical with history on and off. `--new-only` and `--no-history` together are a usage error, since they cancel each other.
 
 To read the store back, run `seaworthy history` where verify ran. It only reads: it never writes to the store, and a missing store exports as empty, not as an error.
 
@@ -122,3 +124,16 @@ npx seaworthy history --out history.csv  # write the export to a file and print 
 ```
 
 CSV cells are minimally quoted (RFC-4180), line endings are `\n`, and a count a run does not carry is an empty cell, never an invented zero. JSON output is byte-identical across platforms. See `seaworthy history --help`.
+
+### Reporting only what is new
+
+`verify --new-only` keeps the agent loop short: it reports only findings that were not there in the last run. The comparison is the previous run's stored finding keys (above), matched by fingerprint, so a finding that moved to another line is still "the same one".
+
+```bash
+npx seaworthy verify dist            # the first run records what it found
+npx seaworthy verify dist --new-only # reports only what the run above did not have
+```
+
+Findings the previous run already had are dropped from `findings` and counted under the existing `summary.findingsOmitted` — never silently. The exit code follows the reported findings, like with `--baseline` and `--changed`: a run that only repeats known problems exits 0. Suppressions and the baseline apply first, so a finding they hid is counted as suppressed or baselined, not again as omitted, and `--new-only` combines with `--changed`.
+
+Without usable keys there is no "last run" to compare with: an empty store, a record written before the field existed, a run that located too many findings to store them, or a newest record for a different folder. Then `--new-only` reports everything, and the human-readable output says so; report JSON and the machine formats are byte-identical to a run without the flag. `--new-only` with `--no-history` is a usage error; `"history": false` in the config does not block the flag — the run is not recorded, but keys already in the store are still compared.

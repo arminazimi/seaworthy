@@ -153,7 +153,7 @@ export interface Report {
     baselined: number;
     /** Baseline entries that no longer match anything: problems that were fixed. */
     baselineStale: number;
-    /** Present when `--max-findings` or a per-check cap cut findings: how many the engine found but the report omits, in report order after the kept ones. */
+    /** Present when `--max-findings` or a per-check cap cut findings, or when `--new-only` dropped findings the previous run already had: how many the engine found but the report omits, in report order after the kept ones. */
     findingsOmitted?: number;
     /** Present under --changed: findings are limited to files that changed. */
     changedFiles?: number;

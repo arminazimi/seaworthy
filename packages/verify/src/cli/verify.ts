@@ -16,7 +16,7 @@ import { formatReport } from "../formats/index.js";
 import { ndjsonLine } from "../formats/ndjson.js";
 import { SEVERITY_ORDER, severityCounts } from "../formats/pretty.js";
 import { discoverFolder } from "../folders.js";
-import { appendHistory, buildHistoryRecord, runConfigHash } from "../history.js";
+import { appendHistory, buildHistoryRecord, previousRunKeys, readHistory, runConfigHash } from "../history.js";
 import { buildSite } from "../site.js";
 import type { Check, Report, Severity } from "../types.js";
 import { type StageTiming, type Timings, verifySite } from "../verify.js";
@@ -85,6 +85,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
   if (options.updateBaseline !== undefined && (options.changed || options.changedSince !== undefined)) throw new UsageError("--update-baseline records every finding, so it cannot be combined with --changed or --changed-since");
   if (options.watch && options.updateBaseline !== undefined) throw new UsageError("--update-baseline writes the baseline and exits, so it cannot be combined with --watch");
   if (options.watch && (options.changed || options.changedSince !== undefined)) throw new UsageError("use --watch or --changed, not both; --watch already reports only what changed");
+  if (options.newOnly && !options.history) throw new UsageError("--new-only compares with .seaworthy/history, which --no-history opts out of; use --new-only or --no-history, not both");
 
   const requested = options.dir ?? config.root ?? discoverFolder(cwd);
   if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
@@ -118,6 +119,13 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       record("changed", changedStarted);
     }
 
+    // --new-only: what the previous run had is what the newest history record stored. No store,
+    // a record written before keys existed, or a newest record for another folder all mean
+    // "unknown": report everything, and say so where a human reads the report. Read inside the
+    // run, before this run's own record is appended below.
+    let knownFindings: ReadonlySet<string> | undefined;
+    if (options.newOnly) knownFindings = previousRunKeys(readHistory(cwd), label);
+
     // NDJSON goes out one finding per line, as its check finishes. The lines are always
     // collected here, so --out and the summary use the same bytes; with a `stream` sink and
     // no file target they are also written while the run is still going. --update-baseline
@@ -128,6 +136,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       folder,
       site,
       ...(changed ? { changed } : {}),
+      ...(knownFindings === undefined ? {} : { knownFindings }),
       rootLabel: label,
       checks,
       config,
@@ -175,6 +184,11 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       const findings = report.findings.length === 0 ? stdoutPaint.ok("no findings") : `${report.findings.length} finding${report.findings.length === 1 ? "" : "s"} (${severityCounts(report, stdoutPaint)})`;
       stdout = `seaworthy: ${findings}; ${options.format} report written to ${options.out}\n`;
     }
+    // Human-readable output only: machine formats must stay byte-identical with and without
+    // --new-only, so the notice rides on the pretty stdout (and on the --out one-liner).
+    if (options.newOnly && knownFindings === undefined && options.format === "pretty") {
+      stdout += "seaworthy: --new-only found no previous run with stored findings in .seaworthy/history, so every finding is reported.\n";
+    }
     const failOn = options.failOn ?? config.failOn ?? "error";
 
     // Run history is on by default: one record in .seaworthy/history per verify run, for diffs
@@ -196,7 +210,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
         suppressions: config.suppressions,
       };
       try {
-        appendHistory(cwd, buildHistoryRecord(report, { started: startedIso, configHash: runConfigHash(settings) }));
+        appendHistory(cwd, buildHistoryRecord(report, { started: startedIso, configHash: runConfigHash(settings), findings: unbaselined }));
         return "";
       } catch (error) {
         return `seaworthy: could not record run history: ${error instanceof Error ? error.message : String(error)}\n`;

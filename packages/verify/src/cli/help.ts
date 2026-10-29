@@ -69,7 +69,8 @@ ndjson:
                        line are exactly those of one finding in \`--format json\`, including its fix
                        prompt. Line order follows check completion, so it can differ between
                        runs; every line alone is deterministic. Findings the baseline accepts,
-                       ignored files, and live suppressions are excluded, like in every format.
+                       ignored files, live suppressions, and findings --new-only found in the
+                       previous run are excluded, like in every format.
 
 Exit codes:
   0  no findings at or above --fail-on (verify); the diff completed (diff); all files present (init); the fix preview completed (fix)

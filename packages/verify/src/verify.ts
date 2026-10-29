@@ -39,14 +39,22 @@ export interface VerifyOptions {
   baseline?: Baseline;
   /** Under --changed: site-relative files that changed. Findings elsewhere are not reported. */
   changed?: ReadonlySet<string>;
+  /**
+   * Under --new-only: the fingerprints the previous run had. A finding in the set was already
+   * there — it is dropped from the report like a baselined one, but counted under the existing
+   * `summary.findingsOmitted` instead of a counter of its own. The exit code follows the
+   * reported findings, so a run that only repeats known problems can pass.
+   */
+  knownFindings?: ReadonlySet<string>;
   /** Defaults to the current time. Pass a fixed date in tests. */
   now?: Date;
   /** Collect wall time per stage and per check in `VerifyResult.timings`. Off by default; timings never reach the report. */
   timings?: boolean;
   /**
    * Called with one finding the moment its check finishes, after the ignore, suppression,
-   * baseline, and `--changed` filters have been applied to that check's batch — the same
-   * filters the report applies to the whole run, so the streamed set is the report's set.
+   * baseline, `--changed`, and `--new-only` filters have been applied to that check's batch —
+   * the same filters the report applies to the whole run, so the streamed set is the report's
+   * set.
    * Findings carry their `prompt`, like they do inside the report. Streaming only: without
    * this, the run is exactly as it was before.
    */
@@ -107,7 +115,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
   const configured = fromConfig(config.suppressions, options.configLocation ?? "seaworthy.config.json");
   const rules: readonly Suppression[] = [...inline.suppressions, ...configured];
 
-  // The batch pipeline mirrors the run's stages (ignore → suppress → baseline → --changed).
+  // The batch pipeline mirrors the run's stages (ignore → suppress → baseline → --changed → --new-only).
   // Applied per check instead of per run it picks the same findings: suppressions match one
   // finding at a time, and a finding's fingerprint is hashed from its check ID, so every
   // finding with a given baseline fingerprint comes from one check, one batch.
@@ -117,7 +125,8 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
         const notIgnored = findings.filter((f) => !config.ignore.some((glob) => matchesGlob(glob, f.location.file)));
         const suppression = applySuppressions(notIgnored, rules, now);
         const kept = options.baseline ? applyBaseline(suppression.findings, options.baseline).findings : suppression.findings;
-        const reported = options.changed ? kept.filter((f) => options.changed!.has(f.location.file)) : kept;
+        const scoped = options.changed ? kept.filter((f) => options.changed!.has(f.location.file)) : kept;
+        const reported = options.knownFindings ? scoped.filter((f) => !options.knownFindings!.has(f.fingerprint)) : scoped;
         for (const finding of reported) options.streamFindings!({ ...finding, prompt: findingPrompt(finding, options.rootLabel) });
       };
 
@@ -141,11 +150,15 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
     return { suppression, unbaselined: [...suppression.findings, ...inline.problems, ...suppression.expired] };
   });
 
-  const { baseline, reported } = await measure("baseline", () => {
+  const { baseline, reported, alreadyKnown } = await measure("baseline", () => {
     const baseline = options.baseline ? applyBaseline(unbaselined, options.baseline) : { findings: unbaselined, baselined: 0, stale: 0 };
     // The baseline is applied to everything first, so entries for unchanged files are not counted as stale.
-    const reported = options.changed ? baseline.findings.filter((f) => options.changed!.has(f.location.file)) : baseline.findings;
-    return { baseline, reported };
+    const scoped = options.changed ? baseline.findings.filter((f) => options.changed!.has(f.location.file)) : baseline.findings;
+    // --new-only last: a finding the baseline or a suppression already hid is not "there" in the
+    // report's terms, so it is never counted again here — each filter sees the previous one's output.
+    if (options.knownFindings === undefined) return { baseline, reported: scoped, alreadyKnown: 0 };
+    const fresh = scoped.filter((f) => !options.knownFindings!.has(f.fingerprint));
+    return { baseline, reported: fresh, alreadyKnown: scoped.length - fresh.length };
   });
 
   const report = await measure("report", () => {
@@ -159,6 +172,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(Object.keys(resolved.maxFindings).length > 0 ? { checkMaxFindings: resolved.maxFindings } : {}),
       ...(options.changed ? { changedFiles: options.changed.size } : {}),
+      ...(alreadyKnown > 0 ? { alreadyKnown } : {}),
       ...(readability ? { readability } : {}),
       suppressed: suppression.suppressed,
       baselined: baseline.baselined,

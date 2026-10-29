@@ -27,6 +27,11 @@ export interface ReportInput {
   maxFindings?: number;
   /** Per-check caps, keyed by check ID, applied in report order before `maxFindings`. */
   checkMaxFindings?: Readonly<Record<string, number>>;
+  /**
+   * Under `--new-only`: how many findings were dropped because the previous run had them.
+   * They join the cap's omissions under the existing `summary.findingsOmitted`; no new field.
+   */
+  alreadyKnown?: number;
 }
 
 const compare = (a: string | number, b: string | number): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -66,7 +71,10 @@ export function capFindings(findings: readonly Finding[], maxFindings: number, c
 export function buildReport(input: ReportInput): Report {
   if (/^([a-zA-Z]:)?[\\/]/.test(input.root)) throw new Error("report root must be relative; absolute paths make reports differ between machines");
   const sorted = [...input.findings].sort(compareFindings);
-  const { findings, omitted } = capFindings(sorted, input.maxFindings ?? DEFAULT_MAX_FINDINGS, input.checkMaxFindings);
+  const { findings, omitted: capOmitted } = capFindings(sorted, input.maxFindings ?? DEFAULT_MAX_FINDINGS, input.checkMaxFindings);
+  // One omitted counter for both filters that cut without hiding on purpose: the caps, and
+  // --new-only dropping findings the previous run already had.
+  const omitted = capOmitted + (input.alreadyKnown ?? 0);
   // Counts over ALL findings, capped or not: the exit code is decided from these, so a cap can
   // never hide an error (or warning, under --fail-on warning) that was cut from the report.
   const bySeverity: Report["summary"]["bySeverity"] = {};
