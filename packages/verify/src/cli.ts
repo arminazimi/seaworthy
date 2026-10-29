@@ -52,4 +52,3 @@ if (invokedDirectly()) {
 
 export { run } from "./cli/run.js";
 export { DEFAULT_FOLDERS, EXIT, rootLabel, type CliEnvironment, type CliResult, type WatchProbe } from "./cli/types.js";
-export { formatTimings } from "./cli/verify.js";
