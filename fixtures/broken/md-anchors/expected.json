@@ -1,0 +1,10 @@
+{
+  "description": "Five heading anchors that no heading in the linked Markdown file has: a uniqueness suffix left over from a renamed duplicate heading (the one repair the graph can name exactly), an anchor nobody wrote, an anchor that lives in another file, a dead anchor inside the file itself, and an anchor in a file with no headings at all. A live anchor, an anchor whose case differs from GitHub's, the second copy of a duplicated heading, and a link to a missing file (md.links' finding) all stay unreported here.",
+  "findings": [
+    { "check": "md.anchors", "file": "notes.md", "line": 5 },
+    { "check": "md.anchors", "file": "notes.md", "line": 7 },
+    { "check": "md.anchors", "file": "notes.md", "line": 9 },
+    { "check": "md.anchors", "file": "notes.md", "line": 11 },
+    { "check": "md.anchors", "file": "notes.md", "line": 13 }
+  ]
+}
