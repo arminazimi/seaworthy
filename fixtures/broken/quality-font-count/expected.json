@@ -1,0 +1,6 @@
+{
+  "description": "index.html pulls seven distinct font files through its linked stylesheet, over the default maximum of six; the re-declared body-bold with a query string counts once and the ghost font the build does not serve is not counted. about.html's inline <style> carries two fonts, under the maximum, so it reports nothing.",
+  "findings": [
+    { "check": "quality.font-count", "file": "index.html", "line": 3, "column": 1 }
+  ]
+}
