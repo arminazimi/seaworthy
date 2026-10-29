@@ -1,0 +1,6 @@
+{
+  "description": "An English/German site: index.html and de/index.html form a fully translated hreflang set; about.html belongs to a set that declares German but no page serves it, so its missing de/about.html is reported; legal.html declares the same gap but is listed under checks.\"i18n.parity\".options.untranslated, so it stays silent",
+  "findings": [
+    { "check": "i18n.parity", "file": "about.html", "line": 3, "column": 1 }
+  ]
+}
