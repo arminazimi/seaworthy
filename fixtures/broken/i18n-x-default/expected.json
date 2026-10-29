@@ -1,0 +1,7 @@
+{
+  "description": "An English/German site where every page takes part in the hreflang set: de/index.html declares language alternates but no x-default entry, about.html declares two competing x-default entries, and index.html and de/about.html each declare exactly one x-default and are correct",
+  "findings": [
+    { "check": "i18n.x-default", "file": "about.html", "line": 3, "column": 1 },
+    { "check": "i18n.x-default", "file": "de/index.html", "line": 3, "column": 1 }
+  ]
+}
