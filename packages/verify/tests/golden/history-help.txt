@@ -1,0 +1,22 @@
+seaworthy history
+
+Export the run summaries that `verify` records in .seaworthy/history, newest of the last 30 runs included.
+The command only reads: it never writes to the store, and a missing store exports as empty, not as an error.
+
+Usage:
+  seaworthy history [--format csv|json] [--out <file>]
+
+Options:
+  --format <format>    csv or json. Default json: the stored records as an array, oldest run first,
+                       with the keys and timestamps exactly as they are on disk.
+  --out <file>         Write the export to a file instead of stdout; prints a one-line summary instead.
+  --help, -h           Print this help
+
+csv:
+  One row per run, oldest first: runAt, root, findings, errors, warnings, notes, then one check:<id>
+  column per check present in the store, sorted alphabetically. A count a run does not carry is an
+  empty cell, never an invented zero. Minimal RFC-4180 quoting, \n line endings, no BOM.
+
+Exit codes:
+  0  the export completed
+  2  usage error
