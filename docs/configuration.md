@@ -111,3 +111,14 @@ If a new file appearing after a verify run surprises you, opt out:
 ```
 
 or pass `--no-history` for a single run. Nothing else changes: the report, every output format, and the exit codes are identical with history on and off.
+
+To read the store back, run `seaworthy history` where verify ran. It only reads: it never writes to the store, and a missing store exports as empty, not as an error.
+
+```bash
+npx seaworthy history                    # the stored records as a JSON array, oldest run first
+npx seaworthy history --format csv       # one row per run: runAt, root, findings, errors, warnings,
+                                         # notes, then one check:<id> column per check in the store
+npx seaworthy history --out history.csv  # write the export to a file and print a one-line summary
+```
+
+CSV cells are minimally quoted (RFC-4180), line endings are `\n`, and a count a run does not carry is an empty cell, never an invented zero. JSON output is byte-identical across platforms. See `seaworthy history --help`.

@@ -11,7 +11,7 @@
 // "history": false in seaworthy.config.json or --no-history; CI output is unchanged either way.
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { SEVERITIES, type Report, type Severity } from "./types.js";
@@ -122,6 +122,46 @@ function storeFiles(dir: string): string[] {
 }
 
 const seqNumber = (name: string): number => Number.parseInt(name, 10);
+
+/**
+ * Reads the store back, oldest run first — the order `appendHistory` named the files in.
+ * The reader never writes: a missing store is simply no runs, and a record that cannot be
+ * read, parsed, or recognised (a truncated write, a hand-edited file) is skipped like the
+ * writer skips the leftovers of a crashed run — one damaged file damages only itself, and
+ * the next verify run prunes it in turn. Only the fields the readers of a trend need are
+ * checked, so a record from an older or newer spec still loads when it is understandable.
+ */
+export function readHistory(cwd: string): HistoryRecord[] {
+  const dir = join(cwd, HISTORY_DIR);
+  const records: HistoryRecord[] = [];
+  for (const name of storeFiles(dir)) {
+    let text: string;
+    try {
+      text = readFileSync(join(dir, name), "utf8");
+    } catch {
+      continue;
+    }
+    const record = parseRecord(text);
+    if (record !== undefined) records.push(record);
+  }
+  return records;
+}
+
+/** A stored record, or undefined for a file that is not one (corrupt, truncated, or foreign). */
+function parseRecord(text: string): HistoryRecord | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+  if (value === null || typeof value !== "object") return undefined;
+  const record = value as Partial<HistoryRecord>;
+  if (typeof record.started !== "string" || typeof record.root !== "string") return undefined;
+  const counts = record.counts;
+  if (counts === null || typeof counts !== "object" || typeof counts.findings !== "number") return undefined;
+  return record as HistoryRecord;
+}
 
 /**
  * Writes one record as `<seq>-<timestamp>.json` (run 1, 2, 3 … newest last) and prunes the oldest
