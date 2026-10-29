@@ -122,3 +122,9 @@ npx seaworthy history --out history.csv  # write the export to a file and print 
 ```
 
 CSV cells are minimally quoted (RFC-4180), line endings are `\n`, and a count a run does not carry is an empty cell, never an invented zero. JSON output is byte-identical across platforms. See `seaworthy history --help`.
+
+### Trend in the HTML report
+
+`seaworthy verify --format html` reads this same store where it runs and, when it holds two or more readable runs, adds a **Trend** section to the page: an inline SVG of findings per run plus a compact table of the recent runs (timestamp, root, findings, errors, warnings, notes). It shows the last ten runs and reads only the shapes it understands, so a truncated or hand-edited record is skipped, never charted.
+
+The trend is presentation only: it changes nothing in the report JSON, the SARIF, or the other formats, which stay byte-identical. It draws no external asset and no JavaScript, and it renders nothing on a fresh folder, with `--no-history`, or after a single run — one point is not a trend. `--out` writes the page exactly as stdout would, trend included, so the case where the store is empty stays clean.

@@ -16,7 +16,7 @@ import { formatReport } from "../formats/index.js";
 import { ndjsonLine } from "../formats/ndjson.js";
 import { SEVERITY_ORDER, severityCounts } from "../formats/pretty.js";
 import { discoverFolder } from "../folders.js";
-import { appendHistory, buildHistoryRecord, runConfigHash } from "../history.js";
+import { appendHistory, buildHistoryRecord, readHistory, runConfigHash } from "../history.js";
 import { buildSite } from "../site.js";
 import type { Check, Report, Severity } from "../types.js";
 import { type StageTiming, type Timings, verifySite } from "../verify.js";
@@ -163,8 +163,12 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
     if (options.format === "ndjson") {
       stdout = ndjson;
     } else {
+      // The html report draws its trend from the runs already on disk; the store is read where the
+      // CLI runs, like `seaworthy history`. Only html asks for it, so the machine formats read nothing.
+      const history = options.format === "html" ? readHistory(cwd) : undefined;
       stdout = formatReport(report, options.format, {
         readLine: (file, line) => site.pages.get(`/${file}`)?.source.split(/\r?\n/)[line - 1],
+        ...(history === undefined ? {} : { history }),
       }, reportPaint);
     }
     if (options.out !== undefined) {
