@@ -16,6 +16,7 @@ import {
   type ActionInputs,
   type Threshold,
 } from "./index.js";
+import { jobSummary, writeJobSummary } from "./summary.js";
 
 /**
  * The verify CLI, built next to this package by the same `npm run build` the Action's build
@@ -62,8 +63,8 @@ function verifyArgs(site: string, format: string, failOn: Threshold, out?: strin
   return markdown.length === 0 ? withOut : [...withOut, "--markdown", ...markdown];
 }
 
-/** Report JSON text -> parsed, as far as the Action log line trusts it (never re-checked in detail). */
-function readReport(stdout: string): { summary?: { findings?: number }; root?: string; errors?: unknown[] } {
+/** Report JSON text -> parsed, as far as the Action log line and the job summary trust it (never re-checked in detail). */
+function readReport(stdout: string): { summary?: { findings?: number }; root?: string; findings?: unknown[]; errors?: unknown[] } {
   try {
     return JSON.parse(stdout);
   } catch {
@@ -87,6 +88,11 @@ function reportNote(report: { summary?: { findings?: number }; root?: string; er
  *
  * One site: the pre-multi-site path, byte for byte. Several sites: no site's outcome hides
  * another's findings; the aggregate rule in index.js (`aggregateExit`) decides the run's code.
+ *
+ * The job summary (issue #260) rides on the same report JSON the log line already reads: it is
+ * appended to `$GITHUB_STEP_SUMMARY` when the `summary` input is `on` — once for the site of a
+ * single-site run, once per site for several — and a summary that cannot be written changes nothing
+ * but itself.
  */
 export async function actionRun(env: Readonly<Record<string, string | undefined>> = process.env): Promise<number> {
   const inputs = parseInputs(env);
@@ -100,6 +106,12 @@ async function singleSiteRun(inputs: ActionInputs, site: string, cwd: string, en
   const json = runVerify(verifyArgs(site, "json", inputs.threshold, undefined, inputs.markdown), cwd);
   if (json.code === USAGE_EXIT) return json.code;
   const report = readReport(json.stdout);
+
+  // The job summary (issue #260): the run page's `$GITHUB_STEP_SUMMARY`, built from the report JSON
+  // this run already has. It is write-only for the verdict — a summary that cannot be rendered or
+  // written costs the run nothing, because the exit code below is the CLI's and never this one's.
+  // `summary: off` skips it, which is what a workflow that only wants the exit code had before.
+  if (inputs.summary === "on") writeJobSummary(jobSummary(report), env);
 
   if (inputs.sarif !== "") {
     const sarif = runVerify(verifyArgs(site, "sarif", inputs.threshold, inputs.sarif, inputs.markdown), cwd);
@@ -159,6 +171,9 @@ async function multiSiteRun(inputs: ActionInputs, cwd: string, env: Readonly<Rec
       process.stderr.write(json.stderr);
       continue;
     }
+    // One section per site in the same job summary file; the heading names the folder. As in the
+    // single-site path, a summary that cannot be written costs the run nothing.
+    if (inputs.summary === "on") writeJobSummary(jobSummary(report, site), env);
     let code = json.code;
     let sarifFile = "";
     if (inputs.sarif !== "") {

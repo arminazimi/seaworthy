@@ -32,6 +32,11 @@ inputs:
     description: Markdown files or folders for the Markdown checks, relative to the workspace, one per line or comma. Default lets those checks walk the built site folder.
     required: false
     default: ""
+  summary:
+    description: Write the run's job summary (counts, top findings, the badge) to $GITHUB_STEP_SUMMARY. off keeps a workflow that only wants the exit code.
+    required: false
+    # Quoted: workflow YAML reads a bare `on` as the boolean true, not as this input's value.
+    default: "on"
 outputs:
   sarif:
     description: The SARIF file path as given for one site; one path per line when several sites were verified; "" when the sarif input was empty.
@@ -56,11 +61,13 @@ runs:
         SEAWORTHY_THRESHOLD: ${{ inputs.threshold }}
         SEAWORTHY_SARIF: ${{ inputs.sarif }}
         SEAWORTHY_MARKDOWN: ${{ inputs.markdown }}
+        SEAWORTHY_SUMMARY: ${{ inputs.summary }}
       # run.js reads the inputs from these SEAWORTHY_* variables and verifies every site named
       # by `site` as its own run (cwd: the consumer's workspace) — one site's failure never hides
       # another's findings, and a crash stays exit 4. The run exits with the verify contract
       # (0 ok, 1 when any site fails at the threshold, 2 when one was rejected, 4 when one
-      # crashed) and writes one SARIF file per site when asked.
+      # crashed) and writes one SARIF file per site when asked. With `summary: on` each site's
+      # run also fills this job's `$GITHUB_STEP_SUMMARY`.
       run: node "$GITHUB_ACTION_PATH/packages/action/dist/run.js"
     # Slot for the PR comment with new and fixed findings (issue #89): it reads the
     # SARIF from steps.verify.outputs.sarif and runs after this step, any() condition
