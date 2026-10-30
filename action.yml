@@ -4,6 +4,7 @@
 #   uses: arminazimi/seaworthy@<commit-sha>   # pre-alpha: consume by commit pin; there is no version tag yet
 #   with:
 #     sarif: seaworthy.sarif
+#     cache: history   # keep .seaworthy/history between runs of this ref and config (issue #261)
 #
 # Several sites in one repository: list their built folders on the `site` input, one per line
 # or comma; each gets its own verify run and its own SARIF file, and the run fails if any site
@@ -32,6 +33,11 @@ inputs:
     description: Markdown files or folders for the Markdown checks, relative to the workspace, one per line or comma. Default lets those checks walk the built site folder.
     required: false
     default: ""
+  cache:
+    description: Keep the run history (.seaworthy/history, and nothing else) between runs of the same ref and configuration, so CI has runs to trend and diff against: off (default) or history. The site, the reports, and node_modules are never cached; Seaworthy never downloads a browser, so there is no browser to cache.
+    required: false
+    # Quoted: workflow YAML reads a bare `off` as the boolean false, not as this input's value.
+    default: "off"
 outputs:
   sarif:
     description: The SARIF file path as given for one site; one path per line when several sites were verified; "" when the sarif input was empty.
@@ -48,6 +54,27 @@ runs:
         cd "$GITHUB_ACTION_PATH"
         npm ci
         npm run build --silent
+    # Run history (issue #261): the store the CLI writes in .seaworthy/history is the only state
+    # kept between runs, and only for the same OS, the same ref, the same Action ref, and the same
+    # config file — so a pull request run never reads main's history, and a config edit starts a
+    # fresh store instead of comparing against runs made under other settings. There are no
+    # restore-keys on purpose: a prefix match would be some other run's baseline. Both steps are
+    # guarded, and `cache-cli key` exits 0 whatever happens, so a cache problem never changes the
+    # verdict — that stays the CLI's exit code. actions/cache is the runner's own cache: a job's
+    # filesystem does not survive, and nothing else keeps state between its runs.
+    - name: Work out the Seaworthy history cache key
+      id: cache-key
+      if: ${{ inputs.cache == 'history' }}
+      shell: bash
+      env:
+        SEAWORTHY_CACHE_TOOL: ${{ github.action_ref }}
+      run: node "$GITHUB_ACTION_PATH/packages/action/dist/src/cache-cli.js" key
+    - name: Cache the Seaworthy run history
+      if: ${{ inputs.cache == 'history' && steps.cache-key.outputs.history-key != '' }}
+      uses: actions/cache@v4
+      with:
+        path: ${{ github.workspace }}/.seaworthy/history
+        key: ${{ steps.cache-key.outputs.history-key }}
     - name: Verify the site
       id: verify
       shell: bash
@@ -56,6 +83,7 @@ runs:
         SEAWORTHY_THRESHOLD: ${{ inputs.threshold }}
         SEAWORTHY_SARIF: ${{ inputs.sarif }}
         SEAWORTHY_MARKDOWN: ${{ inputs.markdown }}
+        SEAWORTHY_CACHE: ${{ inputs.cache }}
       # run.js reads the inputs from these SEAWORTHY_* variables and verifies every site named
       # by `site` as its own run (cwd: the consumer's workspace) — one site's failure never hides
       # another's findings, and a crash stays exit 4. The run exits with the verify contract

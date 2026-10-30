@@ -13,6 +13,7 @@ adapter over the verify API, and every rule lives in `@seaworthy/verify`
 | `site` | `""` | Built site folder, relative to the workspace. Empty lets the CLI pick the first existing of `dist`, `build`, `out`, `public`, `_site`, `site`. |
 | `threshold` | `error` | Severity that fails the run: `error`, `warning`, `note`, or `none`. Travels to the CLI as `--fail-on`, so the CLI decides the exit code. |
 | `sarif` | `""` | Where to write the SARIF 2.1.0 report, relative to the workspace. Empty disables SARIF. |
+| `cache` | `off` | `off` caches nothing; `history` keeps `.seaworthy/history` between runs (see [Caching run history](#caching-run-history-between-runs)). Nothing else is ever cached. |
 
 The run exits with the CLI's contract: `0` ok, `1` findings at or above the threshold, `2` a usage
 or input error, `4` a check crashed. The `sarif` output echoes the `sarif` input, `""` when disabled.
@@ -59,8 +60,55 @@ The rules, all of them visible in `packages/action/src/trend.ts`:
   a local-time rendering, and the runs keep the store's own order — the same history always builds
   the same bytes.
 
-Nothing is added to `action.yml` for this: the trend reads the store in the workspace the Action
-already verifies, and the comment body is built by the `body` step that issue #89 shipped.
+Nothing is added to `action.yml` for the trend itself: it reads the store in the workspace the Action
+already verifies, and the comment body is built by the `body` step that issue #89 shipped. What it
+needs is a store with more than one run in it, which on a fresh runner means
+[keeping the history between runs](#caching-run-history-between-runs).
+
+## Caching run history between runs
+
+A runner starts with an empty workspace, so without a cache every run records its one run and throws
+the store away: the trend above has nothing to trend against. The `cache` input keeps
+`.seaworthy/history`, the summaries `verify` already writes, between runs (issue #261). It is opt-in,
+because run history is not a speed knob — `seaworthy diff`, `verify --new-only`, and both trends read
+it, so what a run restores changes what that run reports.
+
+```yaml
+- uses: arminazimi/seaworthy@<commit sha> # no release tag exists yet
+  with:
+    threshold: error
+    cache: history
+```
+
+The rules, all of them in `packages/action/src/cache.ts`:
+
+- **Only the history folder is cached.** Not the site (untrusted input, rebuilt by the job), not the
+  reports or SARIF, not `node_modules`, and not a browser: Seaworthy never downloads one
+  ([ADR 0005](adr/0005-headless-browser.md)), it launches the Chrome, Chromium, or
+  Edge already on the machine, so there is no browser binary to keep.
+- **`.seaworthy/cache.json` is left out.** The `--changed` cache records the site folder and a hash
+  per file, but not which build wrote it, so a restored one could tell a newer build that a page is
+  unchanged while that build has since added a check that would flag it. Skipping a check for a file
+  that did change is the one failure mode this feature cannot allow, so the changed cache is neither
+  saved nor restored — and the Action runs the full check on every file either way, never `--changed`.
+- **The key isolates the store.** It is a function of the operating system, the ref that triggered
+  the run (`refs/heads/main`, `refs/pull/7/merge`), this Action's own ref, and a digest of the
+  workspace's `seaworthy.config.json`, plus a digest of those raw parts so two names that fold to
+  the same key text still get separate stores. A pull request run therefore never restores main's
+  history, and main never restores a pull request's.
+- **There are no restore-keys.** A prefix hit is some other run's baseline, which is exactly the
+  false delta the key exists to prevent; a miss means no history, and the readers already say so.
+- **A restored record has to fit the run.** Before the CLI reads the store, every record is checked
+  against its own fields: it has to be a `seaworthy` record this build's history `spec` can read and,
+  when the `site` input names the folder, one recorded for that same folder. Anything else is deleted
+  rather than trusted, and the log line says which record and why. A record from an *older* spec
+  stays, because the readers only use fields every version has.
+- **A cache problem never changes the verdict.** An uncomputable key leaves the cache step out, a
+  store that is not a folder reads as no store, and a refused record only means this run starts its
+  own history. The exit code stays the CLI's: `0`, `1`, `2`, or `4`.
+
+Run history is written by default; a site that sets `"history": false` in
+`seaworthy.config.json`, or a step that passes `--no-history`, has nothing to keep either way.
 
 ## Status badge
 

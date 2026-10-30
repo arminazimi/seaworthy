@@ -12,6 +12,10 @@
 import type { Report, Severity, SarifContext } from "@seaworthy/verify";
 import { toSarif } from "@seaworthy/verify";
 
+import { CACHE_DEFAULT, CACHE_MODES, type CacheMode } from "./cache.js";
+
+export { CACHE_MODES } from "./cache.js";
+export type { CacheMode };
 export type { SarifContext };
 
 /** The severity levels an Action run can fail at, matching the CLI's `--fail-on`. */
@@ -33,6 +37,8 @@ export interface ActionInputs {
   sarif: string;
   /** Markdown files or directories for the `md.*` checks, as the CLI's `--markdown` takes them. Global: forwarded to every site's run. Empty: the site-folder walk. */
   markdown: string[];
+  /** Whether `.seaworthy/history` is kept between runs of this ref and config (issue #261). `off` caches nothing. */
+  cache: CacheMode;
 }
 
 /** Env keys for the `Verify the site` step, so the YAML stays declarative and the code stays testable. */
@@ -41,6 +47,7 @@ export const INPUT_ENV = {
   threshold: "SEAWORTHY_THRESHOLD",
   sarif: "SEAWORTHY_SARIF",
   markdown: "SEAWORTHY_MARKDOWN",
+  cache: "SEAWORTHY_CACHE",
 } as const;
 
 /**
@@ -54,11 +61,17 @@ export function parseInputs(env: Readonly<Record<string, string | undefined>>): 
   if (threshold === undefined) throw new ActionInputError(`the threshold must be one of ${THRESHOLDS.join(", ")}, not "${env.SEAWORTHY_THRESHOLD}"`);
   const sites = entryList(env.SEAWORTHY_SITE);
   for (const site of sites) assertInsideWorkspace(site);
+  // Empty counts as unset: a workflow that writes the input with no value means the default, and
+  // the default is the one that caches nothing (an unknown mode is still a hard error).
+  const rawCache = (env.SEAWORTHY_CACHE ?? "").trim().toLowerCase();
+  const cache = rawCache === "" ? CACHE_DEFAULT : ((CACHE_MODES as readonly string[]).includes(rawCache) ? (rawCache as CacheMode) : undefined);
+  if (cache === undefined) throw new ActionInputError(`the cache mode must be one of ${CACHE_MODES.join(", ")}, not "${env.SEAWORTHY_CACHE}"`);
   return {
     sites,
     threshold,
     sarif: (env.SEAWORTHY_SARIF ?? "").trim(),
     markdown: entryList(env.SEAWORTHY_MARKDOWN),
+    cache,
   };
 }
 
