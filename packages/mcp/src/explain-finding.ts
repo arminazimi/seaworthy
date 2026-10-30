@@ -118,7 +118,8 @@ export interface ExplainFindingOutput {
 
 // The docs pages of this repository, resolved from the built package: <root>/docs/checks. A
 // published install may not ship them; reads there degrade to the docs URL, never to a crash.
-const DEFAULT_DOCS_DIR = fileURLToPath(new URL("../../../../docs/checks/", import.meta.url));
+// The check docs resources (./check-docs.js) read the same folder from this one constant.
+export const DEFAULT_DOCS_DIR = fileURLToPath(new URL("../../../../docs/checks/", import.meta.url));
 
 /** Rebuilds an edit from the client with the contract's fixed key order. */
 const toEdit = (edit: InputEdit): Edit => ({

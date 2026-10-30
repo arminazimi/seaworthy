@@ -2,15 +2,16 @@
 // This is the skeleton (issue #76), the verify tools (issue #77), and `explain_finding` (issue #78):
 // an initialize handshake over stdio, `list_checks` for the check metadata, `verify_site` /
 // `verify_changed` for the reports, and `explain_finding` for acting on one finding.
-// Tools for later issues are listed in "./planned.js" and stay unregistered until they ship.
+// The check docs pages are served as resources (issue #253), the workflow prompts (issue #251)
+// last. Tools for later issues are listed in "./planned.js" and stay unregistered until they ship.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
-import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";
-import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_INPUT, FIX_PREVIEW_NAME, fixPreviewReport } from "./fix-preview.js";
+import { registerCheckDocsResources } from "./check-docs.js";
+import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_INPUT, FIX_PREVIEW_NAME, fixPreviewReport } from "./fix-preview.js";
 import { EXPLAIN_FINDING_DESCRIPTION, EXPLAIN_FINDING_INPUT, EXPLAIN_FINDING_NAME, explainFinding } from "./explain-finding.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
 import { registerPrompts } from "./prompts.js";
@@ -77,6 +78,7 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     { description: EXPLAIN_FINDING_DESCRIPTION, inputSchema: EXPLAIN_FINDING_INPUT },
     (args): CallToolResult => ({ content: [{ type: "text", text: explainFinding(args, toolOptions) }] }),
   );
+  registerCheckDocsResources(server, { checks });
   registerPrompts(server);
   return server;
 }

@@ -1,13 +1,13 @@
 // End-to-end: spawn the built MCP server as a child process and speak real JSON-RPC over stdio,
-// asserting exact wire behavior of the skeleton: the initialize handshake, the advertised tool
-// and prompt lists, tool calls, prompt fetches, the error paths, and shutdown on client hangup.
-// Skipped with a reason where the environment lacks the capability (the built server has not
-// compiled yet).
+// asserting exact wire behavior of the skeleton: the initialize handshake, the advertised tool,
+// resource, and prompt lists, tool calls, resource reads, prompt fetches, the error paths, and
+// shutdown on client hangup. Skipped with a reason where the environment lacks the capability (the
+// built server has not compiled yet).
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -17,10 +17,17 @@ import { fileURLToPath } from "node:url";
 import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
+import {
+  CHECK_DOCS_MIME_TYPE,
+  CHECK_DOCS_RESOURCE_DESCRIPTION,
+  CHECK_DOCS_RESOURCE_NAME,
+  CHECK_DOCS_RESOURCE_TITLE,
+  CHECK_DOCS_URI_TEMPLATE,
+} from "../src/check-docs.js";
 import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_NAME } from "../src/diff-reports.js";
 import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_NAME } from "../src/fix-preview.js";
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
-import { EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
+import { DEFAULT_DOCS_DIR, EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
 import {
   ADOPT_EXISTING_SITE_ARGS,
@@ -196,7 +203,7 @@ test("initialize answers the negotiated protocol version, capabilities, and serv
     const result = await initialize(child);
     assert.deepEqual(result, {
       protocolVersion: "2025-06-18",
-      capabilities: { tools: { listChanged: true }, prompts: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, resources: { listChanged: true }, prompts: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -212,7 +219,7 @@ test("initialize falls back to the SDK's latest version for an unsupported proto
     assert.equal(reply.id, 1);
     assert.deepEqual(reply.result, {
       protocolVersion: LATEST_PROTOCOL_VERSION,
-      capabilities: { tools: { listChanged: true }, prompts: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, resources: { listChanged: true }, prompts: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -493,6 +500,105 @@ test("tools/call explain_finding answers an unknown check id with a tool error a
     const alive = await child.next();
     assert.equal(alive.id, 9);
     assert.equal((alive.result as { isError?: unknown }).isError, undefined);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("resources/list advertises exactly one docs page per built-in check, sorted by check id", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(13, "resources/list"));
+    const reply = await child.next();
+    assert.equal(reply.jsonrpc, "2.0");
+    assert.equal(reply.id, 13);
+    const metas = [...builtInChecks].map((check) => check.meta).sort(byId);
+    assert.deepEqual(reply.result, {
+      resources: metas.map((meta) => ({
+        uri: `seaworthy://checks/${meta.id}/docs`,
+        name: meta.id,
+        title: meta.title,
+        description: CHECK_DOCS_RESOURCE_DESCRIPTION,
+        mimeType: CHECK_DOCS_MIME_TYPE,
+      })),
+    });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("resources/templates/list advertises the one check docs template it is served from", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(14, "resources/templates/list"));
+    const reply = await child.next();
+    assert.equal(reply.id, 14);
+    assert.deepEqual(reply.result, {
+      resourceTemplates: [
+        {
+          name: CHECK_DOCS_RESOURCE_NAME,
+          uriTemplate: CHECK_DOCS_URI_TEMPLATE,
+          title: CHECK_DOCS_RESOURCE_TITLE,
+          description: CHECK_DOCS_RESOURCE_DESCRIPTION,
+          mimeType: CHECK_DOCS_MIME_TYPE,
+        },
+      ],
+    });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("resources/read returns a check's docs page verbatim as Markdown text", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(15, "resources/read", { uri: "seaworthy://checks/images.alt/docs" }));
+    const reply = await child.next();
+    assert.equal(reply.id, 15);
+    assert.equal(reply.error, undefined);
+    assert.deepEqual(reply.result, {
+      contents: [
+        {
+          uri: "seaworthy://checks/images.alt/docs",
+          mimeType: CHECK_DOCS_MIME_TYPE,
+          text: readFileSync(join(DEFAULT_DOCS_DIR, "images.alt.md"), "utf8"),
+        },
+      ],
+    });
+    const text = (reply.result as unknown as { contents: [{ text: string }] }).contents[0].text;
+    assert.ok(text.startsWith("# images.alt\n"), "the page arrives as the contract page it is, not a summary");
+  } finally {
+    await child.stop();
+  }
+});
+
+test("resources/read on an unknown check id is a clean JSON-RPC error and the server stays alive", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(16, "resources/read", { uri: "seaworthy://checks/no.such.check/docs" }));
+    const reply = await child.next();
+    assert.equal(reply.id, 16);
+    assert.deepEqual(reply.error, {
+      code: ErrorCode.InvalidParams,
+      message: 'MCP error -32602: unknown check id "no.such.check"; the check docs resources only serve checks that exist — list_checks lists them',
+    });
+    // A URI the template does not match is not found, and still does not invent a page.
+    child.send(request(17, "resources/read", { uri: "seaworthy://reports/site" }));
+    const unmatched = await child.next();
+    assert.equal(unmatched.id, 17);
+    const unmatchedError = unmatched.error as { code: number; message: string };
+    assert.equal(unmatchedError.code, ErrorCode.InvalidParams);
+    assert.match(unmatchedError.message, /Resource seaworthy:\/\/reports\/site not found/);
+    // The server survived both: a known check still reads as usual.
+    child.send(request(18, "resources/read", { uri: "seaworthy://checks/meta.lang/docs" }));
+    const alive = await child.next();
+    assert.equal(alive.id, 18);
+    assert.equal(alive.error, undefined);
+    assert.ok((alive.result as { contents: [{ text: string }] }).contents[0].text.startsWith("# meta.lang"));
   } finally {
     await child.stop();
   }
