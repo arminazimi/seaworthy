@@ -9,6 +9,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
+import { withProgress } from "./progress.js";
 import { SERVER_VERSION } from "./version.js";
 import {
   VERIFY_CHANGED_DESCRIPTION,
@@ -49,12 +50,12 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
   server.registerTool(
     VERIFY_SITE_NAME,
     { description: VERIFY_SITE_DESCRIPTION, inputSchema: VERIFY_SITE_INPUT },
-    async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifySiteReport(args, toolOptions) }] }),
+    async (args, extra): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifySiteReport(args, withProgress(toolOptions, extra)) }] }),
   );
   server.registerTool(
     VERIFY_CHANGED_NAME,
     { description: VERIFY_CHANGED_DESCRIPTION, inputSchema: VERIFY_CHANGED_INPUT },
-    async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, toolOptions) }] }),
+    async (args, extra): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, withProgress(toolOptions, extra)) }] }),
   );
   return server;
 }
