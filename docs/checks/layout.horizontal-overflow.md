@@ -1,0 +1,52 @@
+# layout.horizontal-overflow
+
+At a phone viewport the document is wider than the screen, so the reader has to pan the whole page sideways to read it.
+
+## Why it matters
+
+A phone is where most people read the web. When the document is wider than the screen, every paragraph runs off the edge, the layout shifts as you pan, and small errors in where you drag turn reading into wrestling with the viewport. People using switch access, screen readers in explore-by-touch mode, or one thumb on a bus cannot pan comfortably at all: content that needs sideways panning is content they do not get.
+
+This is the rendered sibling of [WCAG 1.4.10 Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html). The boundary between the two Seaworthy checks is the question each asks: `layout.horizontal-overflow` asks *"does the document scroll sideways at a real phone width (375 px)?"* and the reflow check `layout.reflow` asks the WCAG question, *"does the content still reflow at 320 CSS px?"*. A page that fails here is measured at the phone viewport; the spec-width measurement belongs to `layout.reflow`. Each page problem gets one finding, under the check that measured it.
+
+## What it checks
+
+Rendered and opt-in: the check runs only under `--rendered` (see [ADR 0005](../adr/0005-headless-browser.md)), and only at the phone width (375 px), because sideways scroll is the phone's problem. Pages load from `file://` URLs and requests to remote `http(s)` resources are aborted, so a rendered run stays offline; there is no broken fixture for the same reason there is none for `a11y.axe`.
+
+A page is reported when, at that width, either:
+
+- the document's scroll width exceeds the viewport — the reader can pan, and has to. The finding names the pan distance in CSS px and the selector of the widest element past the edge; or
+- content reaches past the viewport but no sideways scroll can bring it into view, because the page hides its sideways overflow with `overflow-x: hidden`/`clip` on `<html>` or `<body>`, or an element sits fixed past the edge. Clipping the scroll does not make the page fit — it removes the only way to reach the content, so it is reported as out of reach, not passed as fitting.
+
+What does **not** count: a wide region that owns its own sideways scroll inside the viewport — a `<table>` or `<pre>` block in a container of its own with `overflow-x: auto` that itself fits the screen. WCAG 1.4.10 explicitly allows two-dimensional scrolling inside such a component; only the document panning is the problem. Elements within 1 CSS px of the edge are rounding, not overflow.
+
+Like the other rendered checks, this one needs a browser the machine already has (Chrome, Chromium, or Edge, or `SEAWORTHY_BROWSER`); with none installed it skips with a hint instead of failing the run.
+
+## How to fix
+
+Find the element the finding names and make the layout fit 375 CSS px:
+
+```html
+<!-- before: a fixed width wider than any phone -->
+<div class="banner" style="width: 700px">…</div>
+<!-- after: fluid, capped by the viewport -->
+<div class="banner" style="max-width: 100%">…</div>
+```
+
+```html
+<!-- before: a wide table makes the whole document scroll -->
+<table style="width: 600px">…</table>
+<!-- after: the table pans inside its own region, the document does not -->
+<section style="overflow-x: auto">
+  <table style="width: 600px">…</table>
+</section>
+```
+
+The other usual causes: flex and grid children missing `min-width: 0` (they refuse to shrink below their content), unbreakable long strings (give `overflow-wrap: break-word` a chance), and elements positioned or padded past the edge. Do not fix this by putting `overflow-x: hidden` on `<html>` or `<body>`: that hides the symptom this check reports a different way, and it is reported too, as unreachable content.
+
+## Options
+
+None.
+
+## Standards
+
+- [WCAG 1.4.10 Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html) — the rendered sibling; the 320 CSS px measurement belongs to `layout.reflow`.

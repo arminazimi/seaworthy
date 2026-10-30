@@ -41,6 +41,18 @@ export interface CheckContext {
   readonly browser?: BrowserContext;
   /** Set from --markdown: explicit Markdown sources; the md.* graph uses these instead of walking the site folder. */
   readonly markdownSources?: MarkdownSources;
+  /** Set under --evidence: where rendered checks save the crops that prove their findings. */
+  readonly evidence?: EvidenceSink;
+}
+
+/**
+ * Where the run's screenshot evidence goes. `dir` is the folder on the file system — the
+ * user opted into it with --evidence, and it is never inside the verified folder; `label` is
+ * the same folder as the report names it: relative to where the command ran, forward slashes.
+ */
+export interface EvidenceSink {
+  readonly dir: string;
+  readonly label: string;
 }
 
 /**
@@ -104,6 +116,16 @@ export interface FindingDraft {
   key: string;
   /** Overrides the check's default severity. */
   severity?: Severity;
+  /** Set by a rendered check that saved its --evidence crop; carried onto the finding unchanged. */
+  evidence?: FindingEvidence;
+}
+
+/** The screenshot crop that proved a rendered finding: the pixels behind the message. */
+export interface FindingEvidence {
+  /** Path of the image, relative to where the command ran, forward slashes; never absolute, never inside the verified site. */
+  image: string;
+  /** The name of the width the crop was taken at, one of the rendered checks' shared viewport names. */
+  viewport: string;
 }
 
 export interface Finding {
@@ -115,6 +137,8 @@ export interface Finding {
   fingerprint: string;
   /** Added in buildReport: a ready-to-paste fix prompt for an agent, identical in every output format. */
   prompt?: string;
+  /** Present only for a rendered finding whose crop was saved under --evidence. */
+  evidence?: FindingEvidence;
 }
 
 export interface SkippedCheck {
