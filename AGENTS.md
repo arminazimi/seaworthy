@@ -79,5 +79,6 @@ These files are where parallel PRs collide, so each has exactly one rule. Never 
 - [ROADMAP.md](ROADMAP.md): phases, epics, and tasks
 - [CONTRIBUTING.md](CONTRIBUTING.md): lanes, sizes, and how to claim work
 - [docs/agents-playbook.md](docs/agents-playbook.md): running many agents in parallel without conflicts
+- [docs/agent-loop.md](docs/agent-loop.md): the fastest verify-and-fix loop for agents, with measured timings
 - [docs/adr/](docs/adr/): decisions and why
 - [SECURITY.md](SECURITY.md): reporting vulnerabilities
