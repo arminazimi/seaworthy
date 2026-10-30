@@ -22,7 +22,7 @@ export function formatMarkdown(report: Report): string {
   if (report.summary.suppressed > 0) notes.push(`${report.summary.suppressed} suppressed on purpose.`);
   if (report.summary.baselined > 0) notes.push(`${report.summary.baselined} accepted by the baseline.`);
   if (report.summary.baselineStale > 0) notes.push(`${report.summary.baselineStale} baseline ${report.summary.baselineStale === 1 ? "entry" : "entries"} fixed: run \`--update-baseline\` to prune.`);
-  if (report.summary.findingsOmitted !== undefined) notes.push(`${report.summary.findingsOmitted} more beyond the findings cap, omitted. Raise it with \`--max-findings\`.`);
+  if (report.summary.findingsOmitted !== undefined) notes.push(`${report.summary.findingsOmitted} more were found but omitted (a findings cap or \`--new-only\`; raise it with \`--max-findings\`).`);
   const readability = readabilityLine(report);
   if (readability) notes.push(readability);
   if (notes.length > 0) out.push(notes.join(" "), "");
