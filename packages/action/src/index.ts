@@ -1,9 +1,9 @@
 // GitHub Action for Seaworthy: a thin adapter over the verify API (epic E-action, issue #88).
 //
-// The composite `action.yml` at the repository root runs the verify CLI once with
-// `--format json`, and this package does the rest:
+// The composite `action.yml` at the repository root runs the verify CLI once per site named by
+// the `site` input, each time with `--format json`, and this package does the rest:
 //
-//   parse the inputs → read the report JSON → map it to SARIF 2.1.0 → fail the run at the threshold
+//   parse the inputs → read each report JSON → map it to SARIF 2.1.0 → fail the run at the threshold
 //
 // The mapping reuses the one in @seaworthy/verify (ADR 0008 is the single authority for how findings
 // become SARIF), imported as the package that an action checkout lays out with npm ci; the tsconfig
@@ -25,13 +25,13 @@ export class ActionInputError extends Error {}
 export class ReportFormatError extends Error {}
 
 export interface ActionInputs {
-  /** The built site folder, relative to the workspace, or "" to let the CLI discover its default. */
-  site: string;
-  /** The severity that fails the run: exit code 1 with findings at or above it, 4 when a check crashes. */
+  /** The built site folders to verify, relative to the workspace. Empty: one site, the CLI's own discovery of dist, build, out, public, _site, site. */
+  sites: string[];
+  /** The severity that fails the run: exit code 1 with findings at or above it, 4 when a check crashes. Global: every site runs at the same threshold. */
   threshold: Threshold;
-  /** Where the SARIF report is written, relative to the workspace, or "" when SARIF is disabled. */
+  /** Where the SARIF report is written, relative to the workspace, or "" when SARIF is disabled. With several sites this names one file per site (see `sarifTargets`). */
   sarif: string;
-  /** Markdown files or directories for the `md.*` checks, as the CLI's `--markdown` takes them. Empty: the site-folder walk. */
+  /** Markdown files or directories for the `md.*` checks, as the CLI's `--markdown` takes them. Global: forwarded to every site's run. Empty: the site-folder walk. */
   markdown: string[];
 }
 
@@ -52,25 +52,83 @@ export function parseInputs(env: Readonly<Record<string, string | undefined>>): 
   const raw = (env.SEAWORTHY_THRESHOLD ?? "error").trim().toLowerCase() as Threshold;
   const threshold = (THRESHOLDS as readonly string[]).includes(raw) ? raw : undefined;
   if (threshold === undefined) throw new ActionInputError(`the threshold must be one of ${THRESHOLDS.join(", ")}, not "${env.SEAWORTHY_THRESHOLD}"`);
+  const sites = entryList(env.SEAWORTHY_SITE);
+  for (const site of sites) assertInsideWorkspace(site);
   return {
-    site: (env.SEAWORTHY_SITE ?? "").trim(),
+    sites,
     threshold,
     sarif: (env.SEAWORTHY_SARIF ?? "").trim(),
-    markdown: markdownPaths(env.SEAWORTHY_MARKDOWN),
+    markdown: entryList(env.SEAWORTHY_MARKDOWN),
   };
 }
 
 /**
- * The `markdown` input as the CLI takes it: one entry per line or comma, each trimmed, empty
- * entries dropped so a trailing newline in a workflow block scalar costs nothing.
+ * A list input as the CLI and the Action take it: one entry per line or comma, each trimmed,
+ * empty entries dropped so a trailing separator in a workflow block scalar costs nothing.
+ * Entries may contain spaces — only newlines and commas separate them.
  */
-function markdownPaths(value: string | undefined): string[] {
+function entryList(value: string | undefined): string[] {
   if (value === undefined) return [];
   return value
     .split(/[\n,]/)
     .map((entry) => entry.trim())
     .filter((entry) => entry !== "");
 }
+
+/**
+ * The trust rule from AGENTS.md, enforced on every site folder: the Action verifies folders
+ * inside the repository workspace and nothing else. Absolute paths and `..` segments would
+ * reach outside it, and the Action never runs the user's build commands — building each site
+ * stays the caller's own workflow steps.
+ */
+function assertInsideWorkspace(site: string): void {
+  const escaped = site.startsWith("/") || site.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(site) || site.split(/[\\/]/).includes("..");
+  if (escaped) throw new ActionInputError(`the site "${site}" must be a folder inside the workspace: relative to the workspace root, no absolute paths and no ".." segments`);
+}
+
+/**
+ * The SARIF target one site's run writes, given the single `sarif` input path.
+ *
+ * With one site (or the CLI's auto-discovered default) the path is used exactly as given —
+ * byte-identical to the behaviour before multi-site support. With several sites the given path
+ * is only a template: the sanitized site folder is appended before the extension, so
+ * `out/seaworthy.sarif` with sites `dist` and `blog/_site` becomes
+ * `out/seaworthy.dist.sarif` and `out/seaworthy.blog-_site.sarif`. Sanitizing keeps the file
+ * name portable: path separators and anything outside `[A-Za-z0-9._-]` (spaces, for instance)
+ * become dashes.
+ */
+export function sarifTargetFor(site: string, sarif: string): string {
+  const label = site.split(/[\\/]/).filter(Boolean).join("-").replace(/[^A-Za-z0-9._-]+/g, "-");
+  const stemEnd = Math.max(sarif.lastIndexOf("/"), sarif.lastIndexOf("\\"));
+  const dot = sarif.lastIndexOf(".");
+  return dot > stemEnd ? `${sarif.slice(0, dot)}.${label}${sarif.slice(dot)}` : `${sarif}.${label}`;
+}
+
+/**
+ * The SARIF targets for a list of sites, in site order: the `sarif` input as given for a single
+ * site, one derived file per site for several. Empty when SARIF is disabled.
+ */
+export function sarifTargets(sites: readonly string[], sarif: string): string[] {
+  if (sarif === "") return [];
+  if (sites.length <= 1) return [sarif];
+  return sites.map((site) => sarifTargetFor(site, sarif));
+}
+
+/**
+ * The run's exit code from one CLI outcome per site: the Action fails if any site fails, and a
+ * crash is reported as itself. Precedence: 2 (a site was rejected at the CLI level, so the
+ * invocation itself is wrong) beats 4 (a check or the engine crashed) beats 1 (findings at or
+ * above the threshold) beats 0 (every site clean).
+ */
+export function aggregateExit(codes: readonly number[]): number {
+  for (const code of [USAGE_EXIT, CRASH_EXIT, FINDINGS_EXIT]) if (codes.includes(code)) return code;
+  return 0;
+}
+
+/** Exit codes the aggregate rule orders; the CLI's own contract (packages/verify/src/cli/types.ts). */
+const USAGE_EXIT = 2;
+const CRASH_EXIT = 4;
+const FINDINGS_EXIT = 1;
 
 /** Minimal shape of the report JSON the CLI writes, checked before the SARIF mapping trusts it. */
 function asReport(value: unknown): Report {
