@@ -85,7 +85,7 @@ This snippet is userland code you keep and test in your own project. Nothing in 
 
 ## In CI
 
-One job builds, then verifies. `seaworthy init` writes this workflow for an Astro project, `root` set to `dist` included.
+One job builds, then verifies. `seaworthy init` writes the same shape for an Astro project — the config it adds sets `root: "dist"`, and its verify step is the bare `npx seaworthy verify`, which finds that folder. The `Install Seaworthy` step below is the pre-alpha stand-in for `npx` resolving from npm.
 
 ```yaml
 name: seaworthy
@@ -110,6 +110,8 @@ jobs:
         run: |
           npm ci
           npm run build
+      - name: Install Seaworthy # pre-alpha: from git, pinned; swap to npm once it is published
+        run: npm install --no-save github:arminazimi/seaworthy#<commit>
       - name: Verify
         run: npx seaworthy verify dist
 ```
