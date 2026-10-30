@@ -17,6 +17,7 @@
     "changelog:fold": "node tools/changelog.mjs",
     "check:startup": "node tools/check-startup.mjs",
     "metrics": "node tools/metrics.mjs",
+    "bench:run": "node tools/bench-run.mjs",
     "build:brand": "node tools/brand/build.mjs",
     "export:brand": "node tools/brand/export.mjs",
     "check:brand": "node tools/brand/build.mjs --check",
