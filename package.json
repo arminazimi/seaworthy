@@ -22,7 +22,9 @@
     "check:brand": "node tools/brand/build.mjs --check",
     "schema:build": "node tools/schema.mjs",
     "check:schema": "node tools/schema.mjs --check",
-    "check": "npm run build && npm test && npm run check:startup && npm run check:roadmap && npm run check:layout && npm run check:changelog && npm run check:brand && npm run check:schema",
+    "reference:build": "node tools/gen-check-reference.mjs",
+    "check:reference": "node tools/gen-check-reference.mjs --check",
+    "check": "npm run build && npm test && npm run check:startup && npm run check:roadmap && npm run check:layout && npm run check:changelog && npm run check:brand && npm run check:reference && npm run check:schema",
     "clean": "tsc -b --clean packages/verify packages/mcp packages/action"
   },
   "engines": {
