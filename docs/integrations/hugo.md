@@ -83,6 +83,21 @@ jobs:
 
 The `Verify` step follows the CLI's exit codes: `0` clean, `1` findings at or above the failing severity, `2` a usage error (a bad flag or config), `4` a crash. GitHub Actions fails the job on any non-zero exit, so a `1` — a real error-severity finding under the default `--fail-on error` — is the gate that blocks the merge. A `2` or `4` means the command or the engine broke, not the site; fix that before trusting a green run.
 
+## Or run it as an Action
+
+The repository also ships a composite GitHub Action (`action.yml`). It installs and builds the CLI inside its own checkout, verifies one folder, optionally writes a SARIF 2.1.0 report, and fails the run at the threshold — so it replaces the install-and-verify steps above:
+
+```yaml
+      - name: Verify with Seaworthy
+        uses: arminazimi/seaworthy@<commit> # no release tag is cut yet: pin a commit
+        with:
+          site: public
+          threshold: error
+          sarif: seaworthy.sarif
+```
+
+`site` is relative to your workspace and is the folder the build command above writes to; leave it empty to let the CLI pick the first build folder it finds. `threshold` accepts `error` (the default), `warning`, `note`, or `none`. `sarif` is optional — when set, the report is written there and uploaded as a workflow artifact. Same pre-alpha caveat as everywhere else on this page: the Action runs the CLI built from the pinned commit, not a published package.
+
 ## Notes
 
 - **Output folder.** Hugo's default is `public/`; `hugo --destination <dir>` changes it. Match it in `root` or the verify argument.
