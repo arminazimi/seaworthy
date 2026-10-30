@@ -54,4 +54,9 @@ export interface CliEnvironment {
    * so a caller can avoid writing it twice.
    */
   stream?: (chunk: string) => void;
+  /**
+   * The folder `explain` reads check docs pages from. Default: undefined, which is this
+   * repository's `docs/checks` resolved from the built CLI.
+   */
+  docsDir?: string;
 }

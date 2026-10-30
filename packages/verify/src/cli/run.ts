@@ -1,5 +1,5 @@
 // The dispatcher: routes one invocation to its command module and maps errors to exit codes.
-// Each command owns one module (verify, init, fix, diff, history, config); this file owns only
+// Each command owns one module (verify, init, fix, diff, history, config, explain); this file owns only
 // routing, the root `--help` and `--version`, and the shared error-to-exit-code mapping. Each
 // route imports just the module it needs, so `--version` never loads the engine: ADR 0004
 // budgets that invocation at 150 ms.
@@ -22,6 +22,7 @@ export async function run(argv: readonly string[], env: CliEnvironment = {}): Pr
     if (command === "diff") return await (await import("./diff.js")).diffCommand(rest, env);
     if (command === "history") return await (await import("./history.js")).historyCommand(rest, env);
     if (command === "config") return await (await import("./config.js")).configCommand(rest, env);
+    if (command === "explain") return await (await import("./explain.js")).explainCommand(rest, env);
     return { code: EXIT.usage, stdout: "", stderr: `Unknown command: ${command}\n\n${(await import("./help.js")).HELP}` };
   } catch (error) {
     if (error instanceof UsageError || error instanceof ConfigError || error instanceof BaselineError || error instanceof ChangedError || error instanceof ReportDiffError) return { code: EXIT.usage, stdout: "", stderr: `seaworthy: ${error.message}\nRun \`seaworthy --help\` for usage.\n` };
