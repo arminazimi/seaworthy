@@ -66,6 +66,7 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     { description: FIX_PREVIEW_DESCRIPTION, inputSchema: FIX_PREVIEW_INPUT },
     async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await fixPreviewReport(args, toolOptions) }] }),
   );
+  server.registerTool(
     EXPLAIN_FINDING_NAME,
     { description: EXPLAIN_FINDING_DESCRIPTION, inputSchema: EXPLAIN_FINDING_INPUT },
     (args): CallToolResult => ({ content: [{ type: "text", text: explainFinding(args, toolOptions) }] }),
