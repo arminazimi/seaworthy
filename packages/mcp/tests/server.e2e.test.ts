@@ -271,8 +271,6 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
         {
           name: DIFF_REPORTS_NAME,
           description: DIFF_REPORTS_DESCRIPTION,
-          name: FIX_PREVIEW_NAME,
-          description: FIX_PREVIEW_DESCRIPTION,
           inputSchema: {
             $schema: "http://json-schema.org/draft-07/schema#",
             type: "object",
@@ -281,6 +279,16 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
               after: { description: "The newer report file, relative to the workspace; as written by `seaworthy verify --format json`.", type: "string" },
             },
             required: ["before", "after"],
+          },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
+          name: FIX_PREVIEW_NAME,
+          description: FIX_PREVIEW_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
               site: { description: "The built site folder to verify, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
             },
           },

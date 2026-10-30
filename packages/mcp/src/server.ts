@@ -67,6 +67,7 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     { description: DIFF_REPORTS_DESCRIPTION, inputSchema: DIFF_REPORTS_INPUT },
     (args): CallToolResult => ({ content: [{ type: "text", text: diffReportsJson(args, toolOptions) }] }),
   );
+  server.registerTool(
     FIX_PREVIEW_NAME,
     { description: FIX_PREVIEW_DESCRIPTION, inputSchema: FIX_PREVIEW_INPUT },
     async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await fixPreviewReport(args, toolOptions) }] }),
