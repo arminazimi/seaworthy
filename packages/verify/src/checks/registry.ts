@@ -10,6 +10,7 @@ import { hostingHeaders, hostingRedirects } from "./hosting.js";
 import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlNesting, htmlObsolete, htmlParseErrors } from "./html.js";
 import { htmlMetaRefresh, htmlRedirectChain, metaCanonical, metaCanonicalCycle, metaCanonicalTarget, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { i18nHreflang } from "./i18n.js";
+import { i18nParity } from "./i18n-parity.js";
 import { i18nSwitcher } from "./i18n-switcher.js";
 import { i18nXDefault } from "./i18n-x-default.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
@@ -58,6 +59,7 @@ export const builtInChecks: readonly Check[] = [
   htmlParseErrors,
   htmlRedirectChain,
   i18nHreflang,
+  i18nParity,
   i18nSwitcher,
   i18nXDefault,
   imagesAlt,
