@@ -129,7 +129,7 @@ test("the server registers diff_reports and answers calls over the MCP surface",
     const listed = await client.listTools();
     assert.deepEqual(
       listed.tools.map((tool) => tool.name).sort(),
-      ["diff_reports", "list_checks", "verify_changed", "verify_site"],
+      ["diff_reports", "explain_finding", "fix_preview", "list_checks", "verify_changed", "verify_site"],
     );
     assert.equal(listed.tools.find((tool) => tool.name === DIFF_REPORTS_NAME)?.description, DIFF_REPORTS_DESCRIPTION);
 
