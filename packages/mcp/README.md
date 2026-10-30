@@ -5,6 +5,16 @@ speaks JSON-RPC over stdio — `seaworthy-mcp`, `src/main.ts` — and serves `li
 `verify_site` and `verify_changed`; the tools still planned are listed in `src/planned.ts` and stay
 unregistered until they ship.
 
+## Resources
+
+Every check's contract page is a readable resource, served from one URI template
+(`seaworthy://checks/{check_id}/docs`, `src/check-docs.ts`): `resources/list` returns one entry per
+check the server knows — named by its check ID, titled with verify's own check title, typed
+`text/markdown` — and `resources/read` returns that page from `docs/checks/<id>.md` as it is. The
+list is built from verify's check metadata, so no check ID is invented and no other file is
+addressable; an install that ships no docs pages answers with the check's own `docs` URL rather
+than a guess. No site is read and no network is used.
+
 ## Registry metadata
 
 `server.json` here is this server's entry for the official MCP Registry

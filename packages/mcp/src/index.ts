@@ -3,6 +3,18 @@
 export { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";
 export type { DiffReportsInput, DiffReportsOptions } from "./diff-reports.js";
 export {
+  CHECK_DOCS_MIME_TYPE,
+  CHECK_DOCS_RESOURCE_DESCRIPTION,
+  CHECK_DOCS_RESOURCE_NAME,
+  CHECK_DOCS_RESOURCE_TITLE,
+  CHECK_DOCS_URI_TEMPLATE,
+  checkDocsUri,
+  listCheckDocsResources,
+  readCheckDocs,
+  registerCheckDocsResources,
+} from "./check-docs.js";
+export type { CheckDocsOptions, CheckDocsResource } from "./check-docs.js";
+export {
   EXPLAIN_FINDING_DESCRIPTION,
   EXPLAIN_FINDING_INPUT,
   EXPLAIN_FINDING_NAME,
