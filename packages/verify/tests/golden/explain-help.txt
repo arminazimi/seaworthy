@@ -1,0 +1,20 @@
+seaworthy explain
+
+Print a check's docs page in the terminal, as it is written: what the check reports, why it
+matters, the exact rule, the fix with examples, its options, and the standards it cites. The
+page is read from docs/checks/<check-id>.md; no site is needed, no check runs, and nothing on
+disk is written.
+
+Usage:
+  seaworthy explain <check-id>
+
+Arguments:
+  check-id             The ID of a built-in check, such as images.alt. Run `seaworthy verify` to
+                       see the IDs a site has findings for.
+
+Options:
+  --help, -h           Print this help
+
+Exit codes:
+  0  the page was printed
+  2  no check id given, or an id no built-in check carries

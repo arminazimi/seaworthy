@@ -20,6 +20,7 @@ Usage:
   seaworthy diff <before.json> <after.json>
   seaworthy history [options]
   seaworthy config check [file]
+  seaworthy explain <check-id>
 
 Arguments:
   dir                  verify: built site folder, default the first of ${DEFAULT_FOLDERS.join(", ")} that exists.
@@ -30,6 +31,7 @@ Commands:
   init [dir]           Write a config, a CI workflow, and an empty baseline in one step. See \`seaworthy init --help\`.
   fix --dry-run        Preview every suggested edit as one unified diff. See \`seaworthy fix --help\`.
   history              Export the run history as CSV or JSON. See \`seaworthy history --help\`.
+  explain <check-id>   Print a check's docs page in the terminal. See \`seaworthy explain --help\`.
 
 Options:
 ${OPTIONS_HELP}  --help, -h           Print this help
