@@ -36,22 +36,69 @@ Stray end tags, unclosed elements, obsolete elements and attributes, duplicate i
 
 ## What neither tool answers
 
-Nu validates the document it is handed. It does not know whether the page is reachable from the rest of the site, whether an internal link's target or fragment exists (`links.internal`), whether a referenced script, stylesheet, or image is in the built output (`assets.missing`), or what the page looks like after its JavaScript has run — Seaworthy answers the last one only in opt-in `--rendered` mode, where a browser renders each page and `a11y.axe` checks the result, and `readability.ssr-content` warns when content appears only after scripting. `links.external` and the `hosting.*` checks are likewise opt-in with `--network`, because they leave the machine.
+Nu validates the document it is handed. It does not know whether the page is reachable from the rest of the site, whether an internal link's target or fragment exists (`links.internal`), whether a referenced script, stylesheet, or image is in the built output (`assets.missing`), or what the page looks like after its JavaScript has run — Seaworthy answers the last one only in opt-in `--rendered` mode, where a browser renders each page and `a11y.axe` checks the result, and `readability.ssr-content` warns when content appears only after scripting. `links.external` and `readability.markdown-negotiation` are likewise opt-in with `--network`, because they leave the machine; the `hosting.*` checks read `_headers` and `_redirects` from the build offline.
 
 And no tool on this page reads the words: `images.alt` requires the `alt` attribute, which the standard and Nu also require, but whether the alternative text is meaningful is a judgment neither makes.
 
+## The rest of the markup-shaped checks
+
+The `html.*` table above is not the whole HTML side. The checks below read the same parse5 tree;
+none of them is a conformance verdict, and every one of them is about what a reader or an agent ends
+up with. "Runs" is the gate in each check's `needs`: `default` is offline with no flag, `--rendered`
+needs a browser, `--network` makes requests, and a check whose need is switched off is reported as
+skipped, never passed.
+
+| Check | What it reports | Runs |
+| --- | --- | --- |
+| [`meta.title`](meta.title.md), [`meta.duplicate-titles`](meta.duplicate-titles.md) | A page with no `<title>` or an empty one; the same title text on two or more pages. | default |
+| [`meta.description`](meta.description.md), [`meta.duplicate-description`](meta.duplicate-description.md) | No meta description, or several pages carrying the exact same one. | default |
+| [`meta.lang`](meta.lang.md) | `<html>` with no `lang`, or an invalid one — the page language a screen reader picks its voice from. | default |
+| [`meta.viewport`](meta.viewport.md) | No responsive viewport, or one that stops people from zooming. | default |
+| [`meta.canonical`](meta.canonical.md), [`meta.canonical-target`](meta.canonical-target.md), [`meta.canonical-cycle`](meta.canonical-cycle.md) | No usable canonical URL; a canonical that points at a URL the build does not serve; canonicals that circle each other so no page in the circle has one. | default |
+| [`headings.h1`](headings.h1.md), [`headings.order`](headings.order.md) | Not exactly one `h1` on the page; a heading level that skips a step. | default |
+| [`a11y.duplicate-id`](a11y.duplicate-id.md) | The same `id` on more than one element in a page. | default |
+| [`a11y.aria-attributes`](a11y.aria-attributes.md), [`a11y.aria-roles`](a11y.aria-roles.md), [`a11y.aria-references`](a11y.aria-references.md) | An `aria-*` name that does not exist or a value that is not valid for it; a `role` that is unknown, abstract, or not allowed on that element; an `aria-*` that names an `id` the page does not have. | default |
+| [`a11y.autocomplete`](a11y.autocomplete.md), [`a11y.lang-parts`](a11y.lang-parts.md), [`a11y.tabindex`](a11y.tabindex.md) | An `autocomplete` value that is not a real autofill token; a `lang` inside the page that is not a valid tag; a positive `tabindex`. | default |
+| [`a11y.empty-headings`](a11y.empty-headings.md), [`a11y.hidden-focusable`](a11y.hidden-focusable.md), [`a11y.iframe-title`](a11y.iframe-title.md), [`a11y.landmarks`](a11y.landmarks.md) | A heading with no text; a focusable element inside `aria-hidden` content; an `<iframe>` with no accessible name; a page that does not have exactly one `main`. | default |
+| [`a11y.media-captions`](a11y.media-captions.md), [`a11y.radio-groups`](a11y.radio-groups.md), [`a11y.skip-link`](a11y.skip-link.md), [`a11y.table-headers`](a11y.table-headers.md) | A video with no captions, or media that plays sound on its own; radios or checkboxes that belong together with no group label; navigation before main content with no skip link; a data table with no header cells, or `headers` naming a cell outside it. | default |
+| [`names.link`](names.link.md), [`names.button`](names.button.md), [`names.label`](names.label.md) | A link with no text, a button with no accessible name, a form field with no label. | default |
+| [`images.alt`](images.alt.md), [`images.dimensions`](images.dimensions.md), [`images.size`](images.size.md) | An `<img>` with no `alt`; one with no `width` and `height`, so the page jumps as it loads; an image file over the budget. | default |
+| [`rtl.bidi`](rtl.bidi.md) | A right-to-left page that does not declare or mirror its direction: missing `dir` on an RTL `<html>`, mixed-direction text with no base direction, physical CSS in the stylesheets that page uses. | default |
+| [`i18n.hreflang`](i18n.hreflang.md), [`i18n.x-default`](i18n.x-default.md) | An `hreflang` set that is not reciprocal or names a page that is not in the build; a multilingual set with no `x-default`, or with more than one. | default |
+| [`links.internal`](links.internal.md), [`links.base-url`](links.base-url.md) | A link to a page or anchor that is not in the build; links that do not match the base path the site deploys under. | default |
+| [`links.external`](links.external.md) | An outbound link that does not resolve. | `--network` |
+| [`assets.missing`](assets.missing.md) | A script, stylesheet, image, or other file the page loads that is not in the built site, with the closest existing file as the suggestion. | default |
+| [`security.mixed-content`](security.mixed-content.md), [`security.target-blank`](security.target-blank.md) | A resource loaded over plain HTTP on an HTTPS page; a new-tab link without `rel="noopener"`. | default |
+| [`quality.empty-pages`](quality.empty-pages.md), [`quality.orphans`](quality.orphans.md), [`quality.page-weight`](quality.page-weight.md) | A page whose HTML holds only the site frame; a page nothing links to; a page over its weight budget. | default |
+| [`readability.ssr-content`](readability.ssr-content.md) | Page content that only appears after JavaScript runs — invisible to anything that reads the HTML. | default |
+| [`a11y.axe`](a11y.axe.md) | axe-core's findings in the rendered page (computed contrast, target size, DOM order after scripts) at each viewport width. Its rules that the static checks already own are switched off there, so one problem is never named twice. | `--rendered` |
+
+That is the point of the split: a validator judges a document, and these judge a site and the people
+and agents who arrive at it.
+
 ## Running both in one pipeline
 
-They are two commands on the same built folder, in the same CI job, each allowed to fail the build on its own terms. How to install Nu: the project's own README at [validator/validator](https://github.com/validator/validator) documents running the released `vnu.jar` with `java -jar vnu.jar` over files, a directory, or URLs (Java is required), shipping an npm package named `vnu-jar` that provides the jar, and offering a container image; Nu's own site hosts a web service at [validator.w3.org/nu](https://validator.w3.org/nu/). Check that README for the current way to get it rather than a version number copied from a doc page.
+They are two commands on the same built folder, in the same CI job, each allowed to fail the build on its own terms. How to install Nu: the project's own README at [validator/validator](https://github.com/validator/validator) documents running the released `vnu.jar` with `java -jar vnu.jar` over files, a directory, or URLs (Java is required), shipping an npm package named `vnu-jar` that provides the jar, and offering a container image; Nu's own site hosts a web service at [validator.w3.org/nu](https://validator.w3.org/nu/). Its options — output formats and which messages count as failures — are in the [`vnu(1)` manual page](https://github.com/validator/validator/blob/main/docs/vnu.1.md). Check those for the current way to get it and to tune it, rather than a version number copied from a doc page.
 
 ```sh
 npm ci
 npm install --no-save github:arminazimi/seaworthy#<commit>   # pre-alpha: not on npm yet; goes after npm ci, which wipes it
-java -jar vnu.jar dist/                                      # conformance, document by document
+java -jar vnu.jar dist/                                      # conformance, over the built folder
 npx seaworthy verify dist                                    # the built site, site by site
 ```
 
 `seaworthy verify` exits 0 with no findings, 1 when a finding reaches the failing severity (`--fail-on error|warning|note|none`, default `error`), 2 on a usage error, and 4 when a check or the engine crashed. So the obsolete-markup notes and the parse-error warnings from the table above report themselves without blocking the job by default, while Nu's verdict on the same pages is yours to wire in as strict as you want.
+
+## Which one do I need?
+
+- **"Is the markup my generator writes legal HTML?"** — the Nu Html Checker. Nothing in Seaworthy
+  answers that, and a clean Seaworthy report is not a claim that the documents conform.
+- **"Is the site I just built whole, readable, and usable?"** — Seaworthy: links and assets that
+  resolve, titles and descriptions and language and viewport, the accessibility rules the markup
+  decides, weight, redirects, the agent-facing files.
+- **"Both, in one job."** — the ordinary answer when the output was not written by hand: a generator,
+  a theme, an agent. Conformance is a property of each document; the rest is a property of the build,
+  and neither tool can substitute for the other.
 
 ## What is planned
 
