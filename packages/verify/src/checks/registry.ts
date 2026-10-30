@@ -17,6 +17,7 @@ import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { layoutHorizontalOverflow } from "./layout-overflow.js";
 import { layoutReflow } from "./reflow.js";
 import { layoutTargetSize } from "./touch-target.js";
+import { layoutTextClipped } from "./text-clipped.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
 import { mdAnchors } from "./md-anchors.js";
@@ -72,6 +73,7 @@ export const builtInChecks: readonly Check[] = [
   layoutHorizontalOverflow,
   layoutReflow,
   layoutTargetSize,
+  layoutTextClipped,
   linksBaseUrl,
   linksExternal,
   linksInternal,
