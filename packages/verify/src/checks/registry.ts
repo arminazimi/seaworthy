@@ -14,6 +14,7 @@ import { i18nParity } from "./i18n-parity.js";
 import { i18nSwitcher } from "./i18n-switcher.js";
 import { i18nXDefault } from "./i18n-x-default.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
+import { layoutTargetSize } from "./touch-target.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
 import { mdAnchors } from "./md-anchors.js";
@@ -66,6 +67,7 @@ export const builtInChecks: readonly Check[] = [
   imagesAlt,
   imagesDimensions,
   imagesSize,
+  layoutTargetSize,
   linksBaseUrl,
   linksExternal,
   linksInternal,
