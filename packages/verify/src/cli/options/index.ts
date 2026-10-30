@@ -9,12 +9,13 @@ import { type BaseOptions, BASE_DEFAULTS, BASE_FLAGS, BASE_HELP, parseBase } fro
 import { type MaxFindingsOptions, MAX_FINDINGS_DEFAULTS, MAX_FINDINGS_FLAGS, MAX_FINDINGS_HELP, parseMaxFindings } from "./max-findings.js";
 import { type FilteringOptions, FILTERING_DEFAULTS, FILTERING_FLAGS, FILTERING_HELP, parseFiltering } from "./filtering.js";
 import { type NewOnlyOptions, NEW_ONLY_DEFAULTS, NEW_ONLY_FLAGS, NEW_ONLY_HELP, parseNewOnly } from "./new-only.js";
+import { type MarkdownOptions, MARKDOWN_DEFAULTS, MARKDOWN_FLAGS, MARKDOWN_HELP, parseMarkdown } from "./markdown.js";
 import { type HistoryOptions, HISTORY_DEFAULTS, HISTORY_FLAGS, HISTORY_HELP, parseHistory } from "./history.js";
 import { type WatchOptions, WATCH_DEFAULTS, WATCH_FLAGS, WATCH_HELP, parseWatch } from "./watch.js";
 import { type SelectorOptions, SELECTOR_DEFAULTS, SELECTOR_FLAGS, SELECTOR_HELP, parseSelector } from "./selectors.js";
 import { type TimingsOptions, TIMINGS_DEFAULTS, TIMINGS_FLAGS, TIMINGS_HELP, parseTimings } from "./timings.js";
 
-export interface Options extends OutputOptions, FailOnOptions, BaseOptions, MaxFindingsOptions, FilteringOptions, NewOnlyOptions, HistoryOptions, WatchOptions, SelectorOptions, TimingsOptions {
+export interface Options extends OutputOptions, FailOnOptions, BaseOptions, MaxFindingsOptions, FilteringOptions, NewOnlyOptions, MarkdownOptions, HistoryOptions, WatchOptions, SelectorOptions, TimingsOptions {
   dir: string | undefined;
 }
 
@@ -36,6 +37,7 @@ export const OPTION_GROUPS: readonly OptionGroup[] = [
   { flags: MAX_FINDINGS_FLAGS, help: MAX_FINDINGS_HELP, parse: parseMaxFindings },
   { flags: FILTERING_FLAGS, help: FILTERING_HELP, parse: parseFiltering },
   { flags: NEW_ONLY_FLAGS, help: NEW_ONLY_HELP, parse: parseNewOnly },
+  { flags: MARKDOWN_FLAGS, help: MARKDOWN_HELP, parse: parseMarkdown },
   { flags: HISTORY_FLAGS, help: HISTORY_HELP, parse: parseHistory },
   { flags: WATCH_FLAGS, help: WATCH_HELP, parse: parseWatch },
   { flags: SELECTOR_FLAGS, help: SELECTOR_HELP, parse: parseSelector },
@@ -52,6 +54,7 @@ export function defaultOptions(): Options {
     ...MAX_FINDINGS_DEFAULTS,
     ...FILTERING_DEFAULTS,
     ...NEW_ONLY_DEFAULTS,
+    ...MARKDOWN_DEFAULTS,
     ...HISTORY_DEFAULTS,
     ...WATCH_DEFAULTS,
     ...SELECTOR_DEFAULTS,

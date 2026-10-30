@@ -44,6 +44,10 @@ Options:
                         .seaworthy/history; findings that were there are counted as omitted.
                         Needs the run history (not with --no-history); without usable keys it
                         reports everything and says so.
+  --markdown <paths...>
+                       Read these Markdown files or directories (paths relative to the current folder)
+                       for the Markdown checks, instead of walking the built folder. The list ends at
+                       the next --flag; pass the site folder first.
   --no-history         Do not record this run in .seaworthy/history (default on; also "history": false in the config)
   --watch              Verify again whenever the build folder changes; after the first report, print only
                         what is new, fixed, and unchanged since the previous run. Ctrl-C to stop.

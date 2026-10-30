@@ -3,20 +3,23 @@
 // untrusted site/check text, and that the machine-readable formats are untouched.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
+import { PLAIN } from "../src/color.js";
 import { EXIT, run } from "../src/cli.js";
 import { FORMATS, formatReport } from "../src/formats/index.js";
 import { formatHtml } from "../src/formats/html.js";
 import { formatMarkdown } from "../src/formats/markdown.js";
 import { reportToJson } from "../src/report.js";
 import { formatSarif } from "../src/formats/sarif.js";
+import { formatPretty } from "../src/formats/pretty.js";
 import { runChecks } from "../src/engine.js";
 import { buildReport } from "../src/report.js";
+import { appendHistory, HISTORY_DIR, type HistoryRecord } from "../src/history.js";
 import { buildSite } from "../src/site.js";
 import type { Check, Finding, Report, Severity } from "../src/types.js";
 import { makeSite, reportErrors } from "./helpers.js";
@@ -198,25 +201,118 @@ test("adding html leaves the machine-readable formats' wiring untouched", async 
 
 test("--format html runs through the CLI: byte-identical across runs, exit codes unchanged", async () => {
   // Run from inside the site folder, so the report's root label is relative and
-  // the page never embeds an absolute path.
+  // the page never embeds an absolute path. --no-history keeps the store empty so
+  // the trend cannot differ between the runs being compared for byte-identity.
   const site = makeSite({ "index.html": PAGE });
-  const once = (): Promise<string> => run(["verify", ".", "--format", "html"], { cwd: site, checks: CHECKS }).then((r) => r.stdout);
+  const once = (): Promise<string> => run(["verify", ".", "--format", "html", "--no-history"], { cwd: site, checks: CHECKS }).then((r) => r.stdout);
   const first = await once();
   const second = await once();
   assert.equal(first, second, "same site, same bytes");
   assert.ok(first.startsWith("<!doctype html>"));
   assert.ok(!first.startsWith(tmpdir()), "no absolute paths in the page");
-  assert.equal((await run(["verify", ".", "--format", "html"], { cwd: site, checks: [] })).code, EXIT.ok, "a clean site still exits 0");
-  assert.equal((await run(["verify", ".", "--format", "html", "--fail-on", "note"], { cwd: site, checks: CHECKS })).code, EXIT.findings, "--fail-on still applies to html");
-  assert.equal((await run(["verify", ".", "--format=html"], { cwd: site, checks: CHECKS })).stdout, first, "--format=html parses the same");
+  assert.equal((await run(["verify", ".", "--format", "html", "--no-history"], { cwd: site, checks: [] })).code, EXIT.ok, "a clean site still exits 0");
+  assert.equal((await run(["verify", ".", "--format", "html", "--no-history", "--fail-on", "note"], { cwd: site, checks: CHECKS })).code, EXIT.findings, "--fail-on still applies to html");
+  assert.equal((await run(["verify", ".", "--format=html", "--no-history"], { cwd: site, checks: CHECKS })).stdout, first, "--format=html parses the same");
 });
 
 test("--format html --out writes the page to a file and keeps stdout a summary", async () => {
   const cwd = makeSite({ "dist/index.html": PAGE });
-  const result = await run(["verify", "dist", "--format", "html", "--out", "reports/seaworthy.html"], { cwd, checks: CHECKS });
+  const result = await run(["verify", "dist", "--format", "html", "--no-history", "--out", "reports/seaworthy.html"], { cwd, checks: CHECKS });
   const page = readFileSync(join(cwd, "reports", "seaworthy.html"), "utf8");
   assert.equal(page, formatHtml(JSON.parse(await run(["verify", "dist", "--format", "json"], { cwd, checks: CHECKS }).then((r) => r.stdout))), "the file is exactly the html report");
   assert.match(result.stdout, /html report written to/);
   assert.match(result.stdout, /4 finding/);
   assert.ok(!result.stdout.includes("<!doctype"), "stdout stays a one-line summary");
+  assert.ok(!page.includes("class=\"trend\""), "--out on a fresh folder writes no trend");
+});
+
+// The trend: the findings line over the runs already recorded in .seaworthy/history. It is HTML
+// only (never the report JSON), reads the store oldest first, caps to the recent ten, and draws
+// nothing until there are at least two runs — an empty store or a single point is not a chart.
+const record = (started: string, root: string, findings: number, bySeverity: HistoryRecord["counts"]["bySeverity"] = {}): HistoryRecord => ({
+  spec: 1,
+  tool: "seaworthy",
+  started,
+  root,
+  pages: 1,
+  configHash: "a".repeat(64),
+  counts: { findings, bySeverity, byCheck: {}, suppressed: 0, baselined: 0, baselineStale: 0, errors: 0 },
+});
+
+test("no history and one record render the page exactly as before, with no trend", async () => {
+  const report = await sample();
+  assert.equal(formatHtml(report, []), formatHtml(report), "an empty store is no trend");
+  const one = formatHtml(report, [record("2026-03-01T00:00:00.000Z", "dist", 3)]);
+  assert.equal(one, formatHtml(report), "a single run is not a chart");
+  assert.ok(!one.includes("class=\"trend\""));
+});
+
+test("two or more runs draw a findings trend as inline SVG and a run table", async () => {
+  const report = await sample();
+  const html = formatHtml(report, [
+    record("2026-03-01T00:00:00.000Z", "dist", 4, { error: 1, warning: 2, note: 1 }),
+    record("2026-03-02T00:00:00.000Z", "dist", 2, { error: 1, warning: 1 }),
+    record("2026-03-03T00:00:00.000Z", "dist", 1, { error: 1 }),
+  ]);
+  assert.match(html, /<section class="trend">/);
+  assert.match(html, /<svg class="spark"/, "the sparkline is an inline SVG");
+  assert.match(html, /<polyline class="line"/);
+  assert.match(html, /<table>/);
+  // One data row per run, oldest first, with the stored counts.
+  assert.equal((html.match(/<tr><td class="run">/g) ?? []).length, 3);
+  assert.match(html, /<td class="run">2026-03-01T00:00:00\.000Z<\/td>/);
+  assert.match(html, /<td>4<\/td><td>1<\/td><td>2<\/td><td>1<\/td>/, "findings, errors, warnings, notes for the first run");
+});
+
+test("the trend is deterministic and adds no script, asset, or external request", async () => {
+  const report = await sample();
+  const runs = [
+    record("2026-03-01T00:00:00.000Z", "dist", 4),
+    record("2026-03-02T00:00:00.000Z", "dist", 2),
+    record("2026-03-03T00:00:00.000Z", "dist", 1),
+  ];
+  assert.equal(formatHtml(report, runs), formatHtml(report, runs), "same store, same bytes");
+  const html = formatHtml(report, runs);
+  assert.equal((html.match(/<script>/g) ?? []).length, 1, "the trend adds no JavaScript, only the filter script stays");
+  for (const pattern of [/<image\b/, /<iframe\b/, /https?:\/\//, /url\(/]) {
+    assert.doesNotMatch(html, pattern, "the trend fetches nothing external");
+  }
+});
+
+test("the trend caps to the ten most recent runs", async () => {
+  const report = await sample();
+  const runs = Array.from({ length: 13 }, (_, i) => record(`2026-03-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`, "dist", i));
+  const html = formatHtml(report, runs);
+  assert.equal((html.match(/<tr><td class="run">/g) ?? []).length, 10, "only the newest ten runs are shown");
+  assert.match(html, /2026-03-04T00:00:00\.000Z/, "the oldest three are dropped, the tenth-from-last stays");
+  assert.doesNotMatch(html, /2026-03-01T00:00:00\.000Z/, "the very first run is past the cap");
+});
+
+test("a root that carries HTML-ish characters stays escaped in the run table", async () => {
+  const report = await sample();
+  const html = formatHtml(report, [
+    record("2026-03-01T00:00:00.000Z", '"><script>alert(1)</script>.html', 4),
+    record("2026-03-02T00:00:00.000Z", "dist", 2),
+  ]);
+  assert.ok(html.includes("&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;.html"), "the root is escaped as text");
+  assert.ok(!html.includes("<script>alert(1)</script>"), "the root never opens a script element");
+});
+
+test("verify --format html reads the runs off disk, and a corrupt record is skipped", async () => {
+  const cwd = makeSite({ "index.html": PAGE });
+  // Seed two whole runs and one truncated file the reader must ignore.
+  appendHistory(cwd, record("2026-03-01T00:00:00.000Z", ".", 5));
+  appendHistory(cwd, record("2026-03-02T00:00:00.000Z", ".", 3));
+  writeFileSync(join(cwd, HISTORY_DIR, "0003-20260303T000000000Z.json"), '{"spec":1,"star');
+  const html = await run(["verify", ".", "--format", "html", "--no-history"], { cwd, checks: CHECKS }).then((r) => r.stdout);
+  assert.match(html, /<section class="trend">/, "the two readable runs draw the trend");
+  assert.equal((html.match(/<tr><td class="run">/g) ?? []).length, 2, "the corrupt record is skipped, never charted");
+});
+
+test("adding the trend leaves the machine-readable formats byte-unchanged", async () => {
+  const report = await sample();
+  const runs = [record("2026-03-01T00:00:00.000Z", "dist", 4), record("2026-03-02T00:00:00.000Z", "dist", 2)];
+  assert.equal(formatReport(report, "json", { history: runs }), reportToJson(report), "json ignores history");
+  assert.equal(formatReport(report, "sarif", { history: runs }), formatSarif(report, {}), "sarif ignores history");
+  assert.equal(formatReport(report, "pretty", { history: runs }), formatPretty(report, PLAIN), "pretty ignores history");
 });

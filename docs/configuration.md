@@ -43,6 +43,16 @@ npx seaworthy config check ci.json  # validates an explicit file
 
 Exit 0 when the config is valid, and 2 when the file is missing, is not JSON, or has problems. With no config file at all there is nothing to reject: checks would run with their defaults, so it still exits 0 and says so.
 
+## Markdown outside the built folder
+
+The Markdown checks (`md.*`) walk the verified folder for Markdown, but many projects keep their documentation — `README.md`, `docs/` — outside the build output, where that walk never reaches it. Name those sources explicitly:
+
+```bash
+npx seaworthy verify dist --markdown README.md docs/
+```
+
+Each path is relative to the current folder: a `.md`/`.markdown` file, or a directory walked for them (`.git` and `node_modules` are skipped). For that run the named files replace the site-folder walk: the Markdown checks read exactly what you listed, links between the named files resolve as before, and finding paths stay relative to where you ran — `README.md` and `docs/guide.md`, never absolute. Pass the site folder first: the path list ends at the next `--flag`, so `verify --markdown docs dist` would read `dist` as a path. A missing path or a file that is not Markdown is a usage error (exit 2); a directory holding no Markdown is not an error and simply adds nothing. Without the flag nothing changes: the checks walk the verified folder exactly as before.
+
 ## Capping giant reports
 
 A broken site can produce thousands of findings, more than anyone needs at once. Caps keep the report readable without changing what the checks find:
@@ -137,3 +147,9 @@ npx seaworthy verify dist --new-only # reports only what the run above did not h
 Findings the previous run already had are dropped from `findings` and counted under the existing `summary.findingsOmitted` — never silently. The exit code follows the reported findings, like with `--baseline` and `--changed`: a run that only repeats known problems exits 0. Suppressions and the baseline apply first, so a finding they hid is counted as suppressed or baselined, not again as omitted, and `--new-only` combines with `--changed`.
 
 Without usable keys there is no "last run" to compare with: an empty store, a record written before the field existed, a run that located too many findings to store them, or a newest record for a different folder. Then `--new-only` reports everything, and the human-readable output says so; report JSON and the machine formats are byte-identical to a run without the flag. `--new-only` with `--no-history` is a usage error; `"history": false` in the config does not block the flag — the run is not recorded, but keys already in the store are still compared.
+
+### Trend in the HTML report
+
+`seaworthy verify --format html` reads this same store where it runs and, when it holds two or more readable runs, adds a **Trend** section to the page: an inline SVG of findings per run plus a compact table of the recent runs (timestamp, root, findings, errors, warnings, notes). It shows the last ten runs and reads only the shapes it understands, so a truncated or hand-edited record is skipped, never charted.
+
+The trend is presentation only: it changes nothing in the report JSON, the SARIF, or the other formats, which stay byte-identical. It draws no external asset and no JavaScript, and it renders nothing on a fresh folder, with `--no-history`, or after a single run — one point is not a trend. `--out` writes the page exactly as stdout would, trend included, so the case where the store is empty stays clean.

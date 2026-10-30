@@ -9,6 +9,7 @@ import { type Baseline, applyBaseline } from "./baseline.js";
 import { type Config, resolveChecks } from "./config.js";
 import { type CheckTiming, runChecks } from "./engine.js";
 import { matchesGlob } from "./glob.js";
+import type { MarkdownSources } from "./markdown.js";
 import { findingPrompt } from "./prompt.js";
 import { buildReport } from "./report.js";
 import { readabilitySummary } from "./readability-score.js";
@@ -46,6 +47,8 @@ export interface VerifyOptions {
    * reported findings, so a run that only repeats known problems can pass.
    */
   knownFindings?: ReadonlySet<string>;
+  /** From the CLI's --markdown: explicit Markdown sources for the md.* checks, replacing the site-folder walk. Absent: the walk, as ever. */
+  markdownSources?: MarkdownSources;
   /** Defaults to the current time. Pass a fixed date in tests. */
   now?: Date;
   /** Collect wall time per stage and per check in `VerifyResult.timings`. Off by default; timings never reach the report. */
@@ -139,6 +142,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       options: resolved.options,
       severity: resolved.severity,
       ...(options.changed ? { changed: options.changed } : {}),
+      ...(options.markdownSources ? { markdownSources: options.markdownSources } : {}),
       ...(collectTimings ? { timings: true } : {}),
       ...(streamBatch === undefined ? {} : { onCheckFindings: (_check: string, findings) => streamBatch(findings) }),
     }),

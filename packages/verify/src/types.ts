@@ -1,6 +1,7 @@
 // Public contracts for checks and reports. See docs/adr/0006-check-model.md.
 // Everything here is versioned by REPORT_SPEC_VERSION and changes only through an RFC once frozen.
 
+import type { MarkdownSources } from "./markdown.js";
 import type { SiteGraph } from "./site.js";
 import type { SuppressedFinding } from "./suppress.js";
 
@@ -38,6 +39,8 @@ export interface CheckContext {
   readonly changed?: ReadonlySet<string>;
   /** Set for checks that need a browser, from --browser-path. */
   readonly browser?: BrowserContext;
+  /** Set from --markdown: explicit Markdown sources; the md.* graph uses these instead of walking the site folder. */
+  readonly markdownSources?: MarkdownSources;
 }
 
 /**
