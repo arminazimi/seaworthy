@@ -3,20 +3,31 @@
 // The composite `action.yml` at the repository root runs the verify CLI once per site named by
 // the `site` input, each time with `--format json`, and this package does the rest:
 //
-//   parse the inputs → read each report JSON → map it to SARIF 2.1.0 → fail the run at the threshold
+//   parse the inputs → read each report JSON → map it to SARIF 2.1.0 → annotate the pull request → fail the run at the threshold
 //
 // The mapping reuses the one in @seaworthy/verify (ADR 0008 is the single authority for how findings
 // become SARIF), imported as the package that an action checkout lays out with npm ci; the tsconfig
 // paths mapping keeps the typecheck on the same checkout instead of a published dependency.
+// Inline annotations are the other half of the same rule: ./annotations.ts turns report findings into
+// workflow commands and adds only the knowledge the runner has and the engine does not — which of
+// those files this pull request actually touched.
 
 import type { Report, Severity, SarifContext } from "@seaworthy/verify";
 import { toSarif } from "@seaworthy/verify";
 
 export type { SarifContext };
+export * from "./annotations.js";
 
 /** The severity levels an Action run can fail at, matching the CLI's `--fail-on`. */
 export type Threshold = Severity | "none";
 export const THRESHOLDS: readonly Threshold[] = ["error", "warning", "note", "none"];
+
+/**
+ * Whether the run writes inline pull-request annotations (issue #259, see ./annotations.ts).
+ * `auto` annotates the findings this pull request touched; `off` leaves the report to SARIF and the log.
+ */
+export type AnnotationMode = "auto" | "off";
+export const ANNOTATION_MODES: readonly AnnotationMode[] = ["auto", "off"];
 
 /** Error for an input that is missing or outside its documented values. */
 export class ActionInputError extends Error {}
@@ -33,6 +44,8 @@ export interface ActionInputs {
   sarif: string;
   /** Markdown files or directories for the `md.*` checks, as the CLI's `--markdown` takes them. Global: forwarded to every site's run. Empty: the site-folder walk. */
   markdown: string[];
+  /** Inline annotations on the pull request, from the `annotations` input. */
+  annotations: AnnotationMode;
 }
 
 /** Env keys for the `Verify the site` step, so the YAML stays declarative and the code stays testable. */
@@ -41,6 +54,7 @@ export const INPUT_ENV = {
   threshold: "SEAWORTHY_THRESHOLD",
   sarif: "SEAWORTHY_SARIF",
   markdown: "SEAWORTHY_MARKDOWN",
+  annotations: "SEAWORTHY_ANNOTATIONS",
 } as const;
 
 /**
@@ -54,12 +68,22 @@ export function parseInputs(env: Readonly<Record<string, string | undefined>>): 
   if (threshold === undefined) throw new ActionInputError(`the threshold must be one of ${THRESHOLDS.join(", ")}, not "${env.SEAWORTHY_THRESHOLD}"`);
   const sites = entryList(env.SEAWORTHY_SITE);
   for (const site of sites) assertInsideWorkspace(site);
+  const annotations = named(env.SEAWORTHY_ANNOTATIONS, "annotations", ANNOTATION_MODES, "auto");
   return {
     sites,
     threshold,
     sarif: (env.SEAWORTHY_SARIF ?? "").trim(),
     markdown: entryList(env.SEAWORTHY_MARKDOWN),
+    annotations,
   };
+}
+
+/** One input whose value must be one of a fixed list, case-insensitive; empty means the documented default. */
+function named<T extends string>(value: string | undefined, name: string, options: readonly T[], fallback: T): T {
+  const raw = (value ?? "").trim().toLowerCase();
+  if (raw === "") return fallback;
+  if (!(options as readonly string[]).includes(raw)) throw new ActionInputError(`${name} must be one of ${options.join(", ")}, not "${value}"`);
+  return raw as T;
 }
 
 /**
@@ -130,8 +154,11 @@ const USAGE_EXIT = 2;
 const CRASH_EXIT = 4;
 const FINDINGS_EXIT = 1;
 
-/** Minimal shape of the report JSON the CLI writes, checked before the SARIF mapping trusts it. */
-function asReport(value: unknown): Report {
+/**
+ * Minimal shape of the report JSON the CLI writes, checked before anything downstream trusts it:
+ * the SARIF mapping, the annotation plan, and the run's own log line all read the report through here.
+ */
+export function asReport(value: unknown): Report {
   const report = value as Partial<Report> | null;
   const ok =
     typeof report === "object" &&

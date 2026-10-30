@@ -2,8 +2,9 @@
 
 `action.yml` at the repository root is a composite GitHub Action: it builds Seaworthy from the
 Action's own checkout, verifies the built site in your workspace, writes SARIF when you ask for it,
-and fails the run at your threshold. The logic is not in the Action — `packages/action` is a thin
-adapter over the verify API, and every rule lives in `@seaworthy/verify`
+annotates the pull request's own files, and fails the run at your threshold. The logic is not in the
+Action — `packages/action` is a thin adapter over the verify API, and every rule lives in
+`@seaworthy/verify`
 ([ADR 0008](adr/0008-sarif-locations.md) is the single authority for SARIF).
 
 ## Inputs
@@ -13,9 +14,50 @@ adapter over the verify API, and every rule lives in `@seaworthy/verify`
 | `site` | `""` | Built site folder, relative to the workspace. Empty lets the CLI pick the first existing of `dist`, `build`, `out`, `public`, `_site`, `site`. |
 | `threshold` | `error` | Severity that fails the run: `error`, `warning`, `note`, or `none`. Travels to the CLI as `--fail-on`, so the CLI decides the exit code. |
 | `sarif` | `""` | Where to write the SARIF 2.1.0 report, relative to the workspace. Empty disables SARIF. |
+| `annotations` | `auto` | Inline pull-request annotations: `auto` annotates findings the pull request can be shown on, `off` writes no workflow commands. |
 
 The run exits with the CLI's contract: `0` ok, `1` findings at or above the threshold, `2` a usage
 or input error, `4` a check crashed. The `sarif` output echoes the `sarif` input, `""` when disabled.
+
+## Inline pull-request annotations
+
+`packages/action/src/annotations.ts` turns findings into GitHub workflow commands
+(`::error file=…,line=…::message`) on the `Verify the site` step's own stdout, so they show up on the
+pull request's Files tab. The commands need no permission, no uploader, and no network, which is why
+this route and not a SARIF upload: the SARIF path stays as it was (`sarif` input plus the artifact
+step) and answers a different question — a code-scanning alert that outlives the run.
+
+The Action stays a thin adapter: the report's own severities, messages, files and lines travel
+untouched, and the only thing this package adds is what only the runner knows — whether that file and
+line exist in this checkout.
+
+**A finding is annotated inline only when all four hold** (anything else goes to the summary channel,
+the step summary when the runner gives one and the step log otherwise, so no finding is dropped):
+
+1. **It has a real line.** `location.line` is a whole number of at least 1. A page-level finding and a
+   rendered finding located by `selector` alone (`a11y.axe`) are never pinned to line 1.
+2. **The pull request touched the file.** The repository path — the report root joined with the
+   site-relative file, the same join the SARIF mapping uses minus its URI encoding — appears in
+   `git diff --name-only <base>...HEAD`. The three-dot range means files another pull request changed
+   on the base branch are not blamed on this one, and a file the author never opened stays quiet.
+   `GITHUB_BASE_REF` is empty outside pull-request events, so a push or schedule run writes no
+   annotations at all; a shallow checkout that holds neither `<base>` nor `origin/<base>` says so in
+   the summary and asks for `fetch-depth: 0`.
+3. **The line is in the checked-out file.** The path resolves inside the workspace, is readable, and
+   the line number is within the file's lines. A line is never guessed, so a finding about output whose
+   source is not in the repository (the usual case: build folders are not committed) is summarized.
+4. **It fits the budget.** At most `MAX_ANNOTATIONS` (50) inline annotations per run, errors first, then
+   warnings, then notes; the rest are counted in the summary as past the budget. A broken site reports
+   hundreds of findings and a person reads none of them on one diff.
+
+Severity mapping follows the report contract (`packages/verify/src/types.ts`) and adds nothing:
+`error` → `::error`, `warning` → `::warning`, `note` → `::notice`. Values are escaped the way the
+runner expects — `%` → `%25`, `\r` → `%0D`, `\n` → `%0A` in the message, plus `]` → `%5D` and
+`:` → `%3A` in the `file=` value — so a finding message cannot open a second command or move a
+parameter, and one command is always exactly one line.
+
+Annotations never change the verdict: the exit code is the CLI's own, `threshold: none` still
+annotates, and `threshold: error` annotates the warnings it does not fail on.
 
 ## The pull-request comment
 
@@ -68,6 +110,7 @@ The badge that shows the same report in a README is documented in [docs/badge.md
 
 ## Status
 
-Pre-alpha (Phase 2, action epic #9). The `sarif` and threshold paths are wired in `action.yml`; the
-pull-request comment steps are exposed by `prCommentSteps` for the workflow to call, and the badge is
-a committed SVG rather than a hosted endpoint.
+Pre-alpha (Phase 2, action epic #9). The `sarif`, threshold and `annotations` paths are wired in
+`action.yml`, which is used by commit pin (`uses: arminazimi/seaworthy@<commit>`) because no tag or
+published package exists yet; the pull-request comment steps are exposed by `prCommentSteps` for the
+workflow to call, and the badge is a committed SVG rather than a hosted endpoint.

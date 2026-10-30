@@ -32,6 +32,10 @@ inputs:
     description: Markdown files or folders for the Markdown checks, relative to the workspace, one per line or comma. Default lets those checks walk the built site folder.
     required: false
     default: ""
+  annotations:
+    description: Inline pull-request annotations (issue #259): auto annotates findings in files this pull request touches, off writes no workflow commands. Needs the base branch in the checkout, so check the repository out with fetch-depth: 0.
+    required: false
+    default: auto
 outputs:
   sarif:
     description: The SARIF file path as given for one site; one path per line when several sites were verified; "" when the sarif input was empty.
@@ -56,11 +60,15 @@ runs:
         SEAWORTHY_THRESHOLD: ${{ inputs.threshold }}
         SEAWORTHY_SARIF: ${{ inputs.sarif }}
         SEAWORTHY_MARKDOWN: ${{ inputs.markdown }}
+        SEAWORTHY_ANNOTATIONS: ${{ inputs.annotations }}
       # run.js reads the inputs from these SEAWORTHY_* variables and verifies every site named
       # by `site` as its own run (cwd: the consumer's workspace) — one site's failure never hides
       # another's findings, and a crash stays exit 4. The run exits with the verify contract
       # (0 ok, 1 when any site fails at the threshold, 2 when one was rejected, 4 when one
-      # crashed) and writes one SARIF file per site when asked.
+      # crashed) and writes one SARIF file per site when asked. It also echoes inline workflow
+      # annotations for findings in files this pull request touched (issue #259; the file list comes
+      # from `git diff` against the base branch in this checkout, never from the network). Annotations
+      # never move that exit code, they run per site, and `threshold: none` still annotates.
       run: node "$GITHUB_ACTION_PATH/packages/action/dist/run.js"
     # Slot for the PR comment with new and fixed findings (issue #89): it reads the
     # SARIF from steps.verify.outputs.sarif and runs after this step, any() condition
