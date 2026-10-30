@@ -1,24 +1,29 @@
 // `seaworthy verify [dir]`: run the checks and report. This module owns the whole command:
 // option parsing (through the groups in ./options/), one verification, the `--watch`
 // handover, and the `--timings` block.
+//
+// With `--fetch <url>` the site is not a folder the user built but the pages they named, pulled
+// over HTTP into a temporary snapshot and read by the same `buildSite` graph (ADR 0011). That is
+// the only difference: everything below the graph is the run it has always been.
 
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { createBaseline, readBaseline, writeBaseline } from "../baseline.js";
-import { resolveBasePath } from "../base-path.js";
+import { canonicalBasePath, resolveBasePath } from "../base-path.js";
 import { changedSinceLastRun, changedSinceRef } from "../changed.js";
 import { type Palette, paletteFor, PLAIN } from "../color.js";
 import { builtInChecks } from "../checks/index.js";
-import { loadConfig } from "../config.js";
+import { type Config, loadConfig } from "../config.js";
+import { type LiveSite, fetchLiveSite, fetchNotes } from "../fetch-site.js";
 import { formatReport } from "../formats/index.js";
 import { ndjsonLine } from "../formats/ndjson.js";
 import { SEVERITY_ORDER, severityCounts } from "../formats/pretty.js";
 import { discoverFolder } from "../folders.js";
 import { appendHistory, buildHistoryRecord, previousRunKeys, readHistory, runConfigHash } from "../history.js";
 import { type MarkdownSources, collectMarkdownFiles, isMarkdownFile } from "../markdown.js";
-import { buildSite } from "../site.js";
+import { buildSite, normalizeBasePath } from "../site.js";
 import type { Check, EvidenceSink, Report, Severity } from "../types.js";
 import { type StageTiming, type Timings, verifySite } from "../verify.js";
 import { WatchLoop } from "../watch.js";
@@ -92,8 +97,54 @@ function evidenceSinkFor(cwd: string, folder: string, given: string): EvidenceSi
   return { dir, label: relative(cwd, dir).split("\\").join("/") };
 }
 
+/**
+ * The base path under `--fetch`: an explicit `--base`, else the config's `basePath`, else the root.
+ * Nothing is *detected* here — a snapshot holds what a host served, and reading a generator config
+ * out of it would guess a deployment from served output instead of from the source tree.
+ */
+function liveBasePath(options: Options, config: Config): string {
+  if (options.base !== undefined) {
+    const canonical = canonicalBasePath(options.base);
+    return canonical.ok ? canonical.path : normalizeBasePath(options.base);
+  }
+  return normalizeBasePath(config.basePath);
+}
+
+/** The reasons a `--fetch` run is refused up front: flags that only mean a folder on disk. */
+function checkFetchFlags(options: Options): void {
+  if (options.fetch.length === 0) return;
+  if (options.dir !== undefined) throw new UsageError("pass either a built folder or --fetch <url>, not both: --fetch makes the fetched pages the site");
+  if (options.changed || options.changedSince !== undefined) throw new UsageError("--changed compares a build folder with git, and a fetched snapshot has no folder to diff. Run it against the built site instead.");
+  if (options.watch) throw new UsageError("--watch re-reads a build folder as it changes; under --fetch there is no folder to watch. Run the command again to fetch the pages once more.");
+}
+
+/** `--fetch` named addresses, but not one of them became a page: there is nothing to verify. */
+function nothingFetched(live: LiveSite): UsageError {
+  const listed = live.refused.slice(0, 3).map((refusal) => `${refusal.url}: ${refusal.reason}`).join("; ");
+  const more = live.refused.length > 3 ? `; and ${live.refused.length - 3} more` : "";
+  return new UsageError(`--fetch got no page to verify (${listed}${more}). Name the address of a page the site serves, or run against the built folder.`);
+}
+
 export async function verifyCommand(args: readonly string[], env: CliEnvironment): Promise<CliResult> {
   const options = parseOptions(args);
+  checkFetchFlags(options);
+  /**
+   * The only network this command may make, and only because the caller named an address. Held as a
+   * thunk, because a run that is going to be a usage error — a bad config, `--new-only` with
+   * `--no-history` — must not have asked a host for anything by the time it says so.
+   */
+  let fetchedSite: LiveSite | undefined;
+  const fetchLive = async (): Promise<LiveSite> => (fetchedSite ??= await fetchLiveSite(options.fetch, { allowPrivate: options.allowPrivate }));
+  try {
+    const result = await verifyAgainst(options, env, options.fetch.length > 0 ? fetchLive : undefined);
+    // Refusals go to stderr, so a machine format keeps exactly the bytes a folder run would make.
+    return fetchedSite === undefined ? result : { ...result, stderr: `${fetchNotes(fetchedSite)}${result.stderr}` };
+  } finally {
+    fetchedSite?.remove();
+  }
+}
+
+async function verifyAgainst(options: Options, env: CliEnvironment, fetchLive: (() => Promise<LiveSite>) | undefined): Promise<CliResult> {
   const cwd = env.cwd ?? process.cwd();
   const checks: readonly Check[] = env.checks ?? builtInChecks;
   const startedIso = new Date().toISOString();
@@ -120,11 +171,24 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
   if (options.watch && (options.changed || options.changedSince !== undefined)) throw new UsageError("use --watch or --changed, not both; --watch already reports only what changed");
   if (options.newOnly && !options.history) throw new UsageError("--new-only compares with .seaworthy/history, which --no-history opts out of; use --new-only or --no-history, not both");
 
-  const requested = options.dir ?? config.root ?? discoverFolder(cwd);
-  if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
-  const folder = resolve(cwd, requested);
-  if (!existsSync(folder)) throw new UsageError(`no folder ${requested}; pass the folder your build writes to, or build first`);
-  if (!statSync(folder).isDirectory()) throw new UsageError(`${requested} is not a folder; pass the folder your build writes to`);
+  // What the run verifies: the folder the user built, or the snapshot of the addresses they named.
+  // A live run is labelled by the origin it came from, never by the temporary folder holding it.
+  let folder: string;
+  let label: string;
+  let live: LiveSite | undefined;
+  if (fetchLive !== undefined) {
+    live = await fetchLive();
+    if (live.fetched.length === 0) throw nothingFetched(live);
+    folder = live.folder;
+    label = live.origin;
+  } else {
+    const requested = options.dir ?? config.root ?? discoverFolder(cwd);
+    if (requested === undefined) throw new UsageError(`no built site found. Pass a folder, or build first so one of ${DEFAULT_FOLDERS.join(", ")} exists.`);
+    folder = resolve(cwd, requested);
+    if (!existsSync(folder)) throw new UsageError(`no folder ${requested}; pass the folder your build writes to, or build first`);
+    if (!statSync(folder).isDirectory()) throw new UsageError(`${requested} is not a folder; pass the folder your build writes to`);
+    label = rootLabel(cwd, folder);
+  }
 
   const baselinePath = options.baseline ?? (options.updateBaseline === undefined ? config.baseline : undefined);
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
@@ -135,15 +199,15 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
   if (options.evidence !== undefined && !renderedOn) throw new UsageError('--evidence saves crops for rendered findings; add --rendered (or set "rendered": true in the config)');
   const evidenceSink = options.evidence === undefined ? undefined : evidenceSinkFor(cwd, folder, options.evidence);
 
-  const label = rootLabel(cwd, folder);
   const markdownSources = markdownSourcesFor(cwd, options.markdown);
 
   /** One verification of whatever the build folder holds right now; a re-run rebuilds and re-reads. */
   const runOnce = async (): Promise<{ report: Report; code: number; stdout: string; stderr: string }> => {
     const siteStarted = tick();
     // Precedence: `--base`, then the config's `basePath`, then a known generator config next to the
-    // output, then `/`. When detection examined a config but could not read a base path, say why.
-    const base = resolveBasePath({ folder, ...(options.base !== undefined ? { override: options.base } : {}), ...(config.basePath !== undefined ? { configBasePath: config.basePath } : {}) });
+    // output, then `/`. Under --fetch only the explicit values apply. When detection examined a
+    // config but could not read a base path, say why.
+    const base = live === undefined ? resolveBasePath({ folder, ...(options.base !== undefined ? { override: options.base } : {}), ...(config.basePath !== undefined ? { configBasePath: config.basePath } : {}) }) : { basePath: liveBasePath(options, config) };
     const site = buildSite(folder, base.basePath === "/" ? {} : { basePath: base.basePath });
     record("site", siteStarted);
     let saveCache: (() => void) | undefined;
@@ -172,6 +236,9 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
     // prints its summary, so it does not stream. Other formats render the finished report.
     const streamedFormat = options.format === "ndjson";
     let ndjson = "";
+    // A config problem is located relative to the site the run reports on. Under --fetch the site
+    // is a temporary snapshot, so the config is named from where the command ran instead.
+    const locationRoot = live === undefined ? folder : cwd;
     const { report, unbaselined, timings: runTimings } = await verifySite({
       folder,
       site,
@@ -180,7 +247,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       rootLabel: label,
       checks,
       config,
-      ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
+      ...(configFile ? { configLocation: relative(locationRoot, configFile).split("\\").join("/") } : {}),
       rendered: renderedOn,
       ...(options.browserPath === undefined ? {} : { browserPath: options.browserPath }),
       ...(evidenceSink === undefined ? {} : { evidence: evidenceSink }),
