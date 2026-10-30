@@ -7,6 +7,7 @@ Versioned contracts: the report format, check IDs, agent-readability rules, conf
 | Report | Draft (`spec: 0`), freezes as `spec: 1` at `release.contract-freeze` | [`report/v0.schema.json`](report/v0.schema.json) |
 | Config | Draft (`spec: 0`) | [`config/v0.schema.json`](config/v0.schema.json) |
 | Agent readability | Draft v1 | [`agent-readability/v1.md`](agent-readability/v1.md) |
+| Source map | Draft (`spec: 0`), a contract generators may emit; no consumer ships yet | [`source-map/v0.md`](source-map/v0.md) |
 
 The schemas are built, not hand-edited: `config/v0.schema.json` and `report/v0.schema.json` assemble from per-feature fragments under [`config/fragments/`](config/fragments/) and [`report/fragments/`](report/fragments/), so parallel PRs add a file instead of editing the same lines. Change a fragment and run `npm run schema:build`; `npm run check:schema` fails when a built schema is out of date.
 
