@@ -69,6 +69,7 @@ These files are where parallel PRs collide, so each has exactly one rule. Never 
 | `packages/verify/src/checks/index.ts`, `packages/verify/src/formats/index.ts` | Never touch | Thin re-exports of the generated registry; a new check or format is a new module in that folder, not an edit here |
 | `spec/config/v0.schema.json`, `spec/report/v0.schema.json` | Regenerate | `npm run schema:build` (built from `spec/config/fragments/` and `spec/report/fragments/` — edit those) |
 | `planning/roadmap/out/` | Regenerate | `npm run roadmap:build` (generated from `ROADMAP.md` and `planning/roadmap/briefs/`) |
+| `docs/checks/reference/` | Regenerate | `npm run build && npm run reference:build` (generated from the check catalog in `packages/verify/src/` and the prose pages in `docs/checks/`) |
 | `brand/assets/*.svg`, `brand/templates/*.svg`, `brand/seaworthy-logo-sheet.svg`, `brand/tokens.css`, `brand/export-presets.json` | Regenerate | `npm run build:brand` (generated from `brand/tokens.json` and `tools/brand/`) |
 | `brand/assets/*.png`, `brand/exports/*.png` | Regenerate | `npm run export:brand` (needs Chrome or Chromium) |
 | `package-lock.json` | Never hand-edit | Change `package.json` and run `npm install`; commit the lockfile that produces |

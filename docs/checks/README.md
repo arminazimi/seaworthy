@@ -2,6 +2,8 @@
 
 One page per check, named by its ID: `docs/checks/<check-id>.md`. A check's `meta.docs` URL points here, and `npm test` fails if a built-in check has no page.
 
+The pages in this folder are hand-written prose. `docs/checks/reference/` holds a generated reference page per check — the catalog metadata composed with the prose below it — and is owned by `npm run reference:build`; never write there by hand.
+
 Write each page with these sections:
 
 ```markdown
