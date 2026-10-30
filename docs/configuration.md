@@ -153,3 +153,16 @@ Without usable keys there is no "last run" to compare with: an empty store, a re
 `seaworthy verify --format html` reads this same store where it runs and, when it holds two or more readable runs, adds a **Trend** section to the page: an inline SVG of findings per run plus a compact table of the recent runs (timestamp, root, findings, errors, warnings, notes). It shows the last ten runs and reads only the shapes it understands, so a truncated or hand-edited record is skipped, never charted.
 
 The trend is presentation only: it changes nothing in the report JSON, the SARIF, or the other formats, which stay byte-identical. It draws no external asset and no JavaScript, and it renders nothing on a fresh folder, with `--no-history`, or after a single run — one point is not a trend. `--out` writes the page exactly as stdout would, trend included, so the case where the store is empty stays clean.
+## Screenshot evidence
+
+A rendered finding (`--rendered`) is decided by a real browser, and the pixels behind it can be kept as proof:
+
+```bash
+npx seaworthy verify --rendered --evidence evidence
+```
+
+Each rendered finding then saves a PNG crop of the viewport around the offending element (with a little context around it) into `evidence/`, and the finding's `evidence` field references it: `image` is the path relative to where the command ran, in forward slashes — `evidence/<fingerprint>.png` — and `viewport` names the width the crop was taken at. Because the file name comes from the finding's fingerprint, two runs of the same site write the same files; nothing about a crop depends on the time or the machine.
+
+The folder is always your explicit choice, and always yours: Seaworthy never writes inside the folder it verifies, so `--evidence` refuses a path that is absolute or points into the site, and the report never carries an absolute path. `--evidence` needs `--rendered` — without rendered checks there are no findings to prove, and a flag that silently wrote nothing would be a trap. It is a per-run decision rather than a config key for the same reason: the run writes files where the flag points.
+
+Everything else stays byte-identical: a finding without a crop has no `evidence` field at all, so a report from any run without the flag is exactly what it was before. The crops ride on the rendered engine only — static checks have no pixels to keep.

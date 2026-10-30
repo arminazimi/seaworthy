@@ -2,6 +2,7 @@
   "name": "@seaworthy/mcp",
   "version": "0.0.0",
   "private": true,
+  "mcpName": "io.github.arminazimi/seaworthy",
   "description": "MCP server for Seaworthy: verify sites, explain findings, and confirm fixes from any MCP-capable agent.",
   "type": "module",
   "main": "./dist/src/index.js",
