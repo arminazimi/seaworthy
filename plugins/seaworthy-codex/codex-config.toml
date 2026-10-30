@@ -1,0 +1,23 @@
+# Seaworthy as an MCP server for Codex (issue #258).
+#
+# Codex has no plugin marketplace: it reads MCP servers from its own TOML config. Copy the section
+# below into ~/.codex/config.toml — nothing in this repository writes that file for you.
+#
+# Replace <checkout> with the absolute path to a built Seaworthy checkout:
+#   git clone https://github.com/arminazimi/seaworthy && cd seaworthy
+#   npm ci && npm run build          # the server is TypeScript; dist/ is not committed
+#
+# The launcher is the one shared with the Claude Code plugin (plugins/seaworthy/bin/
+# seaworthy-mcp.mjs): it locates packages/mcp/dist/src/main.js in that checkout (or the file named
+# by SEAWORTHY_MCP_SERVER), spawns it with inherited stdio, and exits 1 with a fix hint on stderr
+# when there is no build. It never writes to stdout: that pipe is the JSON-RPC channel.
+#
+# Registers exactly the three implemented tools — list_checks, verify_site, verify_changed. The
+# planned ones are not implemented and are not advertised here.
+#
+# @seaworthy/* is not published and no release tag exists, so this is a local build by reference:
+# no registry package name, no npx, no version pin.
+
+[mcp_servers.seaworthy]
+command = "node"
+args = ["<checkout>/plugins/seaworthy/bin/seaworthy-mcp.mjs"]
