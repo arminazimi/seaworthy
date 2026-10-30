@@ -8,6 +8,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
+import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
 import { SERVER_VERSION } from "./version.js";
 import {
@@ -55,6 +56,11 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     VERIFY_CHANGED_NAME,
     { description: VERIFY_CHANGED_DESCRIPTION, inputSchema: VERIFY_CHANGED_INPUT },
     async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, toolOptions) }] }),
+  );
+  server.registerTool(
+    DIFF_REPORTS_NAME,
+    { description: DIFF_REPORTS_DESCRIPTION, inputSchema: DIFF_REPORTS_INPUT },
+    (args): CallToolResult => ({ content: [{ type: "text", text: diffReportsJson(args, toolOptions) }] }),
   );
   return server;
 }
