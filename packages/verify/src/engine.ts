@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
 import type { Check, CheckContext, CheckError, CheckMeta, Finding, FindingDraft, Needs, ProbeSkip, Severity, SkippedCheck } from "./types.js";
+import type { MarkdownSources } from "./markdown.js";
 import type { SiteGraph } from "./site.js";
 
 export interface RunOptions {
@@ -21,6 +22,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   /** Passed to checks as `context.changed`. Findings are not filtered here; the pipeline does that. */
   changed?: ReadonlySet<string>;
+  /** Passed to checks as `context.markdownSources`: the `--markdown` list, when given. */
+  markdownSources?: MarkdownSources;
   /** Collect wall time per check in `RunResult.timings`. Off by default; timings never reach the report. */
   timings?: boolean;
   /**
@@ -83,6 +86,7 @@ function contextFor(check: Check, options: RunOptions): CheckContext {
     signal: options.signal ?? new AbortController().signal,
     ...(options.changed ? { changed: options.changed } : {}),
     ...(options.browser ? { browser: options.browser } : {}),
+    ...(options.markdownSources ? { markdownSources: options.markdownSources } : {}),
   };
 }
 

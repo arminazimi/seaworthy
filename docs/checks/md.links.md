@@ -10,6 +10,8 @@ Markdown sources are the documentation an agent follows: it reads `README.md`, t
 
 Every Markdown file (`*.md`, `*.markdown`) under the verified root is read into the Markdown graph, and each of its links is resolved the way GitHub resolves it: relative paths from the file's folder, `/root`-absolute paths from the root, inline, reference, shortcut, and autolink forms, percent-encoding, and `?`/`#` suffixes. The check fails when a resolved internal target matches no Markdown file in the graph.
 
+`seaworthy verify --markdown README.md docs/` replaces the site-folder walk for a run: the graph is built from exactly the named files and directories, and links between them still resolve. See [Configuration](../configuration.md#markdown-outside-the-built-folder).
+
 Skipped on purpose: external links (`http:` and friends, covered by `links.external`), `mailto:`/`tel:`/`data:` and empty hrefs, and fragment-only links (`#install`), whose target file is the current file. Links that resolve to a file inside the graph pass, even when the same link would also be visible to an HTML check.
 
 The location is the Markdown line itself, so the fix lands in the source, not in built output. The check never uses the network, and an HTML-only site with no Markdown files reports nothing.

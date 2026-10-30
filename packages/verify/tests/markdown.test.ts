@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import { buildMarkdownGraph, createSlugger, headingText, parseMarkdown, resolveTarget } from "../src/markdown.js";
@@ -231,4 +232,19 @@ test("markdown graph skips .git and node_modules and only parses Markdown extens
     makeSite({ "docs/readme.md": "# D\n", "docs/other.markdown": "# E\n", "index.html": "<p>ignored</p>", "notes.txt": "# nope\n" }),
   );
   assert.deepEqual([...graph.files.keys()], ["/docs/other.markdown", "/docs/readme.md"]);
+});
+
+test("buildMarkdownGraph with explicit files parses only those, keyed relative to the root", () => {
+  const root = makeSite({ "README.md": "[a](docs/guide.md)\n", "docs/guide.md": "# Guide\n", "other.md": "# Ignored\n" });
+  const graph = buildMarkdownGraph(root, [join(root, "README.md"), join(root, "README.md"), join(root, "docs/guide.md")]);
+  assert.deepEqual([...graph.files.keys()], ["/README.md", "/docs/guide.md"]);
+  const readme = graph.files.get("/README.md")!;
+  assert.equal(readme.file, "README.md");
+  assert.equal(readme.links[0]!.file, "/docs/guide.md", "links resolve between the named files");
+});
+
+test("explicit file lists drop non-Markdown names and accept paths relative to the root", () => {
+  const root = makeSite({ "a.md": "# A\n", "styles.css": "body{}", "b.markdown": "# B\n" });
+  const graph = buildMarkdownGraph(root, ["a.md", "styles.css", join(root, "b.markdown")]);
+  assert.deepEqual([...graph.files.keys()], ["/a.md", "/b.markdown"]);
 });
