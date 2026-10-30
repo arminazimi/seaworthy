@@ -220,6 +220,13 @@ const gitSkip = (t: TestContext): boolean => {
   return true;
 };
 
+/**
+ * git in a folder, with line-ending conversion switched off. The patch init prints is LF text, and
+ * a runner configured for CRLF checkouts would materialise CRLF from it; that is git doing its job,
+ * so the test pins the conversion instead of asserting the product is byte-identical everywhere.
+ */
+const git = (cwd: string, ...args: string[]) => spawnSync("git", ["-c", "core.autocrlf=false", "-c", "core.eol=lf", ...args], { cwd, encoding: "utf8" });
+
 test("--agents prints a patch that creates AGENTS.md and writes no agent file itself", async (t: TestContext) => {
   const root = makeSite({ "astro.config.mjs": "" });
   const result = await run(["init", "--agents"], { cwd: root });
@@ -236,9 +243,9 @@ test("--agents prints a patch that creates AGENTS.md and writes no agent file it
   const copy = scratch({});
   // A work tree, because a patch that creates a file names /dev/null as its old side: outside a
   // repository git reads that as a path relative to the folder and refuses it.
-  spawnSync("git", ["init", "-q"], { cwd: copy });
+  git(copy, "init", "-q");
   writeFileSync(join(copy, "agents.patch"), patch);
-  const applied = spawnSync("git", ["apply", "agents.patch"], { cwd: copy, encoding: "utf8" });
+  const applied = git(copy, "apply", "agents.patch");
   assert.equal(applied.status, 0, `git apply rejects the new-file patch:\n${applied.stderr}`);
   assert.equal(readFileSync(join(copy, "AGENTS.md"), "utf8"), AGENTS_SECTION);
 });
@@ -258,9 +265,9 @@ test("--agents appends to an existing AGENTS.md, leaves its bytes alone, and add
   if (gitSkip(t)) return;
   const copy = scratch({ "AGENTS.md": mine });
   writeFileSync(join(copy, "agents.patch"), patch);
-  const check = spawnSync("git", ["apply", "--check", "agents.patch"], { cwd: copy, encoding: "utf8" });
+  const check = git(copy, "apply", "--check", "agents.patch");
   assert.equal(check.status, 0, `git apply --check rejects the patch:\n${patch}\n${check.stderr}`);
-  assert.equal(spawnSync("git", ["apply", "agents.patch"], { cwd: copy, encoding: "utf8" }).status, 0);
+  assert.equal(git(copy, "apply", "agents.patch").status, 0);
   assert.ok(readFileSync(join(copy, "AGENTS.md"), "utf8").startsWith(mine), "every byte the user wrote stays first");
   assert.ok(readFileSync(join(copy, "AGENTS.md"), "utf8").includes(AGENTS_HEADING));
 });
