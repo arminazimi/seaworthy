@@ -1,0 +1,39 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.arminazimi/seaworthy",
+  "title": "Seaworthy",
+  "description": "Verifies built static sites for agents: check metadata, full-site and changed-file reports as JSON.",
+  "version": "0.0.0",
+  "repository": {
+    "url": "https://github.com/arminazimi/seaworthy",
+    "source": "github",
+    "subfolder": "packages/mcp"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@seaworthy/mcp",
+      "version": "0.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "npx",
+      "environmentVariables": [
+        {
+          "name": "SEAWORTHY_BROWSER",
+          "description": "Path to a Chrome or Chromium binary. Used only by the opt-in rendered checks; without it the server reads no site from the network and launches no browser.",
+          "isRequired": false,
+          "isSecret": false
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "status": "pre-alpha",
+      "publishedOnNpm": false,
+      "note": "Staged in the repository, not yet publishable: @seaworthy/mcp (and @seaworthy/verify, which it depends on) is not on npm and the @seaworthy scope is not claimed, so the registry's package-ownership check cannot pass. Every value here mirrors this repository today: the name, title and version the MCP server reports in its initialize handshake, the stdio transport it connects, and the package name it will be published under."
+    }
+  }
+}
