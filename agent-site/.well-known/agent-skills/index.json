@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "seaworthy-adopt",
+      "type": "skill-md",
+      "description": "Adopt Seaworthy verification in an existing site in four moves - a first honest look that fails nothing, a committed baseline that freezes today's findings, a CI gate that fails only on new ones, and a status badge once the gate is green. Use when a site already has findings and a day-one gate would start the project with red CI.",
+      "url": "/.well-known/agent-skills/seaworthy-adopt.md",
+      "digest": "sha256:cb0e58115d4b73dc84d2a3cd75ea0ec6592a34fdfb246064382c078b351e2422"
+    },
+    {
+      "name": "seaworthy-verify",
+      "type": "skill-md",
+      "description": "Runs the Seaworthy verify-and-fix loop on a built static site — verify the built output, read the findings by check ID and location, fix the source, re-verify, and stop at the exit-code gate. Use when an agent has just built or changed a website and needs to know what is broken and how to fix it, when the user asks to \"verify the site\", \"run seaworthy\", or check a site for broken links, accessibility, or agent-readability problems, or before the agent says a site is done. Do not use it to adopt Seaworthy into CI or to park existing debt; that is a separate skill.",
+      "url": "/.well-known/agent-skills/seaworthy-verify.md",
+      "digest": "sha256:1577d03255603d5e8b14e9177876a8e12572f7d72997215d745c4570471021ab"
+    }
+  ]
+}
