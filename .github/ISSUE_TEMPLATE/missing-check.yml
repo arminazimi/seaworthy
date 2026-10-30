@@ -1,0 +1,49 @@
+name: Missing check
+description: A problem Seaworthy does not report.
+title: "Missing check: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when a site is broken in a way Seaworthy stays quiet about. It captures the failure mode and where it shows, so a triager can decide whether it belongs in the engine; if you already know the exact rule and the fix hint an agent should follow, use the **Check proposal** form instead.
+  - type: textarea
+    id: failure-mode
+    attributes:
+      label: Failure mode, in one sentence
+      description: 'One sentence: what is wrong on the built site, and who is hurt by it, a reader, an agent, or a crawler.'
+      placeholder: |
+        A page ships a canonical URL that points at a path the host serves as a 404.
+    validations:
+      required: true
+      max_length: 500
+  - type: textarea
+    id: where-it-shows
+    attributes:
+      label: A real site or a fixture where it shows
+      description: The URL, or a built folder you can attach as a `fixtures/` case, with the page path inside it. Point at the actual page; a domain alone is not a reproduction.
+      placeholder: |
+        https://example.com/pricing/ has <link rel="canonical" href="https://example.com/price">, and /price is a 404.
+    validations:
+      required: true
+  - type: dropdown
+    id: needs
+    attributes:
+      label: What would deciding it need to read?
+      description: Check metadata declares one of these inputs (`html`, `files`, `browser`, `network`). Browser and especially network checks are opt-in and off by default, so pick the cheapest input that can still decide it; a triager reads this answer as the check's `needs`.
+      options:
+        - "html: the page markup only"
+        - "files: any built file in the folder, such as assets or config files"
+        - "browser: the rendered page, after scripts run"
+        - "network: a live URL or a remote resource, which the reporter must opt in to"
+    validations:
+      required: true
+  - type: textarea
+    id: closest-check
+    attributes:
+      label: Which existing check comes closest?
+      description: Name the check ID that nearly catches it, from `docs/checks/` or the `list_checks` MCP tool, and say what it misses. If nothing is close, say so and name the nearest area instead.
+      placeholder: |
+        links.internal resolves <a href> targets and would flag a 404, but it never reads <link rel="canonical">.
+    validations:
+      required: true
