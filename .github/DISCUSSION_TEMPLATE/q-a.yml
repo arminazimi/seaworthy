@@ -1,0 +1,64 @@
+title: "Question: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Questions about using Seaworthy: a finding you don't understand, a config that doesn't do what you meant, a run that surprised you.
+        Wrong or crashed output is a bug — use the **Bug report** issue template. A thing you wish it checked is an idea — use the **Ideas** category.
+  - type: input
+    id: version
+    attributes:
+      label: Seaworthy version
+      description: "`seaworthy --version`, or the commit you built from — the project is pre-alpha, so the commit matters."
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      placeholder: Fail CI only on new findings, hold every a11y.* check at note, verify a Hugo site deployed under /docs/…
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: What did you run?
+      description: The exact command line, and the framework or generator that produced the built output and the host it is deployed on.
+      render: bash
+      placeholder: |
+        seaworthy verify public --format json --out report.json
+        # built with Astro, deployed on Netlify
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Your seaworthy.config.json
+      description: "Paste it if you have one. The default location is the current folder; `--config <file>` points at another."
+      render: json
+  - type: dropdown
+    id: optin
+    attributes:
+      label: Did the run turn on the opt-in checks?
+      description: Checks that need a browser or the network do not run by default.
+      options:
+        - "No, plain offline run"
+        - "--rendered (browser checks)"
+        - "--network (network checks)"
+        - "Both --rendered and --network"
+    validations:
+      required: true
+  - type: input
+    id: check
+    attributes:
+      label: Check ID and severity, if this is about a finding
+      placeholder: "images.alt (error)"
+  - type: textarea
+    id: report
+    attributes:
+      label: What did the report say?
+      description: The `seaworthy verify --format json` report, or the smallest built site or HTML file that shows the question. Site contents are untrusted input to Seaworthy — it parses what you paste and never runs it — but post nothing you would not show a stranger.
+      render: json
+    validations:
+      required: true
