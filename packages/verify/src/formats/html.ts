@@ -5,9 +5,13 @@
 // byte-identical output. Site contents are untrusted input, so every value is
 // escaped before it enters the markup (see the attacker-fixture test).
 
+import { type HistoryRecord } from "../history.js";
 import { SEVERITIES, type Finding, type Report, type Severity } from "../types.js";
 import type { Formatter } from "./base.js";
 import { describeLocation, readabilityLine } from "./pretty.js";
+
+/** How many recent runs the trend draws: the newest, oldest first. Capped so the page stays small. */
+const TREND_RUNS = 10;
 
 const escapeHtml = (text: string): string =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -58,6 +62,18 @@ li.finding details summary { cursor: pointer; color: var(--muted); font-size: 0.
 #filters input { margin: 0 0.35rem 0 0.25rem; }
 #filter-status { color: var(--muted); font-size: 0.85rem; }
 #findings .count { color: var(--muted); font-weight: 400; margin-left: 0.4rem; }
+.trend { display: block; border: 1px solid var(--line); border-radius: 0.6rem; padding: 0.75rem 1rem; margin: 1rem 0; background: var(--panel); }
+.trend h2 .count { color: var(--muted); font-weight: 400; margin-left: 0.4rem; }
+.trend .caption { color: var(--muted); font-size: 0.85rem; }
+.trend .spark { display: block; width: 100%; height: auto; margin: 0.5rem 0; }
+.trend .spark .grid { stroke: var(--line); stroke-width: 1; }
+.trend .spark .area { fill: var(--note); opacity: 0.16; }
+.trend .spark .line { fill: none; stroke: var(--note); stroke-width: 2; }
+.trend .spark .dot { fill: var(--note); }
+.trend table { border-collapse: collapse; width: 100%; font-size: 0.85rem; margin-top: 0.5rem; }
+.trend th, .trend td { text-align: left; padding: 0.2rem 0.6rem 0.2rem 0; border-bottom: 1px solid var(--line); }
+.trend th { color: var(--muted); font-weight: 600; }
+.trend td .run { color: var(--muted); }
 footer { color: var(--muted); font-size: 0.85rem; }
 `;
 
@@ -179,7 +195,49 @@ function asides(report: Report): string {
   return parts.join("");
 }
 
-export function formatHtml(report: Report): string {
+/**
+ * The findings trend, drawn from the run history already on disk: one point per run, oldest first,
+ * capped to the most recent `TREND_RUNS`. Nothing renders for an empty store or a single run — one
+ * point is not a trend. The figures are the stored counts and timestamps verbatim, so the page is
+ * byte-identical for the same store: no current time, no run count that varies, no `Map` ordering.
+ */
+function trendSection(history: readonly HistoryRecord[]): string {
+  const runs = history.slice(-TREND_RUNS);
+  if (runs.length < 2) return "";
+
+  const W = 600;
+  const H = 120;
+  const PAD = 8;
+  const max = runs.reduce((m, r) => Math.max(m, r.counts.findings), 0) || 1;
+  const step = (W - 2 * PAD) / (runs.length - 1);
+  const px = (i: number): number => Math.round(PAD + i * step);
+  const py = (v: number): number => Math.round(H - PAD - (v / max) * (H - 2 * PAD));
+
+  const points = runs.map((r, i) => ({ x: px(i), y: py(r.counts.findings), run: r }));
+  const line = points.map((p) => `${p.x},${p.y}`).join(" ");
+  const area = `${points[0]!.x},${H - PAD} ${line} ${points[points.length - 1]!.x},${H - PAD}`;
+  const dots = points
+    .map((p) => `<circle class="dot" cx="${p.x}" cy="${p.y}" r="2.5"><title>${escapeHtml(p.run.started)}: ${plural(p.run.counts.findings, "finding")}</title></circle>`)
+    .join("");
+
+  const rows = runs
+    .map((r) => {
+      const c = r.counts.bySeverity ?? {};
+      return `<tr><td class="run">${escapeHtml(r.started)}</td><td><code>${escapeHtml(r.root)}</code></td>`
+        + `<td>${r.counts.findings}</td><td>${c.error ?? 0}</td><td>${c.warning ?? 0}</td><td>${c.note ?? 0}</td></tr>`;
+    })
+    .join("");
+
+  return `<section class="trend"><h2>Trend<span class="count">${plural(runs.length, "recent run")}</span></h2>`
+    + `<p class="caption">Findings per run, oldest left, newest right (up to ${TREND_RUNS} shown).</p>`
+    + `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Trend of findings per run">`
+    + `<line class="grid" x1="${PAD}" y1="${H - PAD}" x2="${W - PAD}" y2="${H - PAD}"/>`
+    + `<polygon class="area" points="${area}"/><polyline class="line" points="${line}"/>${dots}</svg>`
+    + `<table><thead><tr><th>run</th><th>root</th><th>findings</th><th>errors</th><th>warnings</th><th>notes</th></tr></thead>`
+    + `<tbody>${rows}</tbody></table></section>`;
+}
+
+export function formatHtml(report: Report, history: readonly HistoryRecord[] = []): string {
   const total = report.summary.findings;
   const counts = severityCountsPart(report);
   const summaryPart = total === 0
@@ -202,6 +260,7 @@ export function formatHtml(report: Report): string {
     `<p class="meta">${escapeHtml(report.root)}: ${plural(report.summary.pages, "page")}, ${plural(report.checks.length, "check")} · report spec ${report.spec}</p>`,
     summaryPart,
     `</header>`,
+    trendSection(history),
     total === 0 ? "" : `<fieldset id="filters">`
       + `<legend>Filter</legend>`
       + `<span class="sevbtns"><button type="button" class="sev on" data-sev="all">all</button>`
@@ -222,4 +281,4 @@ export function formatHtml(report: Report): string {
   ]).join("") + "\n";
 }
 
-export const render: Formatter = (report) => formatHtml(report);
+export const render: Formatter = (report, context) => formatHtml(report, context.history ?? []);
