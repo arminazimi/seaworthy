@@ -39,8 +39,10 @@ const IMPACT_SEVERITY: Record<string, Severity> = {
 /** Severity order, most severe first: a problem keeps the worst impact it had at any width. */
 const SEVERITY_RANK: Record<Severity, number> = { error: 0, warning: 1, note: 2 };
 
-// Rules the static checks already report, disabled here so one problem is never named twice.
-// The docs page lists the mapping: rule → Seaworthy check. If a static check is retired, move its rules back to the rendered engine.
+// Rules the other checks already report, disabled here so one problem is never named twice.
+// Most are static checks; target-size is the exception — layout.target-size renders and measures it
+// itself, so it owns the rule. The docs page lists the mapping: rule → Seaworthy check. If a covered
+// check is retired, move its rules back to the rendered engine.
 const STATICALLY_COVERED: readonly [axeRule: string, by: string][] = [
   ["area-alt", "images.alt"],
   ["aria-allowed-role", "a11y.aria-roles"],
@@ -72,6 +74,7 @@ const STATICALLY_COVERED: readonly [axeRule: string, by: string][] = [
   ["region", "a11y.landmarks"],
   ["skip-link", "a11y.skip-link"],
   ["tabindex", "a11y.tabindex"],
+  ["target-size", "layout.target-size"],
   ["td-has-header", "a11y.table-headers"],
   ["td-headers-attr", "a11y.table-headers"],
   ["th-has-data-cells", "a11y.table-headers"],
