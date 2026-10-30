@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
+import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_NAME } from "../src/fix-preview.js";
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
 import { EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
@@ -262,6 +263,18 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
               rendered: { description: "Run the checks that render pages in a browser. Opt-in: needs a browser installed on this machine.", type: "boolean" },
               network: { description: "Let the checks that need it reach the network. Opt-in: every other check stays offline.", type: "boolean" },
               since: { description: "A git ref (branch, tag, or commit) to compare the site with. Default: the files that changed since the last run.", type: "string" },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
+          name: FIX_PREVIEW_NAME,
+          description: FIX_PREVIEW_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              site: { description: "The built site folder to verify, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
             },
           },
           execution: { taskSupport: "forbidden" },

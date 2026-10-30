@@ -42,3 +42,5 @@ export {
   verifySiteReport,
 } from "./verify-tools.js";
 export type { VerifyChangedInput, VerifySiteInput, VerifyToolOptions } from "./verify-tools.js";
+export { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_INPUT, FIX_PREVIEW_NAME, fixPreviewReport } from "./fix-preview.js";
+export type { FixPreviewInput, FixPreviewOptions, FixPreviewOutput, PreviewManual } from "./fix-preview.js";

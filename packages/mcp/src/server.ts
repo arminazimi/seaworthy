@@ -9,6 +9,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
+import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_INPUT, FIX_PREVIEW_NAME, fixPreviewReport } from "./fix-preview.js";
 import { EXPLAIN_FINDING_DESCRIPTION, EXPLAIN_FINDING_INPUT, EXPLAIN_FINDING_NAME, explainFinding } from "./explain-finding.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
 import { registerPrompts } from "./prompts.js";
@@ -59,6 +60,11 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     VERIFY_CHANGED_NAME,
     { description: VERIFY_CHANGED_DESCRIPTION, inputSchema: VERIFY_CHANGED_INPUT },
     async (args, extra): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, withProgress(toolOptions, extra)) }] }),
+  );
+  server.registerTool(
+    FIX_PREVIEW_NAME,
+    { description: FIX_PREVIEW_DESCRIPTION, inputSchema: FIX_PREVIEW_INPUT },
+    async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await fixPreviewReport(args, toolOptions) }] }),
   );
   server.registerTool(
     EXPLAIN_FINDING_NAME,
