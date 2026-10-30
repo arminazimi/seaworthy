@@ -1,7 +1,9 @@
 // Ready-to-paste prompts for agents, generated once in buildReport so that every
 // output format prints identical text. They contain only what every format already
-// shows: the check ID, the location, and the fix. No private run state, no absolute
-// paths, no timestamps, so the same site yields the same prompt everywhere.
+// shows: the check ID, the location, the fix, and — when a source mapping names it —
+// the source file and line, the same ones the report's `sourceLocation` carries.
+// No private run state, no absolute paths, no timestamps, so the same site yields the
+// same prompt everywhere.
 
 import { describeLocation } from "./formats/pretty.js";
 import type { Edit, Finding } from "./types.js";
@@ -43,6 +45,22 @@ const beforeLine = (a: Finding, b: Finding): number =>
   (a.location.line ?? Number.MAX_SAFE_INTEGER) - (b.location.line ?? Number.MAX_SAFE_INTEGER) ||
   (a.location.column ?? 0) - (b.location.column ?? 0);
 
+/**
+ * Where the source is, when a mapping says: `docs/guide.md:41`. The path is repository-relative, so
+ * unlike a finding location it never carries the verified folder — the source is not in it.
+ */
+function sourcePosition(finding: Finding): string | undefined {
+  const source = finding.sourceLocation;
+  if (source === undefined) return undefined;
+  return `${source.file}${source.line === undefined ? "" : `:${source.line}`}${source.column === undefined ? "" : `:${source.column}`}`;
+}
+
+/** ` Source is docs/guide.md:41.`, or nothing when no mapping names the source. */
+function sourceNote(finding: Finding): string {
+  const source = sourcePosition(finding);
+  return source === undefined ? "" : ` Source is ${source}.`;
+}
+
 /** One line per finding: what is wrong, where, and how to fix it. */
 export function findingPrompt(finding: Finding, root: string): string {
   const parts = [
@@ -52,7 +70,12 @@ export function findingPrompt(finding: Finding, root: string): string {
   if (finding.location.approximateLine === true) parts.push("The line is approximate; confirm it in the file before editing.");
   const edits = editsPart(finding.fix.edits);
   if (edits) parts.push(edits);
-  parts.push("The location is the built output; apply the same fix in the source that generates it, rebuild, then re-run seaworthy verify to confirm the finding is gone.");
+  const source = sourcePosition(finding);
+  parts.push(
+    source === undefined
+      ? "The location is the built output; apply the same fix in the source that generates it, rebuild, then re-run seaworthy verify to confirm the finding is gone."
+      : `The location is the built output; its source is ${source}, so edit that file, rebuild, then re-run seaworthy verify to confirm the finding is gone.`,
+  );
   return parts.join(" ");
 }
 
@@ -62,7 +85,7 @@ export function reportPrompt(findings: readonly Finding[], root: string): string
   const lines = [
     `Fix every Seaworthy finding below, in the order given. ${line}, so apply the same fix in the source that generates it, rebuild once at the end, then run ${verifyCommand(root)} and confirm every finding is gone.`,
   ];
-  for (const [index, finding] of findings.entries()) lines.push(`${index + 1}. ${where(finding, root)} ${finding.checkId} (${finding.severity}): ${finding.message} Fix: ${finding.fix.summary}`);
+  for (const [index, finding] of findings.entries()) lines.push(`${index + 1}. ${where(finding, root)} ${finding.checkId} (${finding.severity}): ${finding.message} Fix: ${finding.fix.summary}${sourceNote(finding)}`);
   return lines.join("\n");
 }
 
@@ -92,7 +115,7 @@ export function groupedReportPrompt(findings: readonly Finding[], root: string):
     for (const finding of [...group].sort(beforeLine)) {
       const edits = editsPart(finding.fix.edits);
       const approximate = finding.location.approximateLine === true ? " The line is approximate; confirm it in the file before editing." : "";
-      lines.push(`- ${where(finding, root)} ${finding.checkId} (${finding.severity}): ${finding.message} Fix: ${finding.fix.summary}${approximate}${edits ? ` ${edits}` : ""}`);
+      lines.push(`- ${where(finding, root)} ${finding.checkId} (${finding.severity}): ${finding.message} Fix: ${finding.fix.summary}${approximate}${edits ? ` ${edits}` : ""}${sourceNote(finding)}`);
     }
   }
   return lines.join("\n");

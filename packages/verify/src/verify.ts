@@ -13,6 +13,7 @@ import type { MarkdownSources } from "./markdown.js";
 import { findingPrompt } from "./prompt.js";
 import { buildReport } from "./report.js";
 import { readabilitySummary } from "./readability-score.js";
+import { sourceLocationOf, sourceResolver } from "./source-map.js";
 import { type SiteGraph, buildSite } from "./site.js";
 import { type Suppression, SUPPRESSION_CHECKS, applySuppressions, fromConfig, parseInlineSuppressions } from "./suppress.js";
 import type { Check, EvidenceSink, Finding, Report } from "./types.js";
@@ -51,6 +52,12 @@ export interface VerifyOptions {
   knownFindings?: ReadonlySet<string>;
   /** From the CLI's --markdown: explicit Markdown sources for the md.* checks, replacing the site-folder walk. Absent: the walk, as ever. */
   markdownSources?: MarkdownSources;
+  /**
+   * The repository root the build ran in: the root a published `source-map.json` names its `source`
+   * paths from, and where the reader checks those files are still there. Default: where the command
+   * runs, which is where the CLI, the Action, and the MCP server are all run.
+   */
+  repoRoot?: string;
   /** Defaults to the current time. Pass a fixed date in tests. */
   now?: Date;
   /** Collect wall time per stage and per check in `VerifyResult.timings`. Off by default; timings never reach the report. */
@@ -60,8 +67,8 @@ export interface VerifyOptions {
    * baseline, `--changed`, and `--new-only` filters have been applied to that check's batch —
    * the same filters the report applies to the whole run, so the streamed set is the report's
    * set.
-   * Findings carry their `prompt`, like they do inside the report. Streaming only: without
-   * this, the run is exactly as it was before.
+   * Findings carry their `prompt` and, when a source mapping names their file, their `sourceLocation`
+   * — exactly as they do inside the report. Streaming only: without this, the run is as it was before.
    */
   streamFindings?: (finding: Finding) => void;
 }
@@ -82,7 +89,7 @@ export interface Timings {
 export interface VerifyResult {
   report: Report;
   site: SiteGraph;
-  /** Every finding after suppressions and before the baseline: what `--update-baseline` records. */
+  /** Every finding after suppressions and before the baseline: what `--update-baseline` records. Findings here carry no `sourceLocation`: a baseline stores identity, not provenance. */
   unbaselined: Finding[];
   /** Present only with `timings`. */
   timings?: Timings;
@@ -113,6 +120,19 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
 
   const resolved = resolveChecks(config, options.checks);
 
+  // Source locations are read once per run, before the checks, so the streamed findings and the
+  // report answer "which file produced this?" with the same bytes. Advisory input only: a build
+  // that publishes nothing, or publishes something unreadable, leaves every finding exactly as it is.
+  const resolver = sourceResolver({
+    site,
+    repoRoot: options.repoRoot ?? process.cwd(),
+    ...(options.markdownSources === undefined ? {} : { markdownSources: options.markdownSources }),
+  });
+  const withSource = (finding: Finding): Finding => {
+    const sourceLocation = sourceLocationOf(finding, resolver);
+    return sourceLocation === undefined ? finding : { ...finding, sourceLocation };
+  };
+
   // The suppression rules need only the built site, so they are read before the checks run.
   // That is what lets the streamed path filter a finding the moment its check finishes; the
   // timing change stops there - the report, its stages, and their names are all unchanged.
@@ -132,7 +152,10 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
         const kept = options.baseline ? applyBaseline(suppression.findings, options.baseline).findings : suppression.findings;
         const scoped = options.changed ? kept.filter((f) => options.changed!.has(f.location.file)) : kept;
         const reported = options.knownFindings ? scoped.filter((f) => !options.knownFindings!.has(f.fingerprint)) : scoped;
-        for (const finding of reported) options.streamFindings!({ ...finding, prompt: findingPrompt(finding, options.rootLabel) });
+        for (const finding of reported) {
+          const enriched = withSource(finding);
+          options.streamFindings!({ ...enriched, prompt: findingPrompt(enriched, options.rootLabel) });
+        }
       };
 
   const run = await measure("checks", () =>
@@ -175,7 +198,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       root: options.rootLabel,
       pages: site.pages.size,
       checks: [...resolved.checks, ...SUPPRESSION_CHECKS],
-      findings: reported,
+      findings: reported.map(withSource),
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(Object.keys(resolved.maxFindings).length > 0 ? { checkMaxFindings: resolved.maxFindings } : {}),
       ...(options.changed ? { changedFiles: options.changed.size } : {}),

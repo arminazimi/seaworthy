@@ -166,3 +166,18 @@ Each rendered finding then saves a PNG crop of the viewport around the offending
 The folder is always your explicit choice, and always yours: Seaworthy never writes inside the folder it verifies, so `--evidence` refuses a path that is absolute or points into the site, and the report never carries an absolute path. `--evidence` needs `--rendered` — without rendered checks there are no findings to prove, and a flag that silently wrote nothing would be a trap. It is a per-run decision rather than a config key for the same reason: the run writes files where the flag points.
 
 Everything else stays byte-identical: a finding without a crop has no `evidence` field at all, so a report from any run without the flag is exactly what it was before. The crops ride on the rendered engine only — static checks have no pixels to keep.
+
+## Where the source is
+
+A finding points at built output, and built output is not what you edit. When the build says where a page came from, the finding carries that too, as an optional `sourceLocation` — the repository file, and the line when one is known:
+
+```json
+{ "checkId": "images.alt", "location": { "file": "docs/guide/index.html", "line": 4 },
+  "sourceLocation": { "file": "src/content/docs/guide.md", "line": 10 } }
+```
+
+Seaworthy reads two things, in that order, and nothing else. **The published map**: a build may ship `source-map.json` at the site root, the contract in [`spec/source-map/v0.md`](../spec/source-map/v0.md), whose entries name the source file and line behind a built file and, with an `anchor`, behind one section of it. Your generator's own documentation decides whether it emits one. **What the generator already exposes**: where the map says nothing, a Markdown source that declares its published path in front matter — `permalink: /docs/guide/` — says which page it builds, and its headings say which line an anchor's section starts on. Those are the sources `--markdown` already names, so the fallback needs `npx seaworthy verify dist --markdown README.md docs/`; a source Seaworthy has never seen declares nothing.
+
+Nothing here is a guess. A page whose path was inferred from a file name is left unmapped, an entry whose `source` is no longer in the repository is refused as stale, and a `source` or `target` that is absolute, contains `..`, or would resolve outside its root is refused outright — path traversal is the one thing the contract is built to be wrong-proof. A finding about a section is answered by an `anchor` entry only when its own locator names one: a bare `#id` selector, or an `id` on the element the finding is about. Everything is advisory: a mapping changes no finding, no severity, and no exit code, a malformed or absent map is not an error, and the whole file is ignored rather than half-read. `sourceLocation.file` is relative to the folder you run in — the repository root the build ran in — because the source is not inside the folder being verified, and it never reaches the baseline or the run history, which store identity, not provenance.
+
+The agent-facing text follows the field. A fix prompt that knows the source says `its source is docs/guide.md:10, so edit that file` instead of telling the agent to work the translation out; the whole-report prompts add `Source is docs/guide.md:10.` to the line. A site that publishes nothing produces the report bytes it produced before: no field, no prompt change, nothing to read.

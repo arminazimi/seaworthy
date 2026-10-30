@@ -37,6 +37,9 @@
     },
     "evidence": {
       "$ref": "#/$defs/evidence"
+    },
+    "sourceLocation": {
+      "$ref": "#/$defs/sourceLocation"
     }
   }
 }

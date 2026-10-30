@@ -2,9 +2,10 @@
 //
 // Every line is the finding exactly as the JSON report carries it: the same fields, the
 // same order (checkId, severity, message, location, fix, fingerprint, evidence when the run
-// saved a crop, prompt), compact, with no run state. Lines stream as each check finishes, so
-// line order follows check completion and can vary between runs; each line alone is
-// deterministic, and the set of lines is always the report's findings.
+// saved a crop, sourceLocation when a mapping names the source, prompt), compact, with no
+// run state. Lines stream as each check finishes, so line order follows check completion and
+// can vary between runs; each line alone is deterministic, and the set of lines is always the
+// report's findings.
 
 import type { Finding, Report } from "../types.js";
 import type { Formatter } from "./base.js";

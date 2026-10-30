@@ -19,6 +19,7 @@ export type {
   ReportCheck,
   Severity,
   SkippedCheck,
+  SourceLocation,
 } from "./types.js";
 export { SEVERITIES } from "./types.js";
 export { attr, buildSite, positionOf } from "./site.js";
@@ -37,6 +38,9 @@ export type { SarifContext } from "./formats/sarif.js";
 export { CONFIG_FILE, ConfigError, loadConfig, parseConfig, resolveChecks } from "./config.js";
 export type { CheckSetting, Config, ConfigSuppression } from "./config.js";
 export { applySuppressions, parseInlineSuppressions } from "./suppress.js";
+// The source mapper (#197): it reads the `source-map.json` a build publishes, per spec/source-map/v0.md.
+export { anchorOf, readSourceMapText, sourceLocationOf, sourceResolver, SOURCE_MAP_FILE } from "./source-map.js";
+export type { SourceMapEntry, SourceMapReading, SourceResolver } from "./source-map.js";
 export type { SuppressedFinding, Suppression } from "./suppress.js";
 export { BaselineError, applyBaseline, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
 export type { Baseline, BaselineEntry } from "./baseline.js";
