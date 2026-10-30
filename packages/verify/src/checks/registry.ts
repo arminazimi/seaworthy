@@ -14,6 +14,7 @@ import { i18nParity } from "./i18n-parity.js";
 import { i18nSwitcher } from "./i18n-switcher.js";
 import { i18nXDefault } from "./i18n-x-default.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
+import { layoutFocusVisible } from "./focus-visible.js";
 import { layoutHorizontalOverflow } from "./layout-overflow.js";
 import { layoutReflow } from "./reflow.js";
 import { layoutTargetSize } from "./touch-target.js";
@@ -70,6 +71,7 @@ export const builtInChecks: readonly Check[] = [
   imagesAlt,
   imagesDimensions,
   imagesSize,
+  layoutFocusVisible,
   layoutHorizontalOverflow,
   layoutReflow,
   layoutTargetSize,
