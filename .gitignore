@@ -8,3 +8,4 @@ planning/roadmap/out/
 .env
 .env.*
 node_modules
+_site/
