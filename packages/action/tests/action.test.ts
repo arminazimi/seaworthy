@@ -102,10 +102,20 @@ const env = (threshold: string | undefined): Record<string, string | undefined> 
   SEAWORTHY_SARIF: "out.sarif",
 });
 
-test("parseInputs keeps the inputs as given and defaults site, sarif and markdown to disabled", () => {
-  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [] });
-  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [] });
-  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [] });
+test("parseInputs keeps the inputs as given and defaults site, sarif, markdown and annotations", () => {
+  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [], annotations: "auto" });
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [], annotations: "auto" });
+  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [], annotations: "auto" });
+});
+
+test("parseInputs reads the annotations input, and only its documented values", () => {
+  assert.equal(parseInputs({ SEAWORTHY_ANNOTATIONS: " OFF " }).annotations, "off");
+  assert.equal(parseInputs({ SEAWORTHY_ANNOTATIONS: "Auto" }).annotations, "auto");
+  assert.throws(() => parseInputs({ SEAWORTHY_ANNOTATIONS: "sometimes" }), (e: unknown) => {
+    assert.ok(e instanceof ActionInputError);
+    assert.match(e.message, /annotations must be one of auto, off/);
+    return true;
+  });
 });
 
 test("parseInputs reads the site input as one folder per line or comma", () => {

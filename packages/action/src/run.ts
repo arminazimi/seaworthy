@@ -1,21 +1,25 @@
 // Executable entry the composite action.yml runs. Thin on purpose: every rule lives in
-// ./index.js (inputs, threshold, SARIF naming, aggregate exit) or in the verify CLI's own
-// contract, so this file only orchestrates the per-site verify invocations, the step output,
-// and the exit code.
+// ./index.js (inputs, threshold, SARIF naming, aggregate exit), ./annotations.js (findings →
+// workflow commands and the tracked-file rule), or in the verify CLI's own contract, so this file
+// only orchestrates the per-site verify invocations, the step output, the annotations, and the exit code.
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import type { Report } from "@seaworthy/verify";
+
 import {
   ActionInputError,
   aggregateExit,
+  asReport,
   parseInputs,
   ReportFormatError,
   sarifTargetFor,
   type ActionInputs,
   type Threshold,
 } from "./index.js";
+import { checkoutLineChecker, planAnnotations, pullRequestContext, summarySection } from "./annotations.js";
 
 /**
  * The verify CLI, built next to this package by the same `npm run build` the Action's build
@@ -62,13 +66,15 @@ function verifyArgs(site: string, format: string, failOn: Threshold, out?: strin
   return markdown.length === 0 ? withOut : [...withOut, "--markdown", ...markdown];
 }
 
-/** Report JSON text -> parsed, as far as the Action log line trusts it (never re-checked in detail). */
-function readReport(stdout: string): { summary?: { findings?: number }; root?: string; errors?: unknown[] } {
+/** Report JSON text -> the report itself, shape-checked by the same gate the SARIF mapping uses. */
+function readReport(stdout: string): Report {
+  let parsed: unknown;
   try {
-    return JSON.parse(stdout);
+    parsed = JSON.parse(stdout);
   } catch {
     throw new ReportFormatError("the verify CLI did not print a JSON report on stdout");
   }
+  return asReport(parsed);
 }
 
 /** The findings-and-SARIF wording of a report the CLI printed. */
@@ -80,10 +86,49 @@ function reportNote(report: { summary?: { findings?: number }; root?: string; er
 }
 
 /**
+ * The inline annotations for one site's report (issue #259): the report's findings filtered by
+ * ./annotations.js against the files this pull request actually touched, echoed as workflow commands on
+ * the step's own stdout, with everything that did not qualify written to the step summary — or to the
+ * log, when the runner gives no summary file. Returns the note the site's log line ends with.
+ *
+ * The verdict is never one of these numbers: nothing here changes the exit code, and a run with
+ * `threshold: none` annotates exactly like a run that fails. A run that is not a pull request
+ * (`GITHUB_BASE_REF` empty) writes no annotation and no summary either: there is no diff to pin a
+ * finding to, and the report, the log, and the SARIF artifact already carry it; `nonPullRequestNote`
+ * is the line that says so.
+ */
+function annotate(env: Readonly<Record<string, string | undefined>>, cwd: string, report: Report): string {
+  if (!isPullRequestRun(env)) return "";
+  const context = pullRequestContext(env, cwd);
+  const plan = planAnnotations({ root: report.root, findings: report.findings, changed: context.changed, lineInCheckout: checkoutLineChecker(cwd) });
+  for (const annotation of plan.annotations) process.stdout.write(`${annotation.command}\n`);
+  const section = summarySection(plan, { annotated: plan.annotations.length, ...(context.unavailable === undefined ? {} : { unavailable: context.unavailable }) });
+  if (section !== "") {
+    if (env.GITHUB_STEP_SUMMARY === undefined) process.stdout.write(section);
+    else appendFileSync(env.GITHUB_STEP_SUMMARY, section);
+  }
+  return `; ${plan.annotations.length} annotated inline, ${plan.summarized.length} in the summary only`;
+}
+
+/** True when the runner says this is a pull-request event: the only run that has a base to diff against. */
+const isPullRequestRun = (env: Readonly<Record<string, string | undefined>>): boolean => (env.GITHUB_BASE_REF ?? "").trim() !== "";
+
+/**
+ * Issue #259's note for a run that has annotations on but is not a pull request: its own stdout line,
+ * after the report lines — the wording of those lines is the contract the tests pin exactly, so this
+ * note never joins them, and a multi-site run states it once for the run rather than once per site.
+ */
+function nonPullRequestNote(env: Readonly<Record<string, string | undefined>>, inputs: ActionInputs): string {
+  if (inputs.annotations === "off" || isPullRequestRun(env)) return "";
+  return "seaworthy: no inline annotations (this run is not a pull request)\n";
+}
+
+/**
  * One Action run: verify every site named by the `site` input — one CLI invocation per site —
- * write SARIF when the `sarif` input says so (one file per site, named by `sarifTargets`), set
- * the `sarif` step output, and return the exit contract. Relative paths resolve against the
- * consumer's workspace, the folder the workflow checked out.
+ * write SARIF when the `sarif` input says so (one file per site, named by `sarifTargets`), annotate
+ * the pull request per site when the `annotations` input says so, set the `sarif` step output, and
+ * return the exit contract. Relative paths resolve against the consumer's workspace, the folder the
+ * workflow checked out.
  *
  * One site: the pre-multi-site path, byte for byte. Several sites: no site's outcome hides
  * another's findings; the aggregate rule in index.js (`aggregateExit`) decides the run's code.
@@ -112,7 +157,13 @@ async function singleSiteRun(inputs: ActionInputs, site: string, cwd: string, en
   if (env.GITHUB_OUTPUT !== undefined) {
     appendFileSync(env.GITHUB_OUTPUT, `sarif=${inputs.sarif}\n`);
   }
-  process.stdout.write(`seaworthy: ${reportNote(report, inputs.sarif, inputs.sarif === "")}\n`);
+  // Annotations (issue #259), then the log line that counts them: the exit code returned below is the
+  // CLI's own, decided by the threshold, and neither the annotation count nor an annotation of any
+  // severity moves it. `threshold: none` still annotates, because annotating is not a verdict. The
+  // line's wording stays exactly the single-site contract; a non-pull-request note gets its own line.
+  const annotationNote = inputs.annotations === "off" ? "" : annotate(env, cwd, report);
+  process.stdout.write(`seaworthy: ${reportNote(report, inputs.sarif, inputs.sarif === "")}${annotationNote}\n`);
+  process.stdout.write(nonPullRequestNote(env, inputs));
   process.stderr.write(json.stderr);
   return json.code;
 }
@@ -131,6 +182,8 @@ interface SiteOutcome {
   readonly sarifFile: string;
   /** A failure the report numbers cannot express: the CLI rejected the run, or crashed without one. */
   readonly note: string;
+  /** The run's report when it produced one — the findings a pull request gets annotated from (issue #259). */
+  readonly report: Report | null;
 }
 
 /**
@@ -146,7 +199,7 @@ async function multiSiteRun(inputs: ActionInputs, cwd: string, env: Readonly<Rec
   for (const site of inputs.sites) {
     const json = runVerify(verifyArgs(site, "json", inputs.threshold, undefined, inputs.markdown), cwd);
     if (json.code === USAGE_EXIT) {
-      outcomes.push({ site, code: USAGE_EXIT, findings: 0, root: site, crashed: 0, sarifFile: "", note: "the CLI rejected this run (exit 2)" });
+      outcomes.push({ site, code: USAGE_EXIT, findings: 0, root: site, crashed: 0, sarifFile: "", note: "the CLI rejected this run (exit 2)", report: null });
       process.stderr.write(json.stderr);
       continue;
     }
@@ -155,7 +208,7 @@ async function multiSiteRun(inputs: ActionInputs, cwd: string, env: Readonly<Rec
       report = readReport(json.stdout);
     } catch {
       // The CLI died without a report to read: that is its crash exit code, reported as itself.
-      outcomes.push({ site, code: CRASH_EXIT, findings: 0, root: site, crashed: 0, sarifFile: "", note: "the verify CLI crashed without a report (exit 4)" });
+      outcomes.push({ site, code: CRASH_EXIT, findings: 0, root: site, crashed: 0, sarifFile: "", note: "the verify CLI crashed without a report (exit 4)", report: null });
       process.stderr.write(json.stderr);
       continue;
     }
@@ -176,6 +229,7 @@ async function multiSiteRun(inputs: ActionInputs, cwd: string, env: Readonly<Rec
       crashed: (report.errors ?? []).length,
       sarifFile,
       note: "",
+      report,
     });
     process.stderr.write(json.stderr);
   }
@@ -191,8 +245,13 @@ async function multiSiteRun(inputs: ActionInputs, cwd: string, env: Readonly<Rec
         : `${outcome.findings} finding${outcome.findings === 1 ? "" : "s"} in ${outcome.root}, ${outcome.crashed} crashed check${outcome.crashed === 1 ? "" : "s"}; ${
             inputs.sarif === "" ? "sarif disabled" : outcome.sarifFile === "" ? "no sarif written" : `sarif written to ${outcome.sarifFile}`
           }`;
-    process.stdout.write(`seaworthy ${outcome.site}: ${detail}\n`);
+    // One site's annotations (issue #259): its commands go out right before the site's own line, so
+    // each pair reads together. A site without a report has nothing to annotate; the exit codes, and
+    // so the aggregate below, are untouched by any of it.
+    const annotationNote = inputs.annotations === "off" ? "" : outcome.report === null ? "" : annotate(env, cwd, outcome.report);
+    process.stdout.write(`seaworthy ${outcome.site}: ${detail}${annotationNote}\n`);
   }
+  process.stdout.write(nonPullRequestNote(env, inputs));
   process.stdout.write(summaryLine(outcomes, overall) + "\n");
   return overall;
 }
