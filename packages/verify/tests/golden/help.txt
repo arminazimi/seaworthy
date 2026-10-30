@@ -55,6 +55,9 @@ Options:
   --browser-path <path>
                        Browser executable for --rendered. Default: SEAWORTHY_BROWSER,
                        then an installed Chrome, Chromium, or Edge
+  --evidence <folder>  Save a PNG crop of each rendered finding into Folder (a relative
+                       folder outside the site; Seaworthy never writes in the folder it
+                       verifies) and reference it from the report. Needs --rendered.
   --network            Run checks that make network requests
   --timings            Time each stage and check, printed to stderr; the report is unchanged
   --help, -h           Print this help

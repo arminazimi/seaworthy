@@ -1,19 +1,23 @@
 # Seaworthy verification as a composite GitHub Action (issue #88).
 #
 # Minimal usage (after actions/checkout has the site sources):
-#   uses: arminazimi/seaworthy@v1
+#   uses: arminazimi/seaworthy@<commit-sha>   # pre-alpha: consume by commit pin; there is no version tag yet
 #   with:
 #     sarif: seaworthy.sarif
+#
+# Several sites in one repository: list their built folders on the `site` input, one per line
+# or comma; each gets its own verify run and its own SARIF file, and the run fails if any site
+# fails. Build every folder in your own steps first — the Action only verifies, never builds.
 #
 # The Action runs with the pre-release CLI built from source, since
 # @seaworthy/verify is not published yet; the build step runs `npm ci` inside
 # the Action's own checkout (GITHUB_ACTION_PATH), never in the consumer's
 # workspace. Action pins use the same tag pins as .github/workflows/ci.yml.
 name: Verify a site with Seaworthy
-description: Verifies the built site, writes an optional SARIF 2.1.0 report, and fails at the threshold.
+description: Verifies one or several built sites, writes an optional SARIF 2.1.0 report per site, and fails at the threshold.
 inputs:
   site:
-    description: Built site folder, relative to the workspace. Default lets the CLI pick the first existing of dist, build, out, public, _site, site.
+    description: Built site folder, relative to the workspace — or several, one per line or comma, for a repository that builds more than one site. Each named folder gets its own verify run, and building every folder stays the caller's own steps. Default lets the CLI pick the first existing of dist, build, out, public, _site, site.
     required: false
     default: ""
   threshold:
@@ -30,7 +34,7 @@ inputs:
     default: ""
 outputs:
   sarif:
-    description: The SARIF file path as given, or "" when the sarif input was empty.
+    description: The SARIF file path as given for one site; one path per line when several sites were verified; "" when the sarif input was empty.
     value: ${{ steps.verify.outputs.sarif }}
 runs:
   using: composite
@@ -52,10 +56,11 @@ runs:
         SEAWORTHY_THRESHOLD: ${{ inputs.threshold }}
         SEAWORTHY_SARIF: ${{ inputs.sarif }}
         SEAWORTHY_MARKDOWN: ${{ inputs.markdown }}
-      # run.js reads the inputs from these SEAWORTHY_* variables, verifies the
-      # site once (cwd: the consumer's workspace), writes SARIF when asked, and
-      # exits with the verify contract (0 ok, 1 at or above the threshold, 4 when
-      # a check crashes).
+      # run.js reads the inputs from these SEAWORTHY_* variables and verifies every site named
+      # by `site` as its own run (cwd: the consumer's workspace) — one site's failure never hides
+      # another's findings, and a crash stays exit 4. The run exits with the verify contract
+      # (0 ok, 1 when any site fails at the threshold, 2 when one was rejected, 4 when one
+      # crashed) and writes one SARIF file per site when asked.
       run: node "$GITHUB_ACTION_PATH/packages/action/dist/run.js"
     # Slot for the PR comment with new and fixed findings (issue #89): it reads the
     # SARIF from steps.verify.outputs.sarif and runs after this step, any() condition
