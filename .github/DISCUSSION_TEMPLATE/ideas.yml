@@ -1,0 +1,45 @@
+title: "Idea: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas for what Seaworthy should check, or do, that it does not today — about the engine, the CLI, the MCP server, the GitHub Action, the Skills, or the report formats.
+        Seaworthy is pre-alpha: see ROADMAP.md for what is already planned before proposing it.
+        A concrete new check, with the exact rule and the fix hint an agent should follow, belongs in the **Check proposal** issue template, not here. An idea that says "sites should be checked for X" fits best here; the thread decides whether it grows into that issue.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should Seaworthy do that it does not?
+      description: One paragraph. What is missing from a report, a command, or an adapter today?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What breaks on real sites without it?
+      description: Link real examples if you can. If the idea checks against a standard, name it (WCAG, schema.org, llms.txt, the HTML spec) — the repo builds on existing standards rather than inventing a competing one.
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part is this about?
+      options:
+        - "The verify engine, or a check"
+        - "The CLI (verify, init, fix preview, diff, history, config check)"
+        - "The MCP server"
+        - "The GitHub Action"
+        - "Agent Skills"
+        - "A report format (pretty, json, markdown, sarif, llm, prompt, html, ndjson)"
+        - "Something else"
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: How do you handle it today?
+      description: The workaround you run, or why there is none.
+  - type: markdown
+    attributes:
+      value: |
+        Keep the trust rules in mind when you describe the idea: a site's contents are untrusted input — Seaworthy parses them, never evaluates them — checks stay offline by default, so anything needing the network is opt-in (`--network`) and says so, and Seaworthy reports and suggests but never edits the user's files.
