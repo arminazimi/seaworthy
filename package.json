@@ -16,13 +16,15 @@
     "check:changelog": "node tools/changelog.mjs --check",
     "changelog:fold": "node tools/changelog.mjs",
     "check:startup": "node tools/check-startup.mjs",
+    "agent-rules:build": "node tools/agent-rules.mjs",
+    "check:agent-rules": "node tools/agent-rules.mjs --check",
     "metrics": "node tools/metrics.mjs",
     "build:brand": "node tools/brand/build.mjs",
     "export:brand": "node tools/brand/export.mjs",
     "check:brand": "node tools/brand/build.mjs --check",
     "schema:build": "node tools/schema.mjs",
     "check:schema": "node tools/schema.mjs --check",
-    "check": "npm run build && npm test && npm run check:startup && npm run check:roadmap && npm run check:layout && npm run check:changelog && npm run check:brand && npm run check:schema",
+    "check": "npm run build && npm test && npm run check:startup && npm run check:roadmap && npm run check:layout && npm run check:changelog && npm run check:brand && npm run check:agent-rules && npm run check:schema",
     "clean": "tsc -b --clean packages/verify packages/mcp packages/action"
   },
   "engines": {
