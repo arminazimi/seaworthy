@@ -14,6 +14,11 @@ import { i18nParity } from "./i18n-parity.js";
 import { i18nSwitcher } from "./i18n-switcher.js";
 import { i18nXDefault } from "./i18n-x-default.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
+import { layoutFocusVisible } from "./focus-visible.js";
+import { layoutHorizontalOverflow } from "./layout-overflow.js";
+import { layoutReflow } from "./reflow.js";
+import { layoutTargetSize } from "./touch-target.js";
+import { layoutTextClipped } from "./text-clipped.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
 import { mdAnchors } from "./md-anchors.js";
@@ -23,6 +28,7 @@ import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans, qualityPageWeight } from "./quality.js";
 import { qualityFontCount } from "./font-count.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
+import { readabilityWebMcp } from "./webmcp.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { rtlBidi } from "./rtl.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
@@ -66,6 +72,11 @@ export const builtInChecks: readonly Check[] = [
   imagesAlt,
   imagesDimensions,
   imagesSize,
+  layoutFocusVisible,
+  layoutHorizontalOverflow,
+  layoutReflow,
+  layoutTargetSize,
+  layoutTextClipped,
   linksBaseUrl,
   linksExternal,
   linksInternal,
@@ -100,6 +111,7 @@ export const builtInChecks: readonly Check[] = [
   readabilityMcpCard,
   readabilityMdAlternates,
   readabilitySsrContent,
+  readabilityWebMcp,
   robotsBlocksAll,
   robotsSitemap,
   rtlBidi,

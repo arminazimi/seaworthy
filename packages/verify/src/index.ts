@@ -8,8 +8,10 @@ export type {
   CheckError,
   CheckMeta,
   Edit,
+  EvidenceSink,
   Finding,
   FindingDraft,
+  FindingEvidence,
   Fix,
   Location,
   Needs,
@@ -43,6 +45,7 @@ export type { StageTiming, Timings, VerifyOptions, VerifyResult } from "./verify
 export { builtInChecks } from "./checks/index.js";
 export { VIEWPORTS, viewportLabel } from "./render.js";
 export type { Viewport } from "./render.js";
+export { saveCrop } from "./evidence.js";
 export { SUPPRESSION_CHECKS } from "./suppress.js";
 export { detectBasePath, resolveBasePath } from "./base-path.js";
 export type { BasePathDetection, BasePathDetectionResult, BasePathFinding, BasePathGenerator, BasePathResolution, Canonical, UnclassifiedBasePath } from "./base-path.js";
@@ -54,3 +57,7 @@ export { WATCH_DEBOUNCE_MS, WatchLoop, WatchScheduler, watchDiffText, watchStatu
 export type { WatchLoopOptions, WatchSchedulerOptions } from "./watch.js";
 export { appendHistory, buildHistoryRecord, HISTORY_DIR, HISTORY_KEEP, HISTORY_KEYS_MAX, HISTORY_SPEC_VERSION, previousRunKeys, readHistory, runConfigHash, stableStringify } from "./history.js";
 export type { HistoryCounts, HistoryRecord, HistoryRun } from "./history.js";
+// Added for the MCP `fix_preview` tool (#249): it must render the very preview `seaworthy fix
+// --dry-run` prints, so the CLI's fix planner is exported rather than duplicated in the MCP layer.
+export { planFix } from "./fix.js";
+export type { FixPreview, ManualFix } from "./fix.js";

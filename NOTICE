@@ -1,0 +1,82 @@
+Seaworthy — third-party license notice
+=======================================
+
+This file is informational. It does not modify, relicense, or replace any
+license, and it makes no claim about whether any license is compatible with
+any other. Each work named below stays under its own license.
+
+Seaworthy's own code
+--------------------
+
+The Seaworthy code in this repository (the `@seaworthy/verify`,
+`@seaworthy/mcp`, and `@seaworthy/action` packages) is licensed under the
+Apache License, Version 2.0, as stated in the `LICENSE` file at the
+repository root. Each package's `package.json` declares
+`"license": "Apache-2.0"`.
+
+Seaworthy is pre-alpha and the `@seaworthy/*` packages are not published on
+npm. This notice describes the artifacts as they are built from this
+repository today: third-party works reach a user as declared runtime
+`dependencies` in each package's `package.json`, which the package manager
+installs alongside them.
+
+Third-party works distributed as declared runtime dependencies
+--------------------------------------------------------------
+
+Versions are as installed in this repository's `node_modules` tree,
+matching `package-lock.json`. The full license text of each work ships with
+that work, in its own installed package folder.
+
+1. axe-core 4.14.0 — Mozilla Public License 2.0 (MPL-2.0)
+   Declared as a dependency of `@seaworthy/verify`
+   (`packages/verify/package.json`). The `a11y.axe` check loads
+   `axe-core/axe.min.js` from the installed package at runtime
+   (`packages/verify/src/checks/a11y-axe.ts`); it is not fetched from a
+   network location. The license text ships in `node_modules/axe-core/LICENSE`
+   (the MPL-2.0 text), and axe-core's own notices for third-party code it
+   bundles ship in `node_modules/axe-core/LICENSE-3RD-PARTY.txt`; retain and
+   read those files with it.
+
+2. parse5 8.0.1 — MIT License
+   Declared as a dependency of `@seaworthy/verify`. License text ships in
+   `node_modules/parse5/LICENSE`.
+
+3. @modelcontextprotocol/sdk 1.32.2 — MIT License
+   Declared as a dependency of `@seaworthy/mcp`
+   (`packages/mcp/package.json`). License text ships in
+   `node_modules/@modelcontextprotocol/sdk/LICENSE`.
+
+4. zod 4.6.7 — MIT License
+   Declared as a dependency of `@seaworthy/mcp`. License text ships in
+   `node_modules/zod/LICENSE`.
+
+Transitive dependencies
+-----------------------
+
+`@modelcontextprotocol/sdk` pulls in further npm packages (for example
+express, hono, and ajv), so the full set of code installed with the MCP
+server is larger than the four entries above. This notice lists the works
+that the three shipped packages declare directly as runtime dependencies.
+For the authoritative, complete set — every package installed, with its
+version and the license each declares — read `package-lock.json` and the
+`LICENSE` file inside each installed package folder; do not treat the list
+above as exhaustive of everything the package manager installs.
+
+Not distributed; fetched or installed by the user
+-------------------------------------------------
+
+- playwright-core 1.64.1 (Apache-2.0) is a devDependency of
+  `@seaworthy/verify` and is loaded lazily and optionally at runtime for
+  rendered checks (`packages/verify/src/render.ts`); it is absent from the
+  published file list (`"files": ["dist/src"]`). If it is missing, rendered
+  checks skip with a hint to install it. A machine that installs it for
+  `--rendered` does so as its own dependency, under playwright-core's own
+  terms.
+- A browser. Seaworthy never downloads one (`--browser-path` points at one
+  the user already has); the browser's own license is the user's to observe.
+
+Questions about this notice
+---------------------------
+
+Open an issue in the repository. This file lists what ships and under what
+each work says it is licensed; it is not legal advice.

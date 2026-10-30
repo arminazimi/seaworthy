@@ -2,6 +2,7 @@
 // A count, not a quality judgment. See spec/agent-readability/v1.md, "The score".
 
 import { siteText } from "./checks/files.js";
+import { registrationAnchors } from "./checks/webmcp.js";
 import { attr, type SiteGraph } from "./site.js";
 import type { Finding, Readability } from "./types.js";
 
@@ -20,6 +21,8 @@ const APPLIES: Record<string, (site: SiteGraph) => boolean> = {
   "readability.mcp-card": (site) => ["/.well-known/mcp/server-card.json", "/.well-known/mcp.json", "/.well-known/mcp/server-cards.json"].some((p) => siteText(site, p) !== undefined),
   "readability.a2a-card": (site) => siteText(site, "/.well-known/agent-card.json") !== undefined,
   "readability.markdown-negotiation": () => true,
+  // The same claim the check reads findings from: a page whose source registers tools. Prose about WebMCP is not.
+  "readability.webmcp": (site) => hasPage(site, (page) => registrationAnchors(site, page).length > 0),
 };
 
 /**

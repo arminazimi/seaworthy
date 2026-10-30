@@ -1,7 +1,8 @@
 // End-to-end: spawn the built MCP server as a child process and speak real JSON-RPC over stdio,
 // asserting exact wire behavior of the skeleton: the initialize handshake, the advertised tool
-// list, one tool call, the error paths, and shutdown on client hangup. Skipped with a reason
-// where the environment lacks the capability (the built server has not compiled yet).
+// and prompt lists, tool calls, prompt fetches, the error paths, and shutdown on client hangup.
+// Skipped with a reason where the environment lacks the capability (the built server has not
+// compiled yet).
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -17,8 +18,24 @@ import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/ty
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
 import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_NAME } from "../src/diff-reports.js";
+import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_NAME } from "../src/fix-preview.js";
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
+import { EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
+import {
+  ADOPT_EXISTING_SITE_ARGS,
+  ADOPT_EXISTING_SITE_DESCRIPTION,
+  ADOPT_EXISTING_SITE_NAME,
+  FIX_EVERYTHING_ARGS,
+  FIX_EVERYTHING_DESCRIPTION,
+  FIX_EVERYTHING_NAME,
+  MAKE_AGENT_READY_ARGS,
+  MAKE_AGENT_READY_DESCRIPTION,
+  MAKE_AGENT_READY_NAME,
+  adoptExistingSitePrompt,
+  fixEverythingPrompt,
+  makeAgentReadyPrompt,
+} from "../src/prompts.js";
 import { SERVER_NAME, SERVER_TITLE } from "../src/server.js";
 import { SERVER_VERSION } from "../src/version.js";
 import { VERIFY_CHANGED_DESCRIPTION, VERIFY_CHANGED_NAME, VERIFY_SITE_DESCRIPTION, VERIFY_SITE_NAME } from "../src/verify-tools.js";
@@ -179,7 +196,7 @@ test("initialize answers the negotiated protocol version, capabilities, and serv
     const result = await initialize(child);
     assert.deepEqual(result, {
       protocolVersion: "2025-06-18",
-      capabilities: { tools: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, prompts: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -195,7 +212,7 @@ test("initialize falls back to the SDK's latest version for an unsupported proto
     assert.equal(reply.id, 1);
     assert.deepEqual(reply.result, {
       protocolVersion: LATEST_PROTOCOL_VERSION,
-      capabilities: { tools: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, prompts: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -254,6 +271,8 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
         {
           name: DIFF_REPORTS_NAME,
           description: DIFF_REPORTS_DESCRIPTION,
+          name: FIX_PREVIEW_NAME,
+          description: FIX_PREVIEW_DESCRIPTION,
           inputSchema: {
             $schema: "http://json-schema.org/draft-07/schema#",
             type: "object",
@@ -262,6 +281,70 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
               after: { description: "The newer report file, relative to the workspace; as written by `seaworthy verify --format json`.", type: "string" },
             },
             required: ["before", "after"],
+              site: { description: "The built site folder to verify, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
+          name: "explain_finding",
+          description: EXPLAIN_FINDING_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              check_id: {
+                description: 'The check to explain, such as "images.alt". Optional when a finding is given; the finding\'s own check id is used then. With both, they must agree.',
+                type: "string",
+              },
+              finding: {
+                description: "A finding from the report JSON of verify_site, pasted as it is. Its fix hint, edits, and prompt are explained and returned verbatim.",
+                type: "object",
+                properties: {
+                  checkId: { type: "string" },
+                  severity: { type: "string", enum: ["error", "warning", "note"] },
+                  message: { type: "string" },
+                  location: {
+                    type: "object",
+                    properties: {
+                      file: { type: "string" },
+                      line: { type: "integer", minimum: -9007199254740991, maximum: 9007199254740991 },
+                      column: { type: "integer", minimum: -9007199254740991, maximum: 9007199254740991 },
+                      approximateLine: { type: "boolean" },
+                      selector: { type: "string" },
+                      snippet: { type: "string" },
+                    },
+                    required: ["file"],
+                  },
+                  fix: {
+                    type: "object",
+                    properties: {
+                      kind: { type: "string", enum: ["edit", "manual"] },
+                      summary: { type: "string" },
+                      edits: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            file: { type: "string" },
+                            line: { type: "integer", minimum: -9007199254740991, maximum: 9007199254740991 },
+                            action: { type: "string", const: "replace" },
+                            find: { type: "string" },
+                            replace: { type: "string" },
+                            needsInput: { type: "boolean" },
+                          },
+                          required: ["file", "line", "action", "find", "replace"],
+                        },
+                      },
+                      appliesTo: { type: "string" },
+                    },
+                    required: ["kind", "summary"],
+                  },
+                  prompt: { type: "string" },
+                },
+                required: ["checkId", "fix"],
+              },
+            },
           },
           execution: { taskSupport: "forbidden" },
         },
@@ -329,12 +412,12 @@ test("calling a planned but unimplemented tool is a tool error, not invented dat
   const child = await startServer();
   try {
     await initialize(child);
-    child.send(request(4, "tools/call", { name: "explain_finding", arguments: {} }));
+    child.send(request(4, "tools/call", { name: "get_config_schema", arguments: {} }));
     const reply = await child.next();
     assert.equal(reply.jsonrpc, "2.0");
     assert.equal(reply.id, 4);
     assert.deepEqual(reply.result, {
-      content: [{ type: "text", text: "MCP error -32602: Tool explain_finding not found" }],
+      content: [{ type: "text", text: "MCP error -32602: Tool get_config_schema not found" }],
       isError: true,
     });
   } finally {
@@ -367,6 +450,46 @@ test("tools/call verify_site returns the report JSON of the named site", { skip:
   }
 });
 
+test("tools/call explain_finding returns the hint, docs link, and example for a known check", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(7, "tools/call", { name: "explain_finding", arguments: { check_id: "images.alt" } }));
+    const reply = await child.next();
+    assert.equal(reply.jsonrpc, "2.0");
+    assert.equal(reply.id, 7);
+    const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+    assert.equal(result.isError, undefined, "explaining a known check is a result, not an error");
+    assert.equal(result.content[0]!.text, explainFinding({ check_id: "images.alt" }), "the wire answer is the tool function's own deterministic JSON");
+    const output = JSON.parse(result.content[0]!.text) as { checkId: string; fixHint: string; docs: string; example: string };
+    assert.equal(output.checkId, "images.alt");
+    assert.equal(output.docs, "https://github.com/arminazimi/seaworthy/blob/main/docs/checks/images.alt.md");
+    assert.ok(output.fixHint.length > 0 && output.example.length > 0);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("tools/call explain_finding answers an unknown check id with a tool error and stays alive", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(8, "tools/call", { name: "explain_finding", arguments: { check_id: "no.such.check" } }));
+    const reply = await child.next();
+    assert.equal(reply.id, 8);
+    const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+    assert.equal(result.isError, true, "a clear error result, not a crash");
+    assert.match(result.content[0]!.text, /unknown check id "no\.such\.check"/);
+    // The server survived the failed call: the next one answers as usual.
+    child.send(request(9, "tools/call", { name: "explain_finding", arguments: { check_id: "images.alt" } }));
+    const alive = await child.next();
+    assert.equal(alive.id, 9);
+    assert.equal((alive.result as { isError?: unknown }).isError, undefined);
+  } finally {
+    await child.stop();
+  }
+});
+
 test("an unknown method answers with the JSON-RPC method-not-found error", { skip: SKIP_SPAWN }, async () => {
   const child = await startServer();
   try {
@@ -386,6 +509,112 @@ test("the server exits when the client closes stdin", { skip: SKIP_SPAWN }, asyn
   try {
     await initialize(child);
     assert.equal(await child.hangup(), 0);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/list advertises exactly the three workflow prompts with their argument schemas", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(7, "prompts/list"));
+    const reply = await child.next();
+    assert.equal(reply.jsonrpc, "2.0");
+    assert.equal(reply.id, 7);
+    // Registration order is the wire order: fixed, deterministic, no clock and no site read.
+    assert.deepEqual(reply.result, {
+      prompts: [
+        {
+          name: FIX_EVERYTHING_NAME,
+          description: FIX_EVERYTHING_DESCRIPTION,
+          arguments: [
+            { name: "site", description: FIX_EVERYTHING_ARGS.site.description, required: false },
+            { name: "fail_on", description: FIX_EVERYTHING_ARGS.fail_on.description, required: false },
+          ],
+        },
+        {
+          name: ADOPT_EXISTING_SITE_NAME,
+          description: ADOPT_EXISTING_SITE_DESCRIPTION,
+          arguments: [{ name: "site", description: ADOPT_EXISTING_SITE_ARGS.site.description, required: false }],
+        },
+        {
+          name: MAKE_AGENT_READY_NAME,
+          description: MAKE_AGENT_READY_DESCRIPTION,
+          arguments: [{ name: "site", description: MAKE_AGENT_READY_ARGS.site.description, required: false }],
+        },
+      ],
+    });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get fix_everything returns the runbook as one user message, arguments interpolated", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(8, "prompts/get", { name: FIX_EVERYTHING_NAME, arguments: { site: "build", fail_on: "warning" } }));
+    const reply = await child.next();
+    assert.equal(reply.id, 8);
+    assert.equal(reply.error, undefined);
+    assert.deepEqual(reply.result, fixEverythingPrompt({ site: "build", fail_on: "warning" }));
+    const messages = (reply.result as { messages: Array<{ role: string; content: { type: string; text: string } }> }).messages;
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0]!.role, "user");
+    const text = messages[0]!.content.text;
+    assert.ok(text.includes("seaworthy verify build --format json --fail-on warning"), text);
+    assert.ok(text.includes("seaworthy fix build --dry-run"), text);
+    // Seaworthy never edits files: the loop tells the caller to apply the diff themselves.
+    assert.ok(text.includes("git apply"), text);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get without arguments defaults every prompt to the whole default workspace", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    for (const [id, name, built] of [
+      [9, ADOPT_EXISTING_SITE_NAME, adoptExistingSitePrompt()],
+      [10, MAKE_AGENT_READY_NAME, makeAgentReadyPrompt()],
+    ] as const) {
+      child.send(request(id, "prompts/get", { name, arguments: {} }));
+      const reply = await child.next();
+      assert.equal(reply.id, id);
+      assert.equal(reply.error, undefined);
+      assert.deepEqual(reply.result, built);
+    }
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get on an unknown prompt is a JSON-RPC invalid-params error, not an invented runbook", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(11, "prompts/get", { name: "explain_finding", arguments: {} }));
+    const reply = await child.next();
+    assert.equal(reply.id, 11);
+    assert.deepEqual(reply.error, { code: ErrorCode.InvalidParams, message: "MCP error -32602: Prompt explain_finding not found" });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get rejects an argument the schema does not allow", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(12, "prompts/get", { name: FIX_EVERYTHING_NAME, arguments: { fail_on: "critical" } }));
+    const reply = await child.next();
+    assert.equal(reply.id, 12);
+    const error = reply.error as { code: number; message: string };
+    assert.equal(error.code, ErrorCode.InvalidParams);
+    assert.match(error.message, /^MCP error -32602: Invalid arguments for prompt fix_everything/);
+    assert.match(error.message, /fail_on/);
   } finally {
     await child.stop();
   }
