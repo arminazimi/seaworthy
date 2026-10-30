@@ -1,0 +1,4 @@
+{
+  "checks": ["i18n.parity"],
+  "config": { "checks": { "i18n.parity": { "options": { "untranslated": { "de": ["legal.html"] } } } } }
+}

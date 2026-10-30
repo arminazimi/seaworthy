@@ -1,6 +1,7 @@
 // md.links: links between Markdown files that point at missing files, located at the source line.
 
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import { mdLinks } from "../src/checks/md-links.js";
@@ -112,4 +113,15 @@ test("markdownOf is undefined without Markdown files and cached per site graph",
   assert.ok(first !== undefined);
   assert.equal(markdownOf(site), first, "the same graph object is returned for the same run");
   assert.deepEqual([...first.files.keys()], ["/a.md"]);
+});
+
+test("markdownOf builds the graph over explicit --markdown sources and caches per source list", () => {
+  const site = buildSite(makeSite({ "index.md": "# Site\n", "inside.md": "[x](missing.md)\n" }));
+  const docsDir = makeSite({ "README.md": "[y](outside.md)\n" });
+  const sources = { root: docsDir, files: [join(docsDir, "README.md")] };
+  const graph = markdownOf(site, sources);
+  assert.ok(graph !== undefined);
+  assert.deepEqual([...graph.files.keys()], ["/README.md"], "the named files replace the site walk");
+  assert.equal(markdownOf(site, sources), graph, "the same source list is cached");
+  assert.deepEqual([...markdownOf(site)!.files.keys()], ["/index.md", "/inside.md"], "the plain site walk is untouched");
 });

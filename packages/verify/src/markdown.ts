@@ -5,7 +5,7 @@
 // Site contents are untrusted input: parsed, never evaluated or executed.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, posix, resolve, sep } from "node:path";
+import { join, posix, relative, resolve, sep } from "node:path";
 
 export interface MdHeading {
   /** 1-based line the heading starts on. */
@@ -61,6 +61,18 @@ export interface MarkdownGraph {
   readonly files: ReadonlyMap<string, MarkdownFile>;
   /** Heading of a file whose GitHub anchor slug matches, or undefined. */
   headingFor(file: string, slug: string): MdHeading | undefined;
+}
+
+/**
+ * Explicit Markdown sources from `seaworthy verify --markdown`, for projects whose Markdown
+ * (README, docs/) lives outside the built folder the run walks. When present, the md.* graph
+ * is built over exactly these files instead of the site-folder walk.
+ */
+export interface MarkdownSources {
+  /** Absolute directory the named paths were resolved against (the CLI's cwd). Never put it in findings. */
+  readonly root: string;
+  /** Absolute paths of the Markdown files. Entries outside `root` keep their `../` form in findings. */
+  readonly files: readonly string[];
 }
 
 const SKIPPED_DIRECTORIES = new Set([".git", "node_modules"]);
@@ -447,14 +459,33 @@ function walk(directory: string, out: string[] = []): string[] {
   return out;
 }
 
-/** Builds the Markdown graph for a folder of Markdown source files. Throws if the folder does not exist. */
-export function buildMarkdownGraph(rootDirectory: string): MarkdownGraph {
+/** True when a path names a Markdown file by extension. */
+export function isMarkdownFile(path: string): boolean {
+  return MARKDOWN_EXTENSION.test(path);
+}
+
+/** The Markdown files under `directory`, as absolute paths; `.git` and `node_modules` are skipped. */
+export function collectMarkdownFiles(directory: string): string[] {
+  return walk(directory);
+}
+
+/**
+ * Builds the Markdown graph for a folder of Markdown source files. With `explicitFiles` — the
+ * `--markdown` list — it parses exactly those files (absolute, or relative to `rootDirectory`)
+ * instead of walking it, still keyed root-relative so findings read like `README.md` and never
+ * leak absolute paths. Throws if the folder does not exist.
+ */
+export function buildMarkdownGraph(rootDirectory: string, explicitFiles?: readonly string[]): MarkdownGraph {
   const root = resolve(rootDirectory);
   if (!statSync(root).isDirectory()) throw new Error(`${rootDirectory} is not a directory`);
 
-  const paths = walk(root)
-    .map((path) => path.slice(root.length + 1).split(sep).join("/"))
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const paths = (
+    explicitFiles === undefined
+      ? walk(root).map((path) => path.slice(root.length + 1).split(sep).join("/"))
+      : [...new Set(explicitFiles.map((path) => relative(root, resolve(root, path)).split(sep).join("/")))].filter((path) =>
+          MARKDOWN_EXTENSION.test(path),
+        )
+  ).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   const sources = new Map<string, MarkdownFile["source"]>();
   for (const file of paths) sources.set(`/${file}`, readFileSync(join(root, ...file.split("/")), "utf8"));
 

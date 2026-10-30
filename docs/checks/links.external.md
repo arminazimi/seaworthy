@@ -8,7 +8,7 @@ Links to other sites rot. A broken external link wastes the reader's time and ma
 
 ## What it checks
 
-Run with `--network` (or `"network": true`). Each distinct `http(s)` link in `<a>` and `<area>` is fetched once per run: `HEAD` first, then `GET` if the server refuses `HEAD`. At most 8 requests run at once and at most 2 per host.
+Run with `--network` (or `"network": true`). Each distinct `http(s)` link in `<a>` and `<area>`, and each distinct `http(s)` link in the Markdown files found in the verified folder, is fetched once per run: `HEAD` first, then `GET` if the server refuses `HEAD`. At most 8 requests run at once and at most 2 per host. A URL that appears in both HTML and Markdown is still one fetch; each occurrence is reported where it was written, so Markdown findings are located at the link's line in the `.md` source.
 
 - **404 and 410** are errors.
 - **5xx** and **no answer** are warnings, because they are often temporary.

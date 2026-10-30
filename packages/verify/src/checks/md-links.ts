@@ -15,7 +15,7 @@ function hrefFor(fromUrl: string, foundUrl: string, original: string): string {
 }
 
 export const mdLinks = check(meta("md.links", "A Markdown link points to a file that does not exist", "error", [], ["files"]), (ctx) => {
-  const graph = markdownOf(ctx.site);
+  const graph = markdownOf(ctx.site, ctx.markdownSources);
   if (graph === undefined) return [];
   const out: FindingDraft[] = [];
   // `graph.files` is sorted by path and links are in document order, so the findings are deterministic.

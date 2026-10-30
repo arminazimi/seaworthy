@@ -40,6 +40,10 @@ Options:
   --changed            Report only findings in files that changed since the last run (hashes in .seaworthy/cache.json)
   --changed-since <ref>
                        Report only findings in files that differ from a git ref (for sites that commit their output)
+  --markdown <paths...>
+                       Read these Markdown files or directories (paths relative to the current folder)
+                       for the Markdown checks, instead of walking the built folder. The list ends at
+                       the next --flag; pass the site folder first.
   --no-history         Do not record this run in .seaworthy/history (default on; also "history": false in the config)
   --watch              Verify again whenever the build folder changes; after the first report, print only
                         what is new, fixed, and unchanged since the previous run. Ctrl-C to stop.
