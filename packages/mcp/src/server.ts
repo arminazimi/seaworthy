@@ -11,6 +11,7 @@ import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
 import { EXPLAIN_FINDING_DESCRIPTION, EXPLAIN_FINDING_INPUT, EXPLAIN_FINDING_NAME, explainFinding } from "./explain-finding.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
+import { registerPrompts } from "./prompts.js";
 import { withProgress } from "./progress.js";
 import { SERVER_VERSION } from "./version.js";
 import {
@@ -64,6 +65,7 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     { description: EXPLAIN_FINDING_DESCRIPTION, inputSchema: EXPLAIN_FINDING_INPUT },
     (args): CallToolResult => ({ content: [{ type: "text", text: explainFinding(args, toolOptions) }] }),
   );
+  registerPrompts(server);
   return server;
 }
 
