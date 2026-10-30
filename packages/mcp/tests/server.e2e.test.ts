@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
+import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_NAME } from "../src/diff-reports.js";
 import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_NAME } from "../src/fix-preview.js";
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
 import { EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
@@ -264,6 +265,20 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
               network: { description: "Let the checks that need it reach the network. Opt-in: every other check stays offline.", type: "boolean" },
               since: { description: "A git ref (branch, tag, or commit) to compare the site with. Default: the files that changed since the last run.", type: "string" },
             },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
+          name: DIFF_REPORTS_NAME,
+          description: DIFF_REPORTS_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              before: { description: "The earlier report file, relative to the workspace; as written by `seaworthy verify --format json`.", type: "string" },
+              after: { description: "The newer report file, relative to the workspace; as written by `seaworthy verify --format json`.", type: "string" },
+            },
+            required: ["before", "after"],
           },
           execution: { taskSupport: "forbidden" },
         },

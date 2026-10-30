@@ -1,5 +1,7 @@
 // Public entry point for @seaworthy/mcp: the MCP server, a thin adapter over the verify API.
 
+export { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";
+export type { DiffReportsInput, DiffReportsOptions } from "./diff-reports.js";
 export {
   EXPLAIN_FINDING_DESCRIPTION,
   EXPLAIN_FINDING_INPUT,
