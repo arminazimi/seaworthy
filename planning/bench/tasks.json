@@ -1,0 +1,174 @@
+{
+  "version": 0,
+  "explanation": "The agent-success benchmark task suite (ROADMAP key bench.tasks, issue #101). One entry per task. A criterion is machine-checkable only because it is one real seaworthy CLI invocation, run as an argv array with no shell, whose verdict is a known exit code: 0 clean at the --fail-on level, 1 findings at or above it, 2 usage error, 4 a crash (packages/verify/src/cli/types.ts). tools/bench-tasks.mjs validates this file and planning/bench/README.md states the workspace contract; tools/bench-tasks.test.mjs runs the validation inside `npm run check`.",
+  "workspace": {
+    "folder": "site",
+    "cwd": "The task workspace root: the runner copies the task's start site to <workspace>/site and every seed file to <workspace>/<file>, the agent works there, and each criterion runs from <workspace> as `node packages/verify/dist/src/cli.js` plus the criterion's argv.",
+    "scoring": "A task is solved when every criterion's actual exit code equals its expect_exit."
+  },
+  "tasks": [
+    {
+      "id": "fix-broken-links",
+      "title": "Fix the seeded broken links without deleting pages",
+      "prompt": "This built site has internal links that point at pages and anchors that do not exist (a typo in a page link, a missing anchor, a relative typo, and an anchor typo). Repair the links so every internal link resolves. Do not delete pages and do not drop the links; fix where they point.",
+      "start": "fixtures/broken/links-internal/site",
+      "criteria": [
+        {
+          "id": "no-errors",
+          "argv": ["verify", "site", "--fail-on", "error"],
+          "expect_exit": 0,
+          "proves": ["links.internal"],
+          "note": "links.internal is error severity: any still-broken (or wrongly deleted) link keeps the exit code at 1."
+        }
+      ]
+    },
+    {
+      "id": "restore-missing-assets",
+      "title": "Fix references to stylesheets, scripts and images the build never produced",
+      "prompt": "The site's HTML references asset files that are not in the built output: a stylesheet, a script, an image, a srcset candidate, and a video poster. Make every reference point at a file that exists in the site — restore the file or repoint the reference at one of the site's existing files. Do not remove features by deleting the tags that use them.",
+      "start": "fixtures/broken/assets-missing/site",
+      "criteria": [
+        {
+          "id": "no-errors",
+          "argv": ["verify", "site", "--fail-on", "error"],
+          "expect_exit": 0,
+          "proves": ["assets.missing"],
+          "note": "assets.missing reports at error severity, so any reference still pointing at a missing file keeps the exit code at 1."
+        }
+      ]
+    },
+    {
+      "id": "fix-image-alternatives",
+      "title": "Give every image its alternative text and intrinsic size",
+      "prompt": "Some images on this site have no alt attribute and some lack width or height, so the page jumps while it loads. Write meaningful alt text for each image (empty alt only where the image is purely decorative) and add the real width and height. Edit the HTML the findings point at; the site is its own source here.",
+      "start": "fixtures/broken/images/site",
+      "criteria": [
+        {
+          "id": "no-errors",
+          "argv": ["verify", "site", "--fail-on", "error"],
+          "expect_exit": 0,
+          "proves": ["images.alt"],
+          "note": "images.alt is error severity; a missing or empty-but-required alt keeps the gate red. The dimension warnings (images.dimensions) are not gated here — this task proves the error-level fix."
+        }
+      ]
+    },
+    {
+      "id": "add-not-found-page",
+      "title": "Add the missing 404 page and clear the site's warnings",
+      "prompt": "This build has no not-found page, and its pages carry open warnings (missing meta description, missing viewport). Add a real 404.html that says the address was not found and links to the home page (not a redirect stub), then clear every remaining warning-level finding so the site is clean at warning severity or above.",
+      "start": "fixtures/broken/not-found-page/site",
+      "criteria": [
+        {
+          "id": "clean-at-warning",
+          "argv": ["verify", "site", "--fail-on", "warning"],
+          "expect_exit": 0,
+          "proves": ["quality.not-found-page", "meta.description", "meta.viewport"],
+          "note": "quality.not-found-page (warning) fires on the untouched start: only a real 404 page clears it, together with the other seeded warnings."
+        }
+      ]
+    },
+    {
+      "id": "add-missing-translation",
+      "title": "Add the German page the hreflang set promises",
+      "prompt": "This English/German site announces a German version of about.html in its hreflang set, but no page serves it, and the set has other wiring problems (no x-default, an orphaned page, missing 404, and pages without descriptions and viewports). Create the real de/about.html — translated, with its own lang, links back into the site, and the same navigation — repair the hreflang set around it, and clear every warning-level finding. An agent that adds the page sloppily (broken links, missing language declaration) fails the same gate.",
+      "start": "fixtures/broken/i18n-parity/site",
+      "criteria": [
+        {
+          "id": "clean-at-warning",
+          "argv": ["verify", "site", "--fail-on", "warning"],
+          "expect_exit": 0,
+          "proves": ["i18n.parity", "i18n.hreflang", "i18n.x-default", "quality.orphans", "quality.not-found-page", "meta.description", "meta.viewport", "links.internal"],
+          "note": "i18n.parity's finding on about.html can only be cleared by building the promised German page (or declaring it untranslated in a config, which the prompt rules out); links.internal (error severity) catches any link the new page gets wrong."
+        }
+      ]
+    },
+    {
+      "id": "mirror-rtl-page",
+      "title": "Make the Arabic page declare and mirror its direction",
+      "prompt": "The one page of this site is Arabic but its <html> declares no dir, its character encoding is missing, and its stylesheet pins the layout to physical left/right sides. Declare the page right-to-left (dir on <html>, valid charset, a main landmark, a heading, description and viewport, and a real 404 page), and replace the physical CSS sides with logical properties so the layout mirrors.",
+      "start": "fixtures/broken/rtl-bidi/site",
+      "criteria": [
+        {
+          "id": "no-errors",
+          "argv": ["verify", "site", "--fail-on", "error"],
+          "expect_exit": 0,
+          "proves": ["html.charset"],
+          "note": "The untouched start fails even the error gate (html.charset). Fixing only the error leaves the direction unmirrored — rtl.bidi is warning severity, which is why the task carries the second gate."
+        },
+        {
+          "id": "clean-at-warning",
+          "argv": ["verify", "site", "--fail-on", "warning"],
+          "expect_exit": 0,
+          "proves": ["rtl.bidi", "a11y.landmarks", "headings.h1", "meta.description", "meta.viewport", "quality.not-found-page"],
+          "note": "rtl.bidi's warning on the undeclared dir is only cleared by dir=\"rtl\" on the page; the rest of the warning-level findings must go too."
+        }
+      ]
+    },
+    {
+      "id": "make-agent-readable",
+      "title": "Fix llms.txt and make the site agent-readable",
+      "prompt": "An AI tool reading this site finds an llms.txt whose entries are broken (a link to /docs/removed.md that the build never made, a list item that is not a link entry) and an empty llms-full.txt, plus the usual page-level gaps (no 404, missing descriptions and viewports). Repair llms.txt so every entry follows the proposal and resolves inside the site, fill or remove llms-full.txt, and clear every warning-level finding.",
+      "start": "fixtures/broken/readability-llms-txt/site",
+      "criteria": [
+        {
+          "id": "clean-at-warning",
+          "argv": ["verify", "site", "--fail-on", "warning"],
+          "expect_exit": 0,
+          "proves": ["readability.llms-txt", "quality.not-found-page", "meta.description", "meta.viewport"],
+          "note": "readability.llms-txt (warning) fires per broken entry; the gate proves every entry resolved and the remaining warnings were cleared."
+        }
+      ]
+    },
+    {
+      "id": "migrate-base-url",
+      "title": "Re-home the site after its base path disappeared",
+      "prompt": "Every page of this build links under the /seaworthy/ prefix, but the site is now deployed at the domain root and the built folder has no seaworthy/ directory — so all four prefixed links are broken at the root. Migrate the site: either rewrite the links to resolve at the root, or declare the /seaworthy/ base path in the site's seaworthy.config.json so resolution and the base-path check agree. Either migration is a pass; leaving the site deployed nowhere is not.",
+      "start": "fixtures/broken/links-base-url/site",
+      "criteria": [
+        {
+          "id": "no-errors",
+          "argv": ["verify", "site", "--fail-on", "error"],
+          "expect_exit": 0,
+          "proves": ["links.internal", "links.base-url"],
+          "note": "The four prefixed links resolve as links.internal errors at the root; the gate goes green under either migration, which is exactly what a base-URL move must tolerate."
+        }
+      ]
+    },
+    {
+      "id": "pass-baseline-gate",
+      "title": "Pass the project's committed-baseline regression gate",
+      "prompt": "The project gates deploys with a committed baseline that was recorded when this site was clean: `verify site --baseline seaworthy-baseline.json --fail-on warning`. The baseline is in the workspace and is the gate's contract — do not edit or re-record it. Someone added draft.html with no inbound link, so the gate now fails. Make the gate pass again: link the page from a page people already visit (or delete it if it truly is unneeded) without introducing any other warning-level finding.",
+      "start": "fixtures/broken/quality-orphans/site",
+      "seeds": [
+        {
+          "file": "seaworthy-baseline.json",
+          "from": "planning/bench/seeds/empty-baseline.json"
+        }
+      ],
+      "criteria": [
+        {
+          "id": "baseline-gate-green",
+          "argv": ["verify", "site", "--baseline", "seaworthy-baseline.json", "--fail-on", "warning"],
+          "expect_exit": 0,
+          "proves": ["quality.orphans"],
+          "note": "The empty baseline accepts nothing, so any warning fails the gate; the seeded orphan only clears when the page is linked (or removed). A missing or rewritten baseline file flips the exit code to 2 — the gate proves the file came with the workspace."
+        }
+      ]
+    },
+    {
+      "id": "ship-zero-findings",
+      "title": "Ship the site until the strictest gate is green",
+      "prompt": "This two-page site is not shippable: its 404 is a redirect stub with no charset, the home page has no description or viewport, and there are open notes (no canonical, no social tags, no llms.txt). Bring it to zero findings at every severity: fix the error, then the warnings, then the notes. Success is `verify --fail-on note` exiting 0 — a clean run, not a truncated one.",
+      "start": "fixtures/broken/not-found-page-stub/site",
+      "criteria": [
+        {
+          "id": "clean-at-note",
+          "argv": ["verify", "site", "--fail-on", "note"],
+          "expect_exit": 0,
+          "proves": ["html.charset", "quality.not-found-page", "meta.description", "meta.viewport", "meta.canonical", "social.open-graph", "social.twitter-card", "readability.llms-txt"],
+          "note": "--fail-on note is the strictest gate: every finding at or above note severity fails it, so exit 0 means the site is fully clean (docs/agent-loop.md step 7)."
+        }
+      ]
+    }
+  ]
+}
