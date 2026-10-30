@@ -186,6 +186,8 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       ...(evidenceSink === undefined ? {} : { evidence: evidenceSink }),
       network: options.network || config.network === true,
       ...(markdownSources === undefined ? {} : { markdownSources }),
+      // The root a published source-map.json names its `source` paths from: where the command runs.
+      repoRoot: cwd,
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
       ...(collectTimings ? { timings: true } : {}),

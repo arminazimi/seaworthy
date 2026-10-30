@@ -335,6 +335,9 @@
         },
         "evidence": {
           "$ref": "#/$defs/evidence"
+        },
+        "sourceLocation": {
+          "$ref": "#/$defs/sourceLocation"
         }
       }
     },
@@ -426,6 +429,34 @@
         },
         "hint": {
           "type": "string"
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file"
+      ],
+      "description": "Where the source of a finding's built file is, as the build itself says: the `source-map.json` it publishes (spec/source-map/v0.md), or, where that names nothing, a source file declaring its own published path. Advisory — it never changes what a run reports, and a finding without a mapping simply has no source location.",
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The source file to edit, relative to the repository root the build ran in, forward slashes. Not a site path and never absolute: the built folder does not contain it.",
+          "not": {
+            "pattern": "^([a-zA-Z]:)?[\\\\/]|\\\\|(^|/)\\.\\.?(/|$)"
+          }
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based line in `file`, when the mapping names one. Absent means the mapping attributes the whole file and no line."
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based column in `file`, when the mapping names one."
         }
       }
     },

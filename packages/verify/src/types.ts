@@ -128,6 +128,21 @@ export interface FindingEvidence {
   viewport: string;
 }
 
+/**
+ * Where in the repository the built file a finding points at was produced — the source an agent
+ * should edit. Advisory by contract (spec/source-map/v0.md): it comes from the `source-map.json` a
+ * build publishes or, where that says nothing, from what the generator itself declares, and it never
+ * changes what a run reports. `source-map.ts` reads both.
+ */
+export interface SourceLocation {
+  /** Relative to the repository root the build ran in, forward slashes; never absolute. */
+  file: string;
+  /** 1-based, when the mapping names a line. A declared source without a line is still the file to edit. */
+  line?: number;
+  /** 1-based, when the mapping names a column. */
+  column?: number;
+}
+
 export interface Finding {
   checkId: string;
   severity: Severity;
@@ -139,6 +154,11 @@ export interface Finding {
   prompt?: string;
   /** Present only for a rendered finding whose crop was saved under --evidence. */
   evidence?: FindingEvidence;
+  /**
+   * Added in the pipeline when a source mapping names this finding's built file: where the source
+   * is. Absent when no `source-map.json` and no generator declaration says, which is the normal case.
+   */
+  sourceLocation?: SourceLocation;
 }
 
 export interface SkippedCheck {
