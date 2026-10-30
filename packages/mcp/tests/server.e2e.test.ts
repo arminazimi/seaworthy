@@ -1,7 +1,8 @@
 // End-to-end: spawn the built MCP server as a child process and speak real JSON-RPC over stdio,
 // asserting exact wire behavior of the skeleton: the initialize handshake, the advertised tool
-// list, one tool call, the error paths, and shutdown on client hangup. Skipped with a reason
-// where the environment lacks the capability (the built server has not compiled yet).
+// and prompt lists, tool calls, prompt fetches, the error paths, and shutdown on client hangup.
+// Skipped with a reason where the environment lacks the capability (the built server has not
+// compiled yet).
 
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -18,6 +19,20 @@ import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
+import {
+  ADOPT_EXISTING_SITE_ARGS,
+  ADOPT_EXISTING_SITE_DESCRIPTION,
+  ADOPT_EXISTING_SITE_NAME,
+  FIX_EVERYTHING_ARGS,
+  FIX_EVERYTHING_DESCRIPTION,
+  FIX_EVERYTHING_NAME,
+  MAKE_AGENT_READY_ARGS,
+  MAKE_AGENT_READY_DESCRIPTION,
+  MAKE_AGENT_READY_NAME,
+  adoptExistingSitePrompt,
+  fixEverythingPrompt,
+  makeAgentReadyPrompt,
+} from "../src/prompts.js";
 import { SERVER_NAME, SERVER_TITLE } from "../src/server.js";
 import { SERVER_VERSION } from "../src/version.js";
 import { VERIFY_CHANGED_DESCRIPTION, VERIFY_CHANGED_NAME, VERIFY_SITE_DESCRIPTION, VERIFY_SITE_NAME } from "../src/verify-tools.js";
@@ -178,7 +193,7 @@ test("initialize answers the negotiated protocol version, capabilities, and serv
     const result = await initialize(child);
     assert.deepEqual(result, {
       protocolVersion: "2025-06-18",
-      capabilities: { tools: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, prompts: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -194,7 +209,7 @@ test("initialize falls back to the SDK's latest version for an unsupported proto
     assert.equal(reply.id, 1);
     assert.deepEqual(reply.result, {
       protocolVersion: LATEST_PROTOCOL_VERSION,
-      capabilities: { tools: { listChanged: true } },
+      capabilities: { tools: { listChanged: true }, prompts: { listChanged: true } },
       serverInfo: { name: SERVER_NAME, title: SERVER_TITLE, version: SERVER_VERSION },
     });
   } finally {
@@ -371,6 +386,112 @@ test("the server exits when the client closes stdin", { skip: SKIP_SPAWN }, asyn
   try {
     await initialize(child);
     assert.equal(await child.hangup(), 0);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/list advertises exactly the three workflow prompts with their argument schemas", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(7, "prompts/list"));
+    const reply = await child.next();
+    assert.equal(reply.jsonrpc, "2.0");
+    assert.equal(reply.id, 7);
+    // Registration order is the wire order: fixed, deterministic, no clock and no site read.
+    assert.deepEqual(reply.result, {
+      prompts: [
+        {
+          name: FIX_EVERYTHING_NAME,
+          description: FIX_EVERYTHING_DESCRIPTION,
+          arguments: [
+            { name: "site", description: FIX_EVERYTHING_ARGS.site.description, required: false },
+            { name: "fail_on", description: FIX_EVERYTHING_ARGS.fail_on.description, required: false },
+          ],
+        },
+        {
+          name: ADOPT_EXISTING_SITE_NAME,
+          description: ADOPT_EXISTING_SITE_DESCRIPTION,
+          arguments: [{ name: "site", description: ADOPT_EXISTING_SITE_ARGS.site.description, required: false }],
+        },
+        {
+          name: MAKE_AGENT_READY_NAME,
+          description: MAKE_AGENT_READY_DESCRIPTION,
+          arguments: [{ name: "site", description: MAKE_AGENT_READY_ARGS.site.description, required: false }],
+        },
+      ],
+    });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get fix_everything returns the runbook as one user message, arguments interpolated", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(8, "prompts/get", { name: FIX_EVERYTHING_NAME, arguments: { site: "build", fail_on: "warning" } }));
+    const reply = await child.next();
+    assert.equal(reply.id, 8);
+    assert.equal(reply.error, undefined);
+    assert.deepEqual(reply.result, fixEverythingPrompt({ site: "build", fail_on: "warning" }));
+    const messages = (reply.result as { messages: Array<{ role: string; content: { type: string; text: string } }> }).messages;
+    assert.equal(messages.length, 1);
+    assert.equal(messages[0]!.role, "user");
+    const text = messages[0]!.content.text;
+    assert.ok(text.includes("seaworthy verify build --format json --fail-on warning"), text);
+    assert.ok(text.includes("seaworthy fix build --dry-run"), text);
+    // Seaworthy never edits files: the loop tells the caller to apply the diff themselves.
+    assert.ok(text.includes("git apply"), text);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get without arguments defaults every prompt to the whole default workspace", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    for (const [id, name, built] of [
+      [9, ADOPT_EXISTING_SITE_NAME, adoptExistingSitePrompt()],
+      [10, MAKE_AGENT_READY_NAME, makeAgentReadyPrompt()],
+    ] as const) {
+      child.send(request(id, "prompts/get", { name, arguments: {} }));
+      const reply = await child.next();
+      assert.equal(reply.id, id);
+      assert.equal(reply.error, undefined);
+      assert.deepEqual(reply.result, built);
+    }
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get on an unknown prompt is a JSON-RPC invalid-params error, not an invented runbook", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(11, "prompts/get", { name: "explain_finding", arguments: {} }));
+    const reply = await child.next();
+    assert.equal(reply.id, 11);
+    assert.deepEqual(reply.error, { code: ErrorCode.InvalidParams, message: "MCP error -32602: Prompt explain_finding not found" });
+  } finally {
+    await child.stop();
+  }
+});
+
+test("prompts/get rejects an argument the schema does not allow", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(12, "prompts/get", { name: FIX_EVERYTHING_NAME, arguments: { fail_on: "critical" } }));
+    const reply = await child.next();
+    assert.equal(reply.id, 12);
+    const error = reply.error as { code: number; message: string };
+    assert.equal(error.code, ErrorCode.InvalidParams);
+    assert.match(error.message, /^MCP error -32602: Invalid arguments for prompt fix_everything/);
+    assert.match(error.message, /fail_on/);
   } finally {
     await child.stop();
   }

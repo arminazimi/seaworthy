@@ -9,6 +9,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
+import { registerPrompts } from "./prompts.js";
 import { SERVER_VERSION } from "./version.js";
 import {
   VERIFY_CHANGED_DESCRIPTION,
@@ -56,6 +57,7 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     { description: VERIFY_CHANGED_DESCRIPTION, inputSchema: VERIFY_CHANGED_INPUT },
     async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, toolOptions) }] }),
   );
+  registerPrompts(server);
   return server;
 }
 
