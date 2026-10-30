@@ -17,6 +17,7 @@ import { ndjsonLine } from "../formats/ndjson.js";
 import { SEVERITY_ORDER, severityCounts } from "../formats/pretty.js";
 import { discoverFolder } from "../folders.js";
 import { appendHistory, buildHistoryRecord, runConfigHash } from "../history.js";
+import { type MarkdownSources, collectMarkdownFiles, isMarkdownFile } from "../markdown.js";
 import { buildSite } from "../site.js";
 import type { Check, Report, Severity } from "../types.js";
 import { type StageTiming, type Timings, verifySite } from "../verify.js";
@@ -50,6 +51,25 @@ export function formatTimings(totalMs: number, timings: Timings): string {
   for (const stage of timings.stages) lines.push(`  stage ${stage.stage} ${ms(stage.ms)}`);
   for (const check of timings.checks) lines.push(`  check ${check.check} ${ms(check.ms)}`);
   return lines.join("\n") + "\n";
+}
+
+/**
+ * Resolve the `--markdown` paths against the cwd: files must be Markdown, directories are
+ * walked for it. A missing path or a non-Markdown file is a usage error; a directory that
+ * holds no Markdown is not — it simply adds no files. Findings stay relative to `cwd`,
+ * never absolute, matching how `rootLabel` names the site folder.
+ */
+function markdownSourcesFor(cwd: string, paths: readonly string[]): MarkdownSources | undefined {
+  if (paths.length === 0) return undefined;
+  const files: string[] = [];
+  for (const path of paths) {
+    const absolute = resolve(cwd, path);
+    if (!existsSync(absolute)) throw new UsageError(`--markdown: no such file or directory: ${path}`);
+    if (statSync(absolute).isDirectory()) files.push(...collectMarkdownFiles(absolute));
+    else if (isMarkdownFile(absolute)) files.push(absolute);
+    else throw new UsageError(`--markdown: ${path} is neither a Markdown file nor a directory; pass a *.md file or a folder to walk`);
+  }
+  return { root: cwd, files };
 }
 
 function failing(report: Report, failOn: Severity | "none"): boolean {
@@ -96,6 +116,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
 
   const label = rootLabel(cwd, folder);
+  const markdownSources = markdownSourcesFor(cwd, options.markdown);
 
   /** One verification of whatever the build folder holds right now; a re-run rebuilds and re-reads. */
   const runOnce = async (): Promise<{ report: Report; code: number; stdout: string; stderr: string }> => {
@@ -135,6 +156,7 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       rendered: options.rendered || config.rendered === true,
       ...(options.browserPath === undefined ? {} : { browserPath: options.browserPath }),
       network: options.network || config.network === true,
+      ...(markdownSources === undefined ? {} : { markdownSources }),
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),
       ...(baselinePath === undefined ? {} : { baseline: readBaseline(resolve(cwd, baselinePath)) }),
       ...(collectTimings ? { timings: true } : {}),

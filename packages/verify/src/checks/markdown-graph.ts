@@ -5,25 +5,30 @@
 
 import { posix } from "node:path";
 
-import { type MarkdownFile, type MarkdownGraph, buildMarkdownGraph } from "../markdown.js";
+import { type MarkdownFile, type MarkdownGraph, type MarkdownSources, buildMarkdownGraph } from "../markdown.js";
 import type { SiteGraph } from "../site.js";
 import type { Edit } from "../types.js";
 
 // Keyed by the SiteGraph object, so the cache entry dies with the run that built it.
-const cache = new WeakMap<SiteGraph, MarkdownGraph>();
+// The entry also remembers the explicit sources it was built for: one run passes one
+// MarkdownSources object to every md.* check, so the graph is still built once.
+const cache = new WeakMap<SiteGraph, { sources: MarkdownSources | undefined; graph: MarkdownGraph }>();
 
 /**
  * The site's Markdown graph, built on first use and cached for this run.
  * Undefined when the root holds no Markdown files: md.* checks then report nothing.
  * `graph.root` is absolute: never put it in a finding, report `MarkdownFile.file` (site-relative).
+ * With `sources` (from `--markdown`) the graph is built over exactly those files, keyed relative
+ * to `sources.root`, instead of walking the site folder.
  */
-export function markdownOf(site: SiteGraph): MarkdownGraph | undefined {
-  let graph = cache.get(site);
-  if (graph === undefined) {
-    graph = buildMarkdownGraph(site.root); // the site folder exists; buildMarkdownGraph only walks it
-    cache.set(site, graph);
+export function markdownOf(site: SiteGraph, sources?: MarkdownSources): MarkdownGraph | undefined {
+  let entry = cache.get(site);
+  if (entry === undefined || entry.sources !== sources) {
+    // the site folder exists; buildMarkdownGraph only walks it (or reads the named sources)
+    entry = { sources, graph: sources === undefined ? buildMarkdownGraph(site.root) : buildMarkdownGraph(sources.root, sources.files) };
+    cache.set(site, entry);
   }
-  return graph.files.size === 0 ? undefined : graph;
+  return entry.graph.files.size === 0 ? undefined : entry.graph;
 }
 
 /**
