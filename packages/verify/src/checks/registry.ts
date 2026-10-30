@@ -23,6 +23,7 @@ import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans, qualityPageWeight } from "./quality.js";
 import { qualityFontCount } from "./font-count.js";
 import { readabilityA2aCard, readabilityAgentSkills, readabilityAiRobots, readabilityApiCatalog, readabilityContentSignals, readabilityJsonld, readabilityLlmsTxt, readabilityMarkdownNegotiation, readabilityMcpCard, readabilityMdAlternates, readabilitySsrContent } from "./readability.js";
+import { readabilityWebMcp } from "./webmcp.js";
 import { robotsBlocksAll, robotsSitemap, sitemapEntries } from "./sitemap.js";
 import { rtlBidi } from "./rtl.js";
 import { securityMixedContent, securityTargetBlank } from "./security.js";
@@ -100,6 +101,7 @@ export const builtInChecks: readonly Check[] = [
   readabilityMcpCard,
   readabilityMdAlternates,
   readabilitySsrContent,
+  readabilityWebMcp,
   robotsBlocksAll,
   robotsSitemap,
   rtlBidi,
