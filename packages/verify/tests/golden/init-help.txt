@@ -2,8 +2,8 @@ seaworthy init
 
 Create the three files that adopt Seaworthy in one step, for people and agents. It detects the
 site generator from marker file names only (Jekyll, Astro, Docusaurus, Hugo, or GitHub Pages)
-and writes, without ever reading or editing your own files, without running any checks, and with
-no writes outside the folder you name:
+and writes, without editing any file of yours and without running any checks, with no writes
+outside the folder you name:
 
   seaworthy.config.json             built site folder and the baseline, per the config schema
   .github/workflows/seaworthy.yml   the generator's build step, then `seaworthy verify`
@@ -16,7 +16,7 @@ rejects unknown keys), so the guidance a commented config would carry lives in t
 in the docs page.
 
 Usage:
-  seaworthy init [dir]
+  seaworthy init [dir] [options]
 
 Arguments:
   dir                  The project folder (the source, not the built site). Default: the current folder.
@@ -26,6 +26,11 @@ Options:
                        without it says "already present" and changes nothing. A baseline file that already
                        exists is never rewritten -- not even with --force -- because it records findings
                        you have accepted.
+  --agents             Print, and write nothing, one unified diff that appends a "Seaworthy verification"
+                       section to the repo's agent instructions: AGENTS.md when it exists, else CLAUDE.md
+                       when it exists, else a new AGENTS.md. Those files are yours; init reads only the
+                       chosen one and never edits it. Apply the patch yourself with `git apply`, run
+                       from the project folder. A file that already carries the section gets no patch.
   --help, -h           Print this help
 
 Exit codes:
