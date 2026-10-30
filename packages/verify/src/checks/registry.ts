@@ -16,6 +16,7 @@ import { i18nXDefault } from "./i18n-x-default.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
+import { mdAnchors } from "./md-anchors.js";
 import { mdImages } from "./md-images.js";
 import { mdLinks } from "./md-links.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
@@ -68,6 +69,7 @@ export const builtInChecks: readonly Check[] = [
   linksBaseUrl,
   linksExternal,
   linksInternal,
+  mdAnchors,
   mdImages,
   mdLinks,
   metaCanonical,
