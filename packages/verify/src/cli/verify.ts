@@ -3,7 +3,7 @@
 // handover, and the `--timings` block.
 
 import { existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, relative, resolve, sep } from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { createBaseline, readBaseline, writeBaseline } from "../baseline.js";
@@ -19,7 +19,7 @@ import { discoverFolder } from "../folders.js";
 import { appendHistory, buildHistoryRecord, previousRunKeys, readHistory, runConfigHash } from "../history.js";
 import { type MarkdownSources, collectMarkdownFiles, isMarkdownFile } from "../markdown.js";
 import { buildSite } from "../site.js";
-import type { Check, Report, Severity } from "../types.js";
+import type { Check, EvidenceSink, Report, Severity } from "../types.js";
 import { type StageTiming, type Timings, verifySite } from "../verify.js";
 import { WatchLoop } from "../watch.js";
 import { defaultOptions, OPTION_GROUPS, type Options } from "./options/index.js";
@@ -79,6 +79,19 @@ function failing(report: Report, failOn: Severity | "none"): boolean {
   return Object.entries(report.summary.bySeverity).some(([severity, count]) => (count ?? 0) > 0 && SEVERITY_ORDER[severity as Severity] <= SEVERITY_ORDER[failOn]);
 }
 
+/**
+ * The `--evidence` folder as the engine wants it: `dir` to write into, `label` as the report names
+ * it. The value is input — a path is chosen, never trusted: it must be relative (reports must read
+ * the same on every machine) and outside the verified folder (Seaworthy never writes in the site it
+ * verifies, so the evidence folder is always the user's own, explicit choice).
+ */
+function evidenceSinkFor(cwd: string, folder: string, given: string): EvidenceSink {
+  if (/^([a-zA-Z]:)?[\\/]/.test(given)) throw new UsageError(`--evidence wants a folder relative to where you run Seaworthy, not the absolute path ${given}; reports must name crops the same way on every machine`);
+  const dir = resolve(cwd, given);
+  if (dir === folder || dir.startsWith(folder + sep)) throw new UsageError(`--evidence ${given} points inside the verified folder; Seaworthy never writes in the site it verifies, so choose a folder outside it`);
+  return { dir, label: relative(cwd, dir).split("\\").join("/") };
+}
+
 export async function verifyCommand(args: readonly string[], env: CliEnvironment): Promise<CliResult> {
   const options = parseOptions(args);
   const cwd = env.cwd ?? process.cwd();
@@ -115,6 +128,12 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
 
   const baselinePath = options.baseline ?? (options.updateBaseline === undefined ? config.baseline : undefined);
   if (baselinePath !== undefined && !existsSync(resolve(cwd, baselinePath))) throw new UsageError(`baseline file not found: ${baselinePath}. Create it with --update-baseline ${baselinePath}.`);
+
+  // --evidence captures the crops of rendered findings, so rendered must be on, and the folder
+  // must be outside the site: a run that saves evidence writes only into the folder the user named.
+  const renderedOn = options.rendered || config.rendered === true;
+  if (options.evidence !== undefined && !renderedOn) throw new UsageError('--evidence saves crops for rendered findings; add --rendered (or set "rendered": true in the config)');
+  const evidenceSink = options.evidence === undefined ? undefined : evidenceSinkFor(cwd, folder, options.evidence);
 
   const label = rootLabel(cwd, folder);
   const markdownSources = markdownSourcesFor(cwd, options.markdown);
@@ -162,8 +181,9 @@ export async function verifyCommand(args: readonly string[], env: CliEnvironment
       checks,
       config,
       ...(configFile ? { configLocation: relative(folder, configFile).split("\\").join("/") } : {}),
-      rendered: options.rendered || config.rendered === true,
+      rendered: renderedOn,
       ...(options.browserPath === undefined ? {} : { browserPath: options.browserPath }),
+      ...(evidenceSink === undefined ? {} : { evidence: evidenceSink }),
       network: options.network || config.network === true,
       ...(markdownSources === undefined ? {} : { markdownSources }),
       ...(options.maxFindings === undefined ? {} : { maxFindings: options.maxFindings }),

@@ -1,5 +1,15 @@
+# Where feedback lands. `bug.yml` and `check-proposal.yml` are issue forms and
+# already appear in the picker. The two forms referenced below (`false-positive.yml`,
+# `missing-check.yml`) are added by PR #525 (issue #288); until that PR merges,
+# GitHub falls back to the blank issue form for these links.
 blank_issues_enabled: true
 contact_links:
+  - name: False positive
+    url: https://github.com/arminazimi/seaworthy/issues/new?template=false-positive.yml
+    about: A check reported something that is not a problem. The false-positive form is the structured route.
+  - name: Missing check
+    url: https://github.com/arminazimi/seaworthy/issues/new?template=missing-check.yml
+    about: Seaworthy did not report a real problem. The missing-check form is the structured route.
   - name: Security vulnerability
     url: https://github.com/arminazimi/seaworthy/security/advisories/new
-    about: Report security issues privately, not as a public issue.
+    about: Report security issues privately, never through a public form. See SECURITY.md.

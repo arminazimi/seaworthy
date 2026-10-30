@@ -7,10 +7,13 @@ import { after, test } from "node:test";
 
 import {
   ActionInputError,
+  aggregateExit,
   formatSarifFromReportJson,
   parseInputs,
   ReportFormatError,
   sarifFromReportJson,
+  sarifTargetFor,
+  sarifTargets,
   THRESHOLDS,
 } from "../src/index.js";
 import { actionRun } from "../src/run.js";
@@ -100,9 +103,44 @@ const env = (threshold: string | undefined): Record<string, string | undefined> 
 });
 
 test("parseInputs keeps the inputs as given and defaults site, sarif and markdown to disabled", () => {
-  assert.deepEqual(parseInputs(env("error")), { site: "dist", threshold: "error", sarif: "out.sarif", markdown: [] });
-  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { site: "dist", threshold: "error", sarif: "", markdown: [] });
-  assert.deepEqual(parseInputs({}), { site: "", threshold: "error", sarif: "", markdown: [] });
+  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [] });
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [] });
+  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [] });
+});
+
+test("parseInputs reads the site input as one folder per line or comma", () => {
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "dist, blog/_site\nwww/out\n" }).sites, ["dist", "blog/_site", "www/out"]);
+  // Trailing separators and empty entries (a block scalar ends in a newline) cost nothing.
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "dist,\n" }).sites, ["dist"]);
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "dist,,blog" }).sites, ["dist", "blog"]);
+  // Only newlines and commas separate: spaces inside a folder name survive.
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "my site/dist, other" }).sites, ["my site/dist", "other"]);
+});
+
+test("parseInputs rejects a site that would leave the workspace", () => {
+  // The Action verifies folders inside the repository workspace and nothing else.
+  for (const site of ["/abs/dist", "../outside", "docs/../../escape", "C:\\site"]) {
+    assert.throws(() => parseInputs({ SEAWORTHY_SITE: site }), ActionInputError, site);
+  }
+});
+
+test("sarifTargets keeps the given path for one site and names one file per site for several", () => {
+  // The single-site contract, byte for byte: also for the CLI's auto-discovered default (no site named).
+  assert.deepEqual(sarifTargets(["dist"], "out.sarif"), ["out.sarif"]);
+  assert.deepEqual(sarifTargets([], "out.sarif"), ["out.sarif"]);
+  assert.deepEqual(sarifTargets(["dist"], ""), []);
+  assert.deepEqual(sarifTargets(["dist", "blog/_site"], "out/seaworthy.sarif"), ["out/seaworthy.dist.sarif", "out/seaworthy.blog-_site.sarif"]);
+  // No extension: the site label goes at the end. A dot inside a folder name is not an extension.
+  assert.deepEqual(sarifTargetFor("www/out", "out.d/report"), "out.d/report.www-out");
+  // Spaces and odd characters in a folder name become dashes, so the file name stays portable.
+  assert.deepEqual(sarifTargetFor("my site/dist", "out.sarif"), "out.my-site-dist.sarif");
+});
+
+test("aggregateExit fails the run on any site, and a crash and a rejection stay themselves", () => {
+  assert.equal(aggregateExit([0, 0]), 0);
+  assert.equal(aggregateExit([0, 1, 0]), 1);
+  assert.equal(aggregateExit([0, 4, 1]), 4, "a crashed site is reported as exit 4, not folded into the failed count");
+  assert.equal(aggregateExit([4, 2, 1]), 2, "a rejected invocation outranks a crash");
 });
 
 test("parseInputs reads the markdown input as one path per line or comma", () => {
@@ -245,3 +283,55 @@ test("the markdown input points the Markdown checks at sources outside the built
   assert.equal(verified.code, 1, "the missing link target in README.md is a finding of its own");
   assert.match(verified.stdout, /1 finding/, "exactly the Markdown finding, nothing else");
 });
+
+// ---- several sites in one repository (issue #262) -----------------------------------------------------------------
+// Same setup as the single-site runs above: the built CLI verifies synthetic folders in a
+// temp workspace. GOOD is a page that passes every check; PAGE trips html.charset (an error).
+
+const GOOD = "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Page</title><meta name=\"description\" content=\"A description.\"></head>\n<body><main><h1>Heading</h1><p>Some text.</p></main></body></html>\n";
+
+/** Two sites under one config that leaves only html.charset switched on: site-a clean, site-b failing. */
+function twoSites(): string {
+  return workspace({
+    "site-a/index.html": GOOD,
+    "site-b/index.html": PAGE,
+    "seaworthy.config.json": onlyChecks("html.charset"),
+  });
+}
+
+test("one site's failure does not hide another's: every site is reported and the run fails", async () => {
+  const { code, stdout } = await runAction(twoSites(), { SEAWORTHY_SITE: "site-a, site-b", SEAWORTHY_THRESHOLD: "error" });
+  assert.equal(code, 1, "the run fails because one site failed at the threshold");
+  assert.match(stdout, /seaworthy site-a: 0 findings in site-a/, "the clean site is reported too");
+  assert.match(stdout, /seaworthy site-b: 1 finding in site-b/);
+  assert.match(stdout, /2 sites verified, 1 failed at the threshold \(site-b: 1 finding\), overall exit 1/);
+});
+
+test("a site the CLI rejects (exit 2) still leaves the other sites verified, and stays exit 2", async () => {
+  const { code, stdout } = await runAction(twoSites(), { SEAWORTHY_SITE: "no-such-folder, site-b", SEAWORTHY_THRESHOLD: "error" });
+  assert.equal(code, 2, "the aggregate exits with the CLI's own usage code, not a folded 1");
+  assert.match(stdout, /seaworthy no-such-folder: the CLI rejected this run \(exit 2\)/);
+  assert.match(stdout, /seaworthy site-b: 1 finding in site-b/, "the other site's findings are still reported");
+});
+
+test("several sites write one SARIF file per site, named after the folder", async () => {
+  const root = twoSites();
+  const { code, stdout } = await runAction(root, { SEAWORTHY_SITE: "site-a, site-b", SEAWORTHY_THRESHOLD: "error", SEAWORTHY_SARIF: "out.sarif" });
+  assert.equal(code, 1);
+  assert.match(stdout, /sarif written to out.site-a.sarif/);
+  assert.match(stdout, /sarif written to out.site-b.sarif/);
+  const clean = JSON.parse(readFileSync(join(root, "out.site-a.sarif"), "utf8")) as { runs: { results: unknown[] }[] };
+  const failing = JSON.parse(readFileSync(join(root, "out.site-b.sarif"), "utf8")) as { runs: { results: { ruleId: string }[] }[] };
+  assert.deepEqual(clean.runs[0]!.results, [], "the clean site's report is its own file, not overwritten by the failing one");
+  assert.deepEqual(failing.runs[0]!.results.map((r) => r.ruleId), ["html.charset"]);
+});
+
+test("a single site keeps the old contract exactly: the SARIF path as given, the log line as before", async () => {
+  const root = twoSites();
+  const { code, stdout } = await runAction(root, { SEAWORTHY_SITE: "site-b", SEAWORTHY_THRESHOLD: "error", SEAWORTHY_SARIF: "out.sarif" });
+  assert.equal(code, 1);
+  assert.match(stdout, /^seaworthy: 1 finding in site-b, 0 crashed checks; sarif written to out\.sarif\n/, "byte-identical to the pre-multi-site line");
+  assert.equal(existsSync(join(root, "out.sarif")), true);
+  assert.equal(existsSync(join(root, "out.site-b.sarif")), false, "one site never renames the file");
+});
+

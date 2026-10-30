@@ -1,0 +1,53 @@
+title: "Show and tell: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A site you verified with Seaworthy: what the report found, what you fixed, and what you left in place on purpose.
+        Seaworthy reports and suggests — it never edits files — so the fixes you describe are yours, or your agent's work from the fix hints.
+        Public sites or a trimmed minimal reproduction only.
+  - type: input
+    id: site
+    attributes:
+      label: The site, or the repo of the minimal reproduction
+      placeholder: "https://example.com"
+  - type: input
+    id: stack
+    attributes:
+      label: What produced the built output, and where does it live?
+      description: Seaworthy reads built output from any framework and any host — say which ones this was.
+      placeholder: "Hugo, on GitHub Pages"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Seaworthy version
+      description: "`seaworthy --version`, or the commit you built from — the project is pre-alpha, so the commit matters."
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: first-run
+    attributes:
+      label: The first report
+      description: The command you ran and what it found — check IDs with their severities (error, warning, note), and how many pages each hit. Paste the report itself, or the interesting part of it.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: fixed
+    attributes:
+      label: What did you fix, and how?
+      description: Did you work from the per-finding fix hints, or hand the `--format prompt` report to an agent? What changed, in the source or in the build?
+    validations:
+      required: true
+  - type: textarea
+    id: left
+    attributes:
+      label: What did you leave, and why?
+      description: "Findings you accepted into a baseline (`--baseline` / `--update-baseline`), suppressed in seaworthy.config.json, or simply live with."
+  - type: textarea
+    id: lesson
+    attributes:
+      label: What would you tell someone verifying a site like yours?

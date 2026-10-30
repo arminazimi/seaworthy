@@ -270,6 +270,32 @@
         }
       }
     },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "image",
+        "viewport"
+      ],
+      "properties": {
+        "image": {
+          "type": "string",
+          "description": "Path of the crop PNG that proved the finding, relative to the folder the command ran in, forward slashes. Named <fingerprint>.png, so two runs of the same site write the same file.",
+          "not": {
+            "pattern": "^([a-zA-Z]:)?[\\\\/]|\\\\"
+          }
+        },
+        "viewport": {
+          "type": "string",
+          "enum": [
+            "phone",
+            "tablet",
+            "desktop"
+          ],
+          "description": "The width the crop was taken at: the narrowest the problem was seen at."
+        }
+      }
+    },
     "finding": {
       "type": "object",
       "additionalProperties": false,
@@ -306,6 +332,9 @@
           "type": "string",
           "minLength": 1,
           "description": "A ready-to-paste prompt that instructs an agent to fix this finding. Generated from the finding's data alone; identical in every output format."
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
         }
       }
     },
