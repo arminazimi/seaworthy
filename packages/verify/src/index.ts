@@ -54,3 +54,7 @@ export { WATCH_DEBOUNCE_MS, WatchLoop, WatchScheduler, watchDiffText, watchStatu
 export type { WatchLoopOptions, WatchSchedulerOptions } from "./watch.js";
 export { appendHistory, buildHistoryRecord, HISTORY_DIR, HISTORY_KEEP, HISTORY_KEYS_MAX, HISTORY_SPEC_VERSION, previousRunKeys, readHistory, runConfigHash, stableStringify } from "./history.js";
 export type { HistoryCounts, HistoryRecord, HistoryRun } from "./history.js";
+// Added for the MCP `fix_preview` tool (#249): it must render the very preview `seaworthy fix
+// --dry-run` prints, so the CLI's fix planner is exported rather than duplicated in the MCP layer.
+export { planFix } from "./fix.js";
+export type { FixPreview, ManualFix } from "./fix.js";
