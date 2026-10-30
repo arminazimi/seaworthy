@@ -8,12 +8,13 @@ import { type FailOnOptions, FAIL_ON_DEFAULTS, FAIL_ON_FLAGS, FAIL_ON_HELP, pars
 import { type BaseOptions, BASE_DEFAULTS, BASE_FLAGS, BASE_HELP, parseBase } from "./base.js";
 import { type MaxFindingsOptions, MAX_FINDINGS_DEFAULTS, MAX_FINDINGS_FLAGS, MAX_FINDINGS_HELP, parseMaxFindings } from "./max-findings.js";
 import { type FilteringOptions, FILTERING_DEFAULTS, FILTERING_FLAGS, FILTERING_HELP, parseFiltering } from "./filtering.js";
+import { type MarkdownOptions, MARKDOWN_DEFAULTS, MARKDOWN_FLAGS, MARKDOWN_HELP, parseMarkdown } from "./markdown.js";
 import { type HistoryOptions, HISTORY_DEFAULTS, HISTORY_FLAGS, HISTORY_HELP, parseHistory } from "./history.js";
 import { type WatchOptions, WATCH_DEFAULTS, WATCH_FLAGS, WATCH_HELP, parseWatch } from "./watch.js";
 import { type SelectorOptions, SELECTOR_DEFAULTS, SELECTOR_FLAGS, SELECTOR_HELP, parseSelector } from "./selectors.js";
 import { type TimingsOptions, TIMINGS_DEFAULTS, TIMINGS_FLAGS, TIMINGS_HELP, parseTimings } from "./timings.js";
 
-export interface Options extends OutputOptions, FailOnOptions, BaseOptions, MaxFindingsOptions, FilteringOptions, HistoryOptions, WatchOptions, SelectorOptions, TimingsOptions {
+export interface Options extends OutputOptions, FailOnOptions, BaseOptions, MaxFindingsOptions, FilteringOptions, MarkdownOptions, HistoryOptions, WatchOptions, SelectorOptions, TimingsOptions {
   dir: string | undefined;
 }
 
@@ -34,6 +35,7 @@ export const OPTION_GROUPS: readonly OptionGroup[] = [
   { flags: BASE_FLAGS, help: BASE_HELP, parse: parseBase },
   { flags: MAX_FINDINGS_FLAGS, help: MAX_FINDINGS_HELP, parse: parseMaxFindings },
   { flags: FILTERING_FLAGS, help: FILTERING_HELP, parse: parseFiltering },
+  { flags: MARKDOWN_FLAGS, help: MARKDOWN_HELP, parse: parseMarkdown },
   { flags: HISTORY_FLAGS, help: HISTORY_HELP, parse: parseHistory },
   { flags: WATCH_FLAGS, help: WATCH_HELP, parse: parseWatch },
   { flags: SELECTOR_FLAGS, help: SELECTOR_HELP, parse: parseSelector },
@@ -49,6 +51,7 @@ export function defaultOptions(): Options {
     ...BASE_DEFAULTS,
     ...MAX_FINDINGS_DEFAULTS,
     ...FILTERING_DEFAULTS,
+    ...MARKDOWN_DEFAULTS,
     ...HISTORY_DEFAULTS,
     ...WATCH_DEFAULTS,
     ...SELECTOR_DEFAULTS,

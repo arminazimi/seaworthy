@@ -141,10 +141,10 @@ test("probe: an unreachable host and a silent server are reported, not thrown", 
 });
 
 test("links.external is skipped unless the network is enabled", async () => {
-  const site = buildSite(makeSite({ "index.html": PAGE(linkTo("/gone")) }));
+  const site = buildSite(makeSite({ "index.html": PAGE(linkTo("/gone")), "guide.md": `See [old](${base}/gone).\n` }));
   const before = hits.length;
   const result = await runChecks({ site, checks: [externalLinksCheck()] });
-  assert.equal(hits.length, before, "no request was made");
+  assert.equal(hits.length, before, "no request was made, in HTML or Markdown");
   assert.deepEqual(result.skipped.map((s) => [s.check, s.reason]), [["links.external", "network-checks-disabled"]]);
 });
 
@@ -172,6 +172,44 @@ test("links.external honors ignore patterns and reports unreachable servers as w
   assert.equal(out.length, 1);
   assert.equal(out[0]!.severity, "warning");
   assert.match(out[0]!.message, /could not be reached/);
+});
+
+test("links.external covers Markdown links, located at the link's line and sharing each fetch", async () => {
+  hits.length = 0;
+  const out = await findings(
+    externalLinksCheck(),
+    {
+      "index.html": PAGE(linkTo("/gone")),
+      "docs/guide.md": [
+        "# Guide",
+        "",
+        `See [the old project](${base}/gone) and [the live one](${base}/ok).`,
+        "",
+        `[blocked](${base}/forbidden) and [wall](${base}/botwall) stay unchecked.`,
+        "",
+        `[archived](${base}/removed "the old page")`,
+        "",
+        `<${base}/moved> follows its redirect.`,
+      ].join("\n"),
+    },
+    { network: true },
+  );
+  assert.deepEqual(out.map((f) => [f.location.file, f.location.line ?? 0, f.message.replace(base, "")]), [
+    ["index.html", 5, "/gone responds with 404."],
+    ["docs/guide.md", 3, "/gone responds with 404."],
+    ["docs/guide.md", 7, "/removed responds with 410."],
+  ], "each occurrence is reported where it was written; undecided statuses stay out");
+  const md = out.find((f) => f.location.file === "docs/guide.md")!;
+  assert.equal(md.fix.kind, "manual");
+  assert.match(md.fix.summary, /new address|archived/, "the Markdown fix hint matches the HTML one");
+  assert.equal(hits.filter((h) => h === "HEAD /gone").length, 1, "a URL that appears in HTML and in Markdown is fetched once");
+});
+
+test("links.external honors ignore patterns in Markdown too", async () => {
+  hits.length = 0;
+  const out = await findings(externalLinksCheck(), { "a.md": `[x](${base}/gone)\n` }, { network: true, options: { ignore: ["/gone$"] } });
+  assert.deepEqual(out, []);
+  assert.equal(hits.length, 0, "an ignored Markdown URL is never fetched");
 });
 
 /**

@@ -24,6 +24,10 @@ inputs:
     description: Where to write the SARIF 2.1.0 report, relative to the workspace. Default disables SARIF.
     required: false
     default: ""
+  markdown:
+    description: Markdown files or folders for the Markdown checks, relative to the workspace, one per line or comma. Default lets those checks walk the built site folder.
+    required: false
+    default: ""
 outputs:
   sarif:
     description: The SARIF file path as given, or "" when the sarif input was empty.
@@ -47,6 +51,7 @@ runs:
         SEAWORTHY_SITE: ${{ inputs.site }}
         SEAWORTHY_THRESHOLD: ${{ inputs.threshold }}
         SEAWORTHY_SARIF: ${{ inputs.sarif }}
+        SEAWORTHY_MARKDOWN: ${{ inputs.markdown }}
       # run.js reads the inputs from these SEAWORTHY_* variables, verifies the
       # site once (cwd: the consumer's workspace), writes SARIF when asked, and
       # exits with the verify contract (0 ok, 1 at or above the threshold, 4 when

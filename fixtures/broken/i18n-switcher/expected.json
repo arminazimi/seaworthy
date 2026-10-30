@@ -1,0 +1,7 @@
+{
+  "description": "An English/German site whose language switchers are visible <a hreflang=...> links: about.html's German switcher points back at the current page instead of the declared hreflang=\"de\" alternate /de/about.html, and de/about.html's English switcher points at the English home page /index.html instead of the declared hreflang=\"en\" alternate /about.html; every other switcher (both home pages, and each page's own-language entry pointing at its self-declared alternate) is correct",
+  "findings": [
+    { "check": "i18n.switcher", "file": "about.html", "line": 11, "column": 18 },
+    { "check": "i18n.switcher", "file": "de/about.html", "line": 11, "column": 18 }
+  ]
+}

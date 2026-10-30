@@ -43,6 +43,16 @@ npx seaworthy config check ci.json  # validates an explicit file
 
 Exit 0 when the config is valid, and 2 when the file is missing, is not JSON, or has problems. With no config file at all there is nothing to reject: checks would run with their defaults, so it still exits 0 and says so.
 
+## Markdown outside the built folder
+
+The Markdown checks (`md.*`) walk the verified folder for Markdown, but many projects keep their documentation — `README.md`, `docs/` — outside the build output, where that walk never reaches it. Name those sources explicitly:
+
+```bash
+npx seaworthy verify dist --markdown README.md docs/
+```
+
+Each path is relative to the current folder: a `.md`/`.markdown` file, or a directory walked for them (`.git` and `node_modules` are skipped). For that run the named files replace the site-folder walk: the Markdown checks read exactly what you listed, links between the named files resolve as before, and finding paths stay relative to where you ran — `README.md` and `docs/guide.md`, never absolute. Pass the site folder first: the path list ends at the next `--flag`, so `verify --markdown docs dist` would read `dist` as a path. A missing path or a file that is not Markdown is a usage error (exit 2); a directory holding no Markdown is not an error and simply adds nothing. Without the flag nothing changes: the checks walk the verified folder exactly as before.
+
 ## Capping giant reports
 
 A broken site can produce thousands of findings, more than anyone needs at once. Caps keep the report readable without changing what the checks find:

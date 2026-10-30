@@ -2,8 +2,10 @@
 //
 // The `new` and `fixed` findings come from Seaworthy's own diff (`readReport` +
 // `diffReports` from @seaworthy/verify — no re-implemented diffing), and the body is the
-// deterministic `formatDiffComment`. This module is only the thin wiring the Action needs:
-// build the body from two report files, write it, and post it with `gh` when the Action runs.
+// deterministic `formatDiffComment`, with the run-history trend from ./trend.ts placed above
+// its closing marker (issue #375, `trends.pr-comment`). This module is only the thin wiring the
+// Action needs: build the body from two report files, write it, and post it with `gh` when the
+// Action runs.
 //
 // It is a small executable so the composite `action.yml` maintained by `action.core` can
 // call the pieces as plain steps, without either task touching the other's files:
@@ -16,7 +18,9 @@ import { mkdirSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { diffReports, formatDiffComment, readReport } from "@seaworthy/verify";
+import { diffReports, formatDiffComment, readHistory, readReport } from "@seaworthy/verify";
+
+import { withTrend } from "./trend.js";
 
 export const EXIT = {
   ok: 0,
@@ -71,9 +75,15 @@ export const gh: GhRunner = (argv) => {
   }
 };
 
-/** The comment body for what changed between two report files: counts, then new, then fixed. */
+/**
+ * The comment body for what changed between two report files: counts, then new, then fixed, then
+ * the trend over the runs recorded in `.seaworthy/history` where the Action runs (issue #375).
+ * The trend is read, never computed here — see ./trend.ts — and it is left out entirely when the
+ * store holds no comparable runs, so a single-run job gets exactly the body it got before.
+ */
 export function commentBody(before: string, after: string, cwd: string = process.cwd()): string {
-  return formatDiffComment(diffReports(readReport(resolve(cwd, before)), readReport(resolve(cwd, after))));
+  const diff = diffReports(readReport(resolve(cwd, before)), readReport(resolve(cwd, after)));
+  return withTrend(formatDiffComment(diff), readHistory(cwd));
 }
 
 /** Writes the comment body for the next step, returning the path it was written to. */

@@ -11,10 +11,12 @@ import { htmlCharset, htmlDoctype, htmlInlineHandlers, htmlNesting, htmlObsolete
 import { htmlMetaRefresh, htmlRedirectChain, metaCanonical, metaCanonicalCycle, metaCanonicalTarget, metaDescription, metaDuplicateDescription, metaDuplicateTitles, metaLang, metaTitle, metaViewport } from "./meta.js";
 import { i18nHreflang } from "./i18n.js";
 import { i18nParity } from "./i18n-parity.js";
+import { i18nSwitcher } from "./i18n-switcher.js";
 import { i18nXDefault } from "./i18n-x-default.js";
 import { imagesAlt, imagesDimensions, imagesSize } from "./images.js";
 import { linksBaseUrl, linksInternal } from "./links.js";
 import { linksExternal } from "./external.js";
+import { mdImages } from "./md-images.js";
 import { mdLinks } from "./md-links.js";
 import { namesButton, namesLabel, namesLink } from "./names.js";
 import { qualityEmptyPages, qualityNotFoundPage, qualityOrphans, qualityPageWeight } from "./quality.js";
@@ -58,6 +60,7 @@ export const builtInChecks: readonly Check[] = [
   htmlRedirectChain,
   i18nHreflang,
   i18nParity,
+  i18nSwitcher,
   i18nXDefault,
   imagesAlt,
   imagesDimensions,
@@ -65,6 +68,7 @@ export const builtInChecks: readonly Check[] = [
   linksBaseUrl,
   linksExternal,
   linksInternal,
+  mdImages,
   mdLinks,
   metaCanonical,
   metaCanonicalCycle,

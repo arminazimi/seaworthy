@@ -39,10 +39,15 @@ function runVerify(args: readonly string[], cwd: string): VerifyRun {
  * `verify` with the report format left open: the directory arg is skipped so the CLI discovers a default.
  * The threshold travels as `--fail-on`, so the CLI decides the exit code from the same severity the
  * Action input names; the run's outcome is the CLI's, never a second rule in this package.
+ *
+ * `--markdown` goes last because its value list runs until the next `--flag`: the site folder and the
+ * two named options are then already parsed. With no Markdown paths the flag is absent, so the
+ * `md.*` checks walk the built folder exactly as they do on the command line.
  */
-function verifyArgs(site: string, format: string, failOn: Threshold, out?: string): string[] {
+function verifyArgs(site: string, format: string, failOn: Threshold, out?: string, markdown: readonly string[] = []): string[] {
   const args = ["verify", ...(site === "" ? [] : [site]), "--format", format, "--fail-on", failOn];
-  return out === undefined ? args : [...args, "--out", out];
+  const withOut = out === undefined ? args : [...args, "--out", out];
+  return markdown.length === 0 ? withOut : [...withOut, "--markdown", ...markdown];
 }
 
 /** Report JSON text -> parsed, as far as the Action log line trusts it (never re-checked in detail). */
@@ -68,12 +73,12 @@ function readReport(stdout: string): { summary?: { findings?: number }; root?: s
 export async function actionRun(env: Readonly<Record<string, string | undefined>> = process.env): Promise<number> {
   const inputs = parseInputs(env);
   const cwd = env.GITHUB_WORKSPACE ?? process.cwd();
-  const json = runVerify(verifyArgs(inputs.site, "json", inputs.threshold), cwd);
+  const json = runVerify(verifyArgs(inputs.site, "json", inputs.threshold, undefined, inputs.markdown), cwd);
   if (json.code === USAGE_EXIT) return json.code;
   const report = readReport(json.stdout);
 
   if (inputs.sarif !== "") {
-    const sarif = runVerify(verifyArgs(inputs.site, "sarif", inputs.threshold, inputs.sarif), cwd);
+    const sarif = runVerify(verifyArgs(inputs.site, "sarif", inputs.threshold, inputs.sarif, inputs.markdown), cwd);
     // 1 is the CLI's "the site has findings" code: the run failed on the site's problems, not on
     // the SARIF write, and the JSON run above already decided that outcome. Anything else is the
     // SARIF run itself failing, which the Action reports as its own failure.

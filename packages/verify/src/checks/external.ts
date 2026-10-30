@@ -2,10 +2,13 @@
 //
 // Behaviors borrowed from existing link checkers (ADR 0007): HEAD first, GET when HEAD is refused;
 // bot-protection and rate-limit responses are skipped, not reported; each URL is fetched once per run.
+// Built HTML pages and the Markdown sources in the verified folder share one URL set, so a link that
+// appears in both is still fetched once, and each occurrence is located where it was written.
 
 import { type HtmlElement, type Page, attr } from "../site.js";
-import type { Check, FindingDraft } from "../types.js";
+import type { Check, FindingDraft, Location } from "../types.js";
 import { check, locate, meta, pagesOf } from "./helpers.js";
+import { markdownOf } from "./markdown-graph.js";
 
 export interface ExternalOptions {
   timeoutMs: number;
@@ -45,11 +48,13 @@ const hostOf = (url: string): string => {
   }
 };
 
+const HTTP_URL = /^https?:\/\//i;
+
 function* externalLinks(page: Page): Generator<{ element: HtmlElement; url: string }> {
   for (const element of page.elements) {
     if (element.tagName !== "a" && element.tagName !== "area") continue;
     const href = attr(element, "href");
-    if (href !== undefined && /^https?:\/\//i.test(href.trim())) yield { element, url: href.trim() };
+    if (href !== undefined && HTTP_URL.test(href.trim())) yield { element, url: href.trim() };
   }
 }
 
@@ -86,11 +91,26 @@ export function externalLinksCheck(fetchImpl: typeof fetch = (...args) => fetch(
   return check(meta("links.external", "External link is broken", "error", [], ["html", "network"]), async function* (ctx) {
     const options = { ...DEFAULTS, ...ctx.options } as ExternalOptions;
     const ignore = options.ignore.map((pattern) => new RegExp(pattern));
-    const occurrences = new Map<string, { page: Page; element: HtmlElement }[]>();
+    const kept = (url: string): boolean => !ignore.some((re) => re.test(url));
+    const occurrences = new Map<string, Location[]>();
+    const add = (url: string, location: Location): void => {
+      occurrences.set(url, [...(occurrences.get(url) ?? []), location]);
+    };
     for (const page of pagesOf(ctx)) {
       for (const { element, url } of externalLinks(page)) {
-        if (ignore.some((re) => re.test(url))) continue;
-        occurrences.set(url, [...(occurrences.get(url) ?? []), { page, element }]);
+        if (kept(url)) add(url, locate(page, element, "href"));
+      }
+    }
+    // Markdown sources share this check's URL set, probe, and pools; the graph is only read when
+    // this network-enabled check runs, so files sorted by path and document order keep findings deterministic.
+    const graph = markdownOf(ctx.site);
+    if (graph !== undefined) {
+      for (const file of graph.files.values()) {
+        for (const link of file.links) {
+          const url = link.href.trim();
+          if (link.kind !== "external" || !HTTP_URL.test(url) || !kept(url)) continue;
+          add(url, { file: file.file, line: link.line });
+        }
       }
     }
     const verdicts = new Map<string, Verdict>();
@@ -107,7 +127,7 @@ export function externalLinksCheck(fetchImpl: typeof fetch = (...args) => fetch(
           : verdict.kind === "server-error"
             ? { severity: "warning", message: `${url} responds with ${verdict.status}, a server error that may be temporary.`, fix: { kind: "manual", summary: "Run the check again later. If it keeps failing, replace or remove the link." } }
             : { severity: "warning", message: `${url} could not be reached: ${verdict.reason}.`, fix: { kind: "manual", summary: "Check the address and run again. If the site is gone, replace or remove the link." } };
-      for (const { page, element } of where) yield { ...problem, location: locate(page, element, "href"), key: url };
+      for (const location of where) yield { ...problem, location, key: url };
     }
   });
 }

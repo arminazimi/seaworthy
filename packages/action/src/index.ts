@@ -31,6 +31,8 @@ export interface ActionInputs {
   threshold: Threshold;
   /** Where the SARIF report is written, relative to the workspace, or "" when SARIF is disabled. */
   sarif: string;
+  /** Markdown files or directories for the `md.*` checks, as the CLI's `--markdown` takes them. Empty: the site-folder walk. */
+  markdown: string[];
 }
 
 /** Env keys for the `Verify the site` step, so the YAML stays declarative and the code stays testable. */
@@ -38,6 +40,7 @@ export const INPUT_ENV = {
   site: "SEAWORTHY_SITE",
   threshold: "SEAWORTHY_THRESHOLD",
   sarif: "SEAWORTHY_SARIF",
+  markdown: "SEAWORTHY_MARKDOWN",
 } as const;
 
 /**
@@ -53,7 +56,20 @@ export function parseInputs(env: Readonly<Record<string, string | undefined>>): 
     site: (env.SEAWORTHY_SITE ?? "").trim(),
     threshold,
     sarif: (env.SEAWORTHY_SARIF ?? "").trim(),
+    markdown: markdownPaths(env.SEAWORTHY_MARKDOWN),
   };
+}
+
+/**
+ * The `markdown` input as the CLI takes it: one entry per line or comma, each trimmed, empty
+ * entries dropped so a trailing newline in a workflow block scalar costs nothing.
+ */
+function markdownPaths(value: string | undefined): string[] {
+  if (value === undefined) return [];
+  return value
+    .split(/[\n,]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "");
 }
 
 /** Minimal shape of the report JSON the CLI writes, checked before the SARIF mapping trusts it. */
