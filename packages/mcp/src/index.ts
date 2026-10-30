@@ -3,12 +3,20 @@
 export { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";
 export type { DiffReportsInput, DiffReportsOptions } from "./diff-reports.js";
 export {
+  CREATE_BASELINE_DESCRIPTION,
+  CREATE_BASELINE_INPUT,
+  CREATE_BASELINE_NAME,
+  createBaselineReport,
+} from "./create-baseline.js";
+export type { CreateBaselineInput, CreateBaselineOptions, CreateBaselineOutput } from "./create-baseline.js";
+export {
   EXPLAIN_FINDING_DESCRIPTION,
   EXPLAIN_FINDING_INPUT,
   EXPLAIN_FINDING_NAME,
   explainFinding,
 } from "./explain-finding.js";
 export type { ExplainFindingInput, ExplainFindingOptions, ExplainFindingOutput, ExplainableFinding } from "./explain-finding.js";
+export { GET_CONFIG_SCHEMA_DESCRIPTION, GET_CONFIG_SCHEMA_NAME, getConfigSchema } from "./get-config-schema.js";
 export { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
 export type { ListChecksOutput, ListedCheck } from "./list-checks.js";
 export type { ProgressReporter, ToolRequestExtra } from "./progress.js";

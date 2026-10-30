@@ -17,8 +17,10 @@ import { fileURLToPath } from "node:url";
 import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
+import { CREATE_BASELINE_DESCRIPTION, CREATE_BASELINE_NAME } from "../src/create-baseline.js";
 import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_NAME } from "../src/diff-reports.js";
 import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_NAME } from "../src/fix-preview.js";
+import { GET_CONFIG_SCHEMA_DESCRIPTION, GET_CONFIG_SCHEMA_NAME } from "../src/get-config-schema.js";
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
 import { EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
@@ -356,6 +358,25 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
           },
           execution: { taskSupport: "forbidden" },
         },
+        {
+          name: GET_CONFIG_SCHEMA_NAME,
+          description: GET_CONFIG_SCHEMA_DESCRIPTION,
+          inputSchema: { type: "object", properties: {} },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
+          name: CREATE_BASELINE_NAME,
+          description: CREATE_BASELINE_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              site: { description: "The built site folder, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
+              path: { description: "The baseline file to write, relative to the workspace. Absent: nothing is written; the result says where the file would go.", type: "string" },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
       ],
     });
   } finally {
@@ -416,16 +437,16 @@ test("tools/call list_checks returns deterministic check metadata from the verif
   }
 });
 
-test("calling a planned but unimplemented tool is a tool error, not invented data", { skip: SKIP_SPAWN }, async () => {
+test("calling a tool that is not registered is a tool error, not invented data", { skip: SKIP_SPAWN }, async () => {
   const child = await startServer();
   try {
     await initialize(child);
-    child.send(request(4, "tools/call", { name: "get_config_schema", arguments: {} }));
+    child.send(request(4, "tools/call", { name: "export_baseline", arguments: {} }));
     const reply = await child.next();
     assert.equal(reply.jsonrpc, "2.0");
     assert.equal(reply.id, 4);
     assert.deepEqual(reply.result, {
-      content: [{ type: "text", text: "MCP error -32602: Tool get_config_schema not found" }],
+      content: [{ type: "text", text: "MCP error -32602: Tool export_baseline not found" }],
       isError: true,
     });
   } finally {

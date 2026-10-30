@@ -9,9 +9,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
+import { CREATE_BASELINE_DESCRIPTION, CREATE_BASELINE_INPUT, CREATE_BASELINE_NAME, createBaselineReport } from "./create-baseline.js";
 import { DIFF_REPORTS_DESCRIPTION, DIFF_REPORTS_INPUT, DIFF_REPORTS_NAME, diffReportsJson } from "./diff-reports.js";
-import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_INPUT, FIX_PREVIEW_NAME, fixPreviewReport } from "./fix-preview.js";
 import { EXPLAIN_FINDING_DESCRIPTION, EXPLAIN_FINDING_INPUT, EXPLAIN_FINDING_NAME, explainFinding } from "./explain-finding.js";
+import { FIX_PREVIEW_DESCRIPTION, FIX_PREVIEW_INPUT, FIX_PREVIEW_NAME, fixPreviewReport } from "./fix-preview.js";
+import { GET_CONFIG_SCHEMA_DESCRIPTION, GET_CONFIG_SCHEMA_NAME, getConfigSchema } from "./get-config-schema.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
 import { registerPrompts } from "./prompts.js";
 import { withProgress } from "./progress.js";
@@ -76,6 +78,16 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     EXPLAIN_FINDING_NAME,
     { description: EXPLAIN_FINDING_DESCRIPTION, inputSchema: EXPLAIN_FINDING_INPUT },
     (args): CallToolResult => ({ content: [{ type: "text", text: explainFinding(args, toolOptions) }] }),
+  );
+  server.registerTool(
+    GET_CONFIG_SCHEMA_NAME,
+    { description: GET_CONFIG_SCHEMA_DESCRIPTION },
+    (): CallToolResult => ({ content: [{ type: "text", text: getConfigSchema() }] }),
+  );
+  server.registerTool(
+    CREATE_BASELINE_NAME,
+    { description: CREATE_BASELINE_DESCRIPTION, inputSchema: CREATE_BASELINE_INPUT },
+    async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await createBaselineReport(args, toolOptions) }] }),
   );
   registerPrompts(server);
   return server;
