@@ -26,6 +26,7 @@ import {
   verifyChangedReport,
   verifySiteReport,
 } from "./verify-tools.js";
+import { WAIT_FOR_BUILD_DESCRIPTION, WAIT_FOR_BUILD_INPUT, WAIT_FOR_BUILD_NAME, waitForBuildReport } from "./wait-for-build.js";
 
 /** serverInfo.name reported in the initialize handshake. */
 export const SERVER_NAME = "seaworthy";
@@ -76,6 +77,11 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
     EXPLAIN_FINDING_NAME,
     { description: EXPLAIN_FINDING_DESCRIPTION, inputSchema: EXPLAIN_FINDING_INPUT },
     (args): CallToolResult => ({ content: [{ type: "text", text: explainFinding(args, toolOptions) }] }),
+  );
+  server.registerTool(
+    WAIT_FOR_BUILD_NAME,
+    { description: WAIT_FOR_BUILD_DESCRIPTION, inputSchema: WAIT_FOR_BUILD_INPUT },
+    async (args, extra): Promise<CallToolResult> => ({ content: [{ type: "text", text: await waitForBuildReport(args, { ...toolOptions, signal: extra.signal }) }] }),
   );
   registerPrompts(server);
   return server;
