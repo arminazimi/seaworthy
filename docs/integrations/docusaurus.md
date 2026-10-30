@@ -102,6 +102,21 @@ jobs:
 
 The verify step uses the CLI's exit-code contract: `0` when nothing reaches the threshold, `1` when there are findings at or above `--fail-on` (default `error`), `2` for a usage error, and `4` when a check crashes. Any non-zero exit fails the job, so it is the `1` — your site's findings — that turns the check red.
 
+## Or run it as an Action
+
+The repository also ships a composite GitHub Action (`action.yml`). It installs and builds the CLI inside its own checkout, verifies one folder, optionally writes a SARIF 2.1.0 report, and fails the run at the threshold — so it replaces the install-and-verify steps above:
+
+```yaml
+      - name: Verify with Seaworthy
+        uses: arminazimi/seaworthy@<commit> # no release tag is cut yet: pin a commit
+        with:
+          site: build
+          threshold: error
+          sarif: seaworthy.sarif
+```
+
+`site` is relative to your workspace and is the folder the build command above writes to; leave it empty to let the CLI pick the first build folder it finds. `threshold` accepts `error` (the default), `warning`, `note`, or `none`. `sarif` is optional — when set, the report is written there and uploaded as a workflow artifact. Same pre-alpha caveat as everywhere else on this page: the Action runs the CLI built from the pinned commit, not a published package.
+
 ## Notes for Docusaurus
 
 - **`baseUrl` is the setting that changes the checks.** Seaworthy reads it from your `docusaurus.config.js`; a wrong base path makes internal links and asset paths look broken. `--base` or `basePath` in the config override it.
