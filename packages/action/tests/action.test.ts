@@ -102,10 +102,10 @@ const env = (threshold: string | undefined): Record<string, string | undefined> 
   SEAWORTHY_SARIF: "out.sarif",
 });
 
-test("parseInputs keeps the inputs as given and defaults site, sarif and markdown to disabled", () => {
-  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [] });
-  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [] });
-  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [] });
+test("parseInputs keeps the inputs as given and defaults site, sarif, cache and markdown to disabled", () => {
+  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [], cache: "off" });
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [], cache: "off" });
+  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [], cache: "off" });
 });
 
 test("parseInputs reads the site input as one folder per line or comma", () => {
@@ -141,6 +141,16 @@ test("aggregateExit fails the run on any site, and a crash and a rejection stay 
   assert.equal(aggregateExit([0, 1, 0]), 1);
   assert.equal(aggregateExit([0, 4, 1]), 4, "a crashed site is reported as exit 4, not folded into the failed count");
   assert.equal(aggregateExit([4, 2, 1]), 2, "a rejected invocation outranks a crash");
+});
+
+test("parseInputs reads the cache input as a mode and nothing else", () => {
+  assert.deepEqual(parseInputs({ SEAWORTHY_CACHE: " history " }).cache, "history", "trimmed and case-insensitive, like the threshold");
+  assert.deepEqual(parseInputs({ SEAWORTHY_CACHE: "" }).cache, "off", "an empty input means the default: cache nothing");
+  assert.throws(() => parseInputs({ SEAWORTHY_CACHE: "always" }), (e: unknown) => {
+    assert.ok(e instanceof ActionInputError);
+    assert.match(e.message, /cache mode must be one of off, history/);
+    return true;
+  });
 });
 
 test("parseInputs reads the markdown input as one path per line or comma", () => {

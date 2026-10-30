@@ -1,11 +1,14 @@
 // Executable entry the composite action.yml runs. Thin on purpose: every rule lives in
-// ./index.js (inputs, threshold, SARIF naming, aggregate exit) or in the verify CLI's own
-// contract, so this file only orchestrates the per-site verify invocations, the step output,
-// and the exit code.
+// ./index.js (inputs, threshold, SARIF naming, aggregate exit), in ./cache.js (what a restored
+// history store is allowed to say), or in the verify CLI's own contract, so this file only reviews
+// a restored store, orchestrates the per-site verify invocations, the step output, and the exit code.
 
 import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import { rootLabel } from "@seaworthy/verify";
 
 import {
   ActionInputError,
@@ -16,6 +19,7 @@ import {
   type ActionInputs,
   type Threshold,
 } from "./index.js";
+import { reviewRestoredHistory } from "./cache.js";
 
 /**
  * The verify CLI, built next to this package by the same `npm run build` the Action's build
@@ -80,6 +84,48 @@ function reportNote(report: { summary?: { findings?: number }; root?: string; er
 }
 
 /**
+ * The restored history store, reviewed before the CLI reads it (issue #261).
+ *
+ * A cached store changes what a run can report, not only how fast it is: `seaworthy diff`,
+ * `--new-only`, and the trend all read the runs in `.seaworthy/history`, so records from another
+ * folder or from a newer history spec are refused here rather than trusted on the strength of a
+ * cache key. The site folder the CLI will label the run with is the one this run asked for, so the
+ * label is worked out the same way the CLI works it out; with no `site` input — or several, which
+ * share one store — the folder is the CLI's to discover and only the shape checks apply, because
+ * dropping what looks like another site's history would destroy this very run's. The CLI's own
+ * readers then treat a record whose root is not the run's as "no previous run", which is the safe
+ * direction.
+ *
+ * Nothing here can fail the run: the verdict comes from the CLI's exit code, and a review that
+ * cannot even read the folder is a warning.
+ */
+function reviewHistoryCache(cwd: string, sites: readonly string[]): void {
+  try {
+    const site = sites.length === 1 ? sites[0]! : "";
+    const root = site === "" ? undefined : rootLabel(cwd, resolve(cwd, site));
+    const { kept, dropped } = reviewRestoredHistory(cwd, root);
+    if (dropped.length === 0) {
+      if (kept > 0) {
+        const asFarAs =
+          root === undefined
+            ? sites.length > 1
+              ? `their shape: ${sites.length} sites share one store`
+              : "their shape: no site input to match the folder against"
+            : `their shape and their site folder (${root})`;
+        process.stdout.write(`seaworthy: history cache: ${kept} restored record${kept === 1 ? "" : "s"} trusted for ${asFarAs}; this run records itself on top.\n`);
+      }
+      return;
+    }
+    const reasons = dropped.slice(0, 3).map((record) => `${record.name}: ${record.reason}`).join("; ");
+    const more = dropped.length > 3 ? `; ${dropped.length - 3} more` : "";
+    const tail = kept === 0 ? "this run starts its own history" : `the other ${kept} record${kept === 1 ? " stays" : "s stay"} as its history`;
+    process.stdout.write(`seaworthy: history cache: refused ${dropped.length} restored record${dropped.length === 1 ? "" : "s"} (${reasons}${more}); ${tail}.\n`);
+  } catch (error) {
+    process.stdout.write(`seaworthy: history cache: the restored store could not be reviewed (${error instanceof Error ? error.message : String(error)}); a cache problem never changes the verdict.\n`);
+  }
+}
+
+/**
  * One Action run: verify every site named by the `site` input — one CLI invocation per site —
  * write SARIF when the `sarif` input says so (one file per site, named by `sarifTargets`), set
  * the `sarif` step output, and return the exit contract. Relative paths resolve against the
@@ -87,10 +133,15 @@ function reportNote(report: { summary?: { findings?: number }; root?: string; er
  *
  * One site: the pre-multi-site path, byte for byte. Several sites: no site's outcome hides
  * another's findings; the aggregate rule in index.js (`aggregateExit`) decides the run's code.
+ *
+ * With the `cache` input on, the run-history store the workflow's cache step restored is reviewed
+ * once for the whole Action run, before any CLI invocation (issue #261): records this run must not
+ * read are gone before the CLI sees them.
  */
 export async function actionRun(env: Readonly<Record<string, string | undefined>> = process.env): Promise<number> {
   const inputs = parseInputs(env);
   const cwd = env.GITHUB_WORKSPACE ?? process.cwd();
+  if (inputs.cache === "history") reviewHistoryCache(cwd, inputs.sites);
   if (inputs.sites.length <= 1) return singleSiteRun(inputs, inputs.sites[0] ?? "", cwd, env);
   return multiSiteRun(inputs, cwd, env);
 }
