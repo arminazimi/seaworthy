@@ -1,0 +1,9 @@
+{
+  "serverInfo": {
+    "name": "seaworthy",
+    "title": "Seaworthy",
+    "version": "0.0.0"
+  },
+  "description": "Verifies built static sites for agents: check metadata, full-site and changed-file reports as JSON.",
+  "transport": "stdio"
+}
