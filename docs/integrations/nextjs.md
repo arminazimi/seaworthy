@@ -89,6 +89,21 @@ jobs:
 
 The `verify` step is the gate: it exits 0 when nothing reaches `--fail-on` (default `error`) and exits 1 when something does — exit 1 with findings is what fails the job on a broken site. A usage error exits 2 and a check or engine crash exits 4; those fail the job too, and they mean the run itself was broken, not the site. Do not add `continue-on-error` to the verify step.
 
+## Or run it as an Action
+
+The repository also ships a composite GitHub Action (`action.yml`). It installs and builds the CLI inside its own checkout, verifies one folder, optionally writes a SARIF 2.1.0 report, and fails the run at the threshold — so it replaces the install-and-verify steps above:
+
+```yaml
+      - name: Verify with Seaworthy
+        uses: arminazimi/seaworthy@<commit> # no release tag is cut yet: pin a commit
+        with:
+          site: out
+          threshold: error
+          sarif: seaworthy.sarif
+```
+
+`site` is relative to your workspace and is the folder the build command above writes to; leave it empty to let the CLI pick the first build folder it finds. `threshold` accepts `error` (the default), `warning`, `note`, or `none`. `sarif` is optional — when set, the report is written there and uploaded as a workflow artifact. Same pre-alpha caveat as everywhere else on this page: the Action runs the CLI built from the pinned commit, not a published package.
+
 ## Notes for Next.js
 
 - `trailingSlash` changes the shape of `out/`: with `trailingSlash: true` the export writes `about/index.html` and links `/about/`; the default writes `about.html` and links `/about`. [links.internal](../checks/links.internal.md) resolves both forms, so pass and fail do not change; the file paths in findings do.
