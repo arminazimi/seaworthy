@@ -59,6 +59,13 @@ Options:
                        folder outside the site; Seaworthy never writes in the folder it
                        verifies) and reference it from the report. Needs --rendered.
   --network            Run checks that make network requests
+  --fetch <url>        Verify a deployed page fetched over HTTP instead of a built folder. Repeat
+                       the flag for more pages. Exactly the addresses named are fetched: nothing
+                       is discovered from links or sitemaps here, robots.txt is not consulted, and
+                       each page is reported under the path the fetch gives it in the snapshot.
+  --allow-private      With --fetch: also allow private and link-local address literals, which are
+                       refused by default so an address handed to an agent cannot name an internal
+                       host. A loopback address you typed is always allowed.
   --timings            Time each stage and check, printed to stderr; the report is unchanged
   --help, -h           Print this help
   --version, -v        Print the version
