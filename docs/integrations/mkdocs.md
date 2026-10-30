@@ -53,6 +53,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install Seaworthy # pre-alpha: from git, pinned; swap to npm once it is published
+        run: npm install --no-save github:arminazimi/seaworthy#<commit>
       - run: npx seaworthy verify site --format json
 ```
 
