@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -39,6 +39,7 @@ import {
 import { SERVER_NAME, SERVER_TITLE } from "../src/server.js";
 import { SERVER_VERSION } from "../src/version.js";
 import { VERIFY_CHANGED_DESCRIPTION, VERIFY_CHANGED_NAME, VERIFY_SITE_DESCRIPTION, VERIFY_SITE_NAME } from "../src/verify-tools.js";
+import { WAIT_FOR_BUILD_DESCRIPTION, WAIT_FOR_BUILD_NAME, DEFAULT_WAIT_TIMEOUT_MS, MAX_WAIT_TIMEOUT_MS } from "../src/wait-for-build.js";
 
 // The built server the tests spawn: `<pkg>/dist/tests/server.e2e.test.js` imports `../src/main.js`,
 // which resolves to `<pkg>/dist/src/main.js` after `npm run build`.
@@ -170,8 +171,8 @@ class RpcChild {
   }
 }
 
-async function startServer(): Promise<RpcChild> {
-  return new RpcChild(spawn(process.execPath, [SERVER], { stdio: ["pipe", "pipe", "pipe"] }));
+async function startServer(cwd?: string): Promise<RpcChild> {
+  return new RpcChild(spawn(process.execPath, [SERVER], { stdio: ["pipe", "pipe", "pipe"], ...(cwd === undefined ? {} : { cwd }) }));
 }
 
 /** Speaks the initialize handshake on a fresh child and returns the exact initialize result. */
@@ -356,6 +357,22 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
           },
           execution: { taskSupport: "forbidden" },
         },
+        {
+          name: WAIT_FOR_BUILD_NAME,
+          description: WAIT_FOR_BUILD_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              site: { description: "The built site folder, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
+              base: { description: 'The base path the site is deployed under, such as "/repo/". Default: the config\'s basePath, else what a known generator config says, else "/".', type: "string" },
+              rendered: { description: "Run the checks that render pages in a browser. Opt-in: needs a browser installed on this machine.", type: "boolean" },
+              network: { description: "Let the checks that need it reach the network. Opt-in: every other check stays offline.", type: "boolean" },
+              timeout_ms: { description: `How long to wait, in milliseconds, for the next change to the build folder before answering that none arrived. Default: ${DEFAULT_WAIT_TIMEOUT_MS}; at most ${MAX_WAIT_TIMEOUT_MS}, so the wait is always bounded.`, type: "integer", minimum: 1, maximum: MAX_WAIT_TIMEOUT_MS },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
       ],
     });
   } finally {
@@ -495,6 +512,109 @@ test("tools/call explain_finding answers an unknown check id with a tool error a
     assert.equal((alive.result as { isError?: unknown }).isError, undefined);
   } finally {
     await child.stop();
+  }
+});
+
+const E2E_PAGE = '<!doctype html><html lang="en"><head><title>Page</title></head><body><main><h1>Page</h1></main></body></html>';
+
+/** A workspace holding a built `dist` folder, for the tools that take a folder relative to the workspace. */
+function builtWorkspace(): string {
+  const site = mkdtempSync(join(tmpdir(), "seaworthy-mcp-e2e-"));
+  mkdirSync(join(site, "dist"));
+  writeFileSync(join(site, "dist", "index.html"), E2E_PAGE);
+  return site;
+}
+
+test("tools/call wait_for_build returns the report of the build that lands while it waits", { skip: SKIP_SPAWN }, async () => {
+  const workspace = builtWorkspace();
+  const child = await startServer(workspace);
+  try {
+    await initialize(child);
+    // `site` is relative here: the server runs in the workspace, the way an MCP client starts it.
+    child.send(request(7, "tools/call", { name: WAIT_FOR_BUILD_NAME, arguments: { site: "dist", timeout_ms: 5_000 } }));
+    await delay(30);
+    writeFileSync(join(workspace, "dist", "second.html"), E2E_PAGE);
+    const reply = await child.next("the wait_for_build report");
+    assert.equal(reply.jsonrpc, "2.0");
+    assert.equal(reply.id, 7);
+    const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+    assert.equal(result.isError, undefined, "a report with findings is a result, not an error");
+    const report = JSON.parse(result.content[0]!.text) as { spec: number; root: string; summary: { pages: number }; findings: unknown[] };
+    assert.equal(report.spec, REPORT_SPEC_VERSION);
+    assert.equal(report.root, "dist", "the report names the folder the watcher sat on, never an absolute path");
+    assert.ok(report.summary.pages >= 2, "the page written after the call is in the report: this is the next build, not the one already on disk");
+    assert.ok(Array.isArray(report.findings));
+  } finally {
+    await child.stop();
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("wait_for_build answers with its bound over the wire instead of hanging the client", { skip: SKIP_SPAWN }, async () => {
+  const workspace = builtWorkspace();
+  // Nothing is written while it waits, and by the time the child has booted and finished the
+  // handshake the setup writes are older than macOS's replay window, so the folder really is quiet.
+  const child = await startServer(workspace);
+  try {
+    await initialize(child);
+    child.send(request(8, "tools/call", { name: WAIT_FOR_BUILD_NAME, arguments: { site: "dist", timeout_ms: 400 } }));
+    const reply = await child.next("the wait_for_build timeout message");
+    assert.equal(reply.id, 8);
+    const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+    assert.match(result.content[0]!.text, /dist did not change within 400 ms; nothing was verified/);
+    assert.equal(result.isError, true, "a wait that reached its bound explains itself, in the shape verify_site uses");
+  } finally {
+    await child.stop();
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("wait_for_build refuses to watch the workspace it was started in", { skip: SKIP_SPAWN }, async () => {
+  const workspace = builtWorkspace();
+  const child = await startServer(workspace);
+  try {
+    await initialize(child);
+    child.send(request(9, "tools/call", { name: WAIT_FOR_BUILD_NAME, arguments: { site: ".", timeout_ms: 5_000 } }));
+    const reply = await child.next("the refusal");
+    const result = reply.result as { content: Array<{ type: string; text: string }> };
+    assert.match(result.content[0]!.text, /refuses to watch \.: it is the workspace or a folder above it/);
+  } finally {
+    await child.stop();
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a cancelled wait_for_build answers nothing and leaves no watcher running", { skip: SKIP_SPAWN }, async () => {
+  const workspace = builtWorkspace();
+  const child = await startServer(workspace);
+  try {
+    await initialize(child);
+    child.send(request(10, "tools/call", { name: WAIT_FOR_BUILD_NAME, arguments: { site: "dist", timeout_ms: DEFAULT_WAIT_TIMEOUT_MS } }));
+    await delay(30);
+    // The MCP way to stop a request in flight: cancel it. That aborts the handler's signal, the
+    // wait closes its watcher and clears its timer, and a cancelled request is never answered.
+    child.send({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 10, reason: "the client changed its mind" } });
+    await child.expectNoResponse();
+    assert.equal(await child.hangup(), 0, "the process ends on hangup: an open watcher or timer would have kept it alive for the whole 30 s bound");
+  } finally {
+    await child.stop();
+    rmSync(workspace, { recursive: true, force: true });
+  }
+});
+
+test("a client that hangs up without cancelling is still unblocked by the bound", { skip: SKIP_SPAWN }, async () => {
+  const workspace = builtWorkspace();
+  const child = await startServer(workspace);
+  try {
+    await initialize(child);
+    // Closing stdin is not a cancellation, so the wait does not learn the client went away. What
+    // frees the process is its own bound: 400 ms here, and the exit below comes long before the
+    // 10 s the hangup allows. A wait with no bound would hold the watcher and the process instead.
+    child.send(request(11, "tools/call", { name: WAIT_FOR_BUILD_NAME, arguments: { site: "dist", timeout_ms: 400 } }));
+    assert.equal(await child.hangup(), 0, "the server exits once the bound ends the wait");
+  } finally {
+    await child.stop();
+    rmSync(workspace, { recursive: true, force: true });
   }
 });
 
