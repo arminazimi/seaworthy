@@ -1,0 +1,36 @@
+{
+  "name": "seaworthy-codex",
+  "displayName": "Seaworthy for Codex",
+  "version": "0.0.0",
+  "host": "codex",
+  "description": "Seaworthy verifies built static sites for agents. This bundle wires the Seaworthy MCP server into Codex through a config snippet the user pastes, and names the Skills that exist on disk today.",
+  "author": {
+    "name": "arminazimi"
+  },
+  "homepage": "https://github.com/arminazimi/seaworthy",
+  "repository": "https://github.com/arminazimi/seaworthy",
+  "license": "Apache-2.0",
+  "keywords": ["seaworthy", "mcp", "codex", "static-sites", "verification", "accessibility"],
+  "mcp": {
+    "serverName": "seaworthy",
+    "configFile": "~/.codex/config.toml",
+    "configSection": "mcp_servers.seaworthy",
+    "configTemplate": "codex-config.toml",
+    "command": "node",
+    "args": ["<checkout>/plugins/seaworthy/bin/seaworthy-mcp.mjs"],
+    "launcher": "plugins/seaworthy/bin/seaworthy-mcp.mjs",
+    "serverEntry": "packages/mcp/dist/src/main.js",
+    "env": {
+      "SEAWORTHY_MCP_SERVER": "absolute path to a built packages/mcp/dist/src/main.js; overrides the launcher's own search"
+    },
+    "tools": ["list_checks", "verify_site", "verify_changed", "diff_reports", "fix_preview", "explain_finding"]
+  },
+  "skills": ["seaworthy-adopt", "seaworthy-verify"],
+  "skillsSource": "skills",
+  "install": {
+    "registry": false,
+    "reason": "pre-alpha: @seaworthy/* is not published to npm and no release tag exists",
+    "commit": "081a482feadd5ce71d2cbba0b1f79c9045cd4403",
+    "gitReference": "github:arminazimi/seaworthy#081a482feadd5ce71d2cbba0b1f79c9045cd4403"
+  }
+}
