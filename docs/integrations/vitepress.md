@@ -105,6 +105,21 @@ export default {
 
 If you use this hook, drop the separate verify step from CI so the build already carries the check. Prefer the CI job above if you would rather keep the build and the verify as distinct steps.
 
+## Or run it as an Action
+
+The repository also ships a composite GitHub Action (`action.yml`). It installs and builds the CLI inside its own checkout, verifies one folder, optionally writes a SARIF 2.1.0 report, and fails the run at the threshold — so it replaces the install-and-verify steps above:
+
+```yaml
+      - name: Verify with Seaworthy
+        uses: arminazimi/seaworthy@<commit> # no release tag is cut yet: pin a commit
+        with:
+          site: docs/.vitepress/dist
+          threshold: error
+          sarif: seaworthy.sarif
+```
+
+`site` is relative to your workspace and is the folder the build command above writes to; leave it empty to let the CLI pick the first build folder it finds. `threshold` accepts `error` (the default), `warning`, `note`, or `none`. `sarif` is optional — when set, the report is written there and uploaded as a workflow artifact. Same pre-alpha caveat as everywhere else on this page: the Action runs the CLI built from the pinned commit, not a published package.
+
 ## Notes specific to VitePress
 
 - **Base path.** Detection reads the base from a `.vitepress/config.*` file sitting next to the folder you verify or in its parent. In the usual layout the config lives two levels above `docs/.vitepress/dist`, so it is **not** picked up automatically — set `basePath` in `seaworthy.config.json` or pass `--base`, and make it match VitePress's own `base`.
