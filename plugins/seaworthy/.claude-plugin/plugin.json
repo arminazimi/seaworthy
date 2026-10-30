@@ -1,0 +1,13 @@
+{
+  "name": "seaworthy",
+  "displayName": "Seaworthy",
+  "version": "0.0.0",
+  "description": "Seaworthy verifies built static sites for agents. This plugin adds the Seaworthy MCP server: list_checks, verify_site, and verify_changed return the versioned report JSON with a fix hint per finding.",
+  "author": {
+    "name": "arminazimi"
+  },
+  "homepage": "https://github.com/arminazimi/seaworthy",
+  "repository": "https://github.com/arminazimi/seaworthy",
+  "license": "Apache-2.0",
+  "keywords": ["seaworthy", "mcp", "static-sites", "verification", "accessibility"]
+}

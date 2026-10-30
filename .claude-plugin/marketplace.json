@@ -1,0 +1,17 @@
+{
+  "name": "seaworthy",
+  "owner": {
+    "name": "arminazimi"
+  },
+  "metadata": {
+    "description": "The Seaworthy marketplace: Claude Code plugins that bring site verification to any MCP-capable session."
+  },
+  "plugins": [
+    {
+      "name": "seaworthy",
+      "description": "Verify built static sites from Claude Code through the Seaworthy MCP server: list_checks, verify_site, verify_changed.",
+      "source": "./plugins/seaworthy",
+      "homepage": "https://github.com/arminazimi/seaworthy"
+    }
+  ]
+}
