@@ -5,6 +5,11 @@
 //
 //   parse the inputs → read each report JSON → map it to SARIF 2.1.0 → fail the run at the threshold
 //
+// The `summary` input decides whether the same report JSON also fills the run page's job summary
+// (./summary.ts). That is a third channel beside the SARIF upload and the pull-request comment
+// (./pr-comment.ts): a job summary is `$GITHUB_STEP_SUMMARY` markdown on the run page, never a
+// comment on the PR, and it shares no file, marker, or code path with the comment.
+//
 // The mapping reuses the one in @seaworthy/verify (ADR 0008 is the single authority for how findings
 // become SARIF), imported as the package that an action checkout lays out with npm ci; the tsconfig
 // paths mapping keeps the typecheck on the same checkout instead of a published dependency.
@@ -17,6 +22,10 @@ export type { SarifContext };
 /** The severity levels an Action run can fail at, matching the CLI's `--fail-on`. */
 export type Threshold = Severity | "none";
 export const THRESHOLDS: readonly Threshold[] = ["error", "warning", "note", "none"];
+
+/** Whether the run writes its `$GITHUB_STEP_SUMMARY` job summary (issue #260). */
+export type SummaryMode = "on" | "off";
+export const SUMMARY_MODES: readonly SummaryMode[] = ["on", "off"];
 
 /** Error for an input that is missing or outside its documented values. */
 export class ActionInputError extends Error {}
@@ -33,6 +42,8 @@ export interface ActionInputs {
   sarif: string;
   /** Markdown files or directories for the `md.*` checks, as the CLI's `--markdown` takes them. Global: forwarded to every site's run. Empty: the site-folder walk. */
   markdown: string[];
+  /** `on` writes the run's job summary to `$GITHUB_STEP_SUMMARY`; `off` leaves a workflow with exactly the exit code it had before (issue #260). */
+  summary: SummaryMode;
 }
 
 /** Env keys for the `Verify the site` step, so the YAML stays declarative and the code stays testable. */
@@ -41,6 +52,7 @@ export const INPUT_ENV = {
   threshold: "SEAWORTHY_THRESHOLD",
   sarif: "SEAWORTHY_SARIF",
   markdown: "SEAWORTHY_MARKDOWN",
+  summary: "SEAWORTHY_SUMMARY",
 } as const;
 
 /**
@@ -54,11 +66,15 @@ export function parseInputs(env: Readonly<Record<string, string | undefined>>): 
   if (threshold === undefined) throw new ActionInputError(`the threshold must be one of ${THRESHOLDS.join(", ")}, not "${env.SEAWORTHY_THRESHOLD}"`);
   const sites = entryList(env.SEAWORTHY_SITE);
   for (const site of sites) assertInsideWorkspace(site);
+  const rawSummary = (env.SEAWORTHY_SUMMARY ?? "on").trim().toLowerCase() as SummaryMode;
+  const summary = (SUMMARY_MODES as readonly string[]).includes(rawSummary) ? rawSummary : undefined;
+  if (summary === undefined) throw new ActionInputError(`the summary must be one of ${SUMMARY_MODES.join(", ")}, not "${env.SEAWORTHY_SUMMARY}"`);
   return {
     sites,
     threshold,
     sarif: (env.SEAWORTHY_SARIF ?? "").trim(),
     markdown: entryList(env.SEAWORTHY_MARKDOWN),
+    summary,
   };
 }
 

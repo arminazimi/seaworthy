@@ -13,6 +13,7 @@ adapter over the verify API, and every rule lives in `@seaworthy/verify`
 | `site` | `""` | Built site folder, relative to the workspace. Empty lets the CLI pick the first existing of `dist`, `build`, `out`, `public`, `_site`, `site`. |
 | `threshold` | `error` | Severity that fails the run: `error`, `warning`, `note`, or `none`. Travels to the CLI as `--fail-on`, so the CLI decides the exit code. |
 | `sarif` | `""` | Where to write the SARIF 2.1.0 report, relative to the workspace. Empty disables SARIF. |
+| `summary` | `on` | Write the run's job summary to `$GITHUB_STEP_SUMMARY`: the report's own counts, the top findings worst first, the checks that crashed, and the badge state with its README snippet. `off` leaves a workflow with exactly the exit code it had before. Several sites append one labelled section each. A summary that cannot be written changes nothing but itself — the verdict stays the CLI's exit code. |
 
 The run exits with the CLI's contract: `0` ok, `1` findings at or above the threshold, `2` a usage
 or input error, `4` a check crashed. The `sarif` output echoes the `sarif` input, `""` when disabled.

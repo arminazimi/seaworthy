@@ -102,10 +102,19 @@ const env = (threshold: string | undefined): Record<string, string | undefined> 
   SEAWORTHY_SARIF: "out.sarif",
 });
 
-test("parseInputs keeps the inputs as given and defaults site, sarif and markdown to disabled", () => {
-  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [] });
-  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [] });
-  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [] });
+test("parseInputs keeps the inputs as given and defaults site, sarif, summary and markdown to disabled", () => {
+  assert.deepEqual(parseInputs(env("error")), { sites: ["dist"], threshold: "error", sarif: "out.sarif", markdown: [], summary: "on" });
+  assert.deepEqual(parseInputs({ SEAWORTHY_SITE: "  dist  " }), { sites: ["dist"], threshold: "error", sarif: "", markdown: [], summary: "on" });
+  assert.deepEqual(parseInputs({}), { sites: [], threshold: "error", sarif: "", markdown: [], summary: "on" });
+});
+
+test("parseInputs reads the summary input as a mode and rejects anything else", () => {
+  assert.deepEqual(parseInputs({ SEAWORTHY_SUMMARY: " OFF " }).summary, "off", "trimmed and case-insensitive, like the threshold");
+  assert.throws(() => parseInputs({ SEAWORTHY_SUMMARY: "always" }), (e: unknown) => {
+    assert.ok(e instanceof ActionInputError);
+    assert.match(e.message, /summary must be one of on, off/);
+    return true;
+  });
 });
 
 test("parseInputs reads the site input as one folder per line or comma", () => {
@@ -333,5 +342,35 @@ test("a single site keeps the old contract exactly: the SARIF path as given, the
   assert.match(stdout, /^seaworthy: 1 finding in site-b, 0 crashed checks; sarif written to out\.sarif\n/, "byte-identical to the pre-multi-site line");
   assert.equal(existsSync(join(root, "out.sarif")), true);
   assert.equal(existsSync(join(root, "out.site-b.sarif")), false, "one site never renames the file");
+});
+
+test("the job summary lands in $GITHUB_STEP_SUMMARY with the counts and the failing check", async () => {
+  const root = twoSites();
+  const file = join(root, "step-summary.md");
+  const { code } = await runAction(root, { SEAWORTHY_SITE: "site-b", SEAWORTHY_THRESHOLD: "error", GITHUB_STEP_SUMMARY: file });
+  assert.equal(code, 1, "the summary never changes the verdict: the CLI's exit code stands");
+  const markdown = readFileSync(file, "utf8");
+  assert.match(markdown, /^## Seaworthy\n/);
+  assert.match(markdown, /1 finding in 1 page|1 page, 1 finding/, "the counts come from the report: " + markdown);
+  assert.match(markdown, /\| error \| `html\.charset` \| `index\.html/);
+});
+
+test("summary: off writes no job summary at all", async () => {
+  const root = twoSites();
+  const file = join(root, "step-summary.md");
+  const { code } = await runAction(root, { SEAWORTHY_SITE: "site-b", SEAWORTHY_THRESHOLD: "error", SEAWORTHY_SUMMARY: "off", GITHUB_STEP_SUMMARY: file });
+  assert.equal(code, 1);
+  assert.equal(existsSync(file), false, "off leaves the workflow with exactly the exit code it had before");
+});
+
+test("several sites append one labelled section each to the same summary file", async () => {
+  const root = twoSites();
+  const file = join(root, "step-summary.md");
+  const { code } = await runAction(root, { SEAWORTHY_SITE: "site-a, site-b", SEAWORTHY_THRESHOLD: "error", GITHUB_STEP_SUMMARY: file });
+  assert.equal(code, 1);
+  const markdown = readFileSync(file, "utf8");
+  assert.match(markdown, /^## Seaworthy · `site-a`\n/m, "the clean site gets its own section");
+  assert.match(markdown, /^## Seaworthy · `site-b`\n/m, "and so does the failing one");
+  assert.equal(markdown.split("## Seaworthy").length - 1, 2, "one section per site, no more");
 });
 
