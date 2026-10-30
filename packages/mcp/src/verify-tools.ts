@@ -20,7 +20,9 @@ import {
   rootLabel,
   verifySite,
 } from "@seaworthy/verify";
-import type { Check } from "@seaworthy/verify";
+import type { Check, Finding } from "@seaworthy/verify";
+
+import type { ProgressReporter } from "./progress.js";
 
 /** Tool name, as a client would call it. Part of the MCP surface; stable once released. */
 export const VERIFY_SITE_NAME = "verify_site";
@@ -66,6 +68,11 @@ export interface VerifyToolOptions {
   readonly cwd?: string;
   /** The checks to run. Default: verify's built-in checks. */
   readonly checks?: readonly Check[];
+  /**
+   * Called with progress messages during the run, when the caller sent a progress token.
+   * Absent: the run is exactly the run without progress — same report, same code path.
+   */
+  readonly progress?: ProgressReporter;
 }
 
 /** The inputs of `verify_site`. */
@@ -91,6 +98,7 @@ export interface VerifyChangedInput extends VerifySiteInput {
 async function runVerification(input: VerifyChangedInput, options: VerifyToolOptions, mode: "all" | "changed"): Promise<string> {
   const cwd = options.cwd ?? process.cwd();
   const checks = options.checks ?? builtInChecks;
+  const progress = options.progress;
   const { config, file: configFile } = loadConfig(cwd, undefined, checks.map((check) => check.meta.id));
 
   const requested = input.site ?? config.root ?? discoverFolder(cwd);
@@ -105,7 +113,13 @@ async function runVerification(input: VerifyChangedInput, options: VerifyToolOpt
     ...(input.base === undefined ? {} : { override: input.base }),
     ...(config.basePath === undefined ? {} : { configBasePath: config.basePath }),
   });
+  // The progress points below are what the engine actually makes observable: `buildSite` is
+  // synchronous (no per-page events exist), and verify's `streamFindings` fires once per finding
+  // the moment its check finishes. See ./progress.ts for the whole story.
+  progress?.(`started: verifying ${label}`);
   const site = buildSite(folder, base.basePath === "/" ? {} : { basePath: base.basePath });
+  progress?.(`parsed ${site.pages.size} pages`);
+  progress?.("running checks");
 
   let changed: Set<string> | undefined;
   let saveCache: (() => void) | undefined;
@@ -118,6 +132,7 @@ async function runVerification(input: VerifyChangedInput, options: VerifyToolOpt
     }
   }
 
+  let streamedFindings = 0;
   const { report } = await verifySite({
     folder,
     site,
@@ -128,8 +143,13 @@ async function runVerification(input: VerifyChangedInput, options: VerifyToolOpt
     ...(configFile === undefined ? {} : { configLocation: relative(folder, configFile).split("\\").join("/") }),
     rendered: input.rendered === true || config.rendered === true,
     network: input.network === true || config.network === true,
+    // Only when a caller asked for progress: verify's `streamFindings` fires per finding the
+    // moment its check finishes. It is streaming-only — the report it builds is the same bytes
+    // either way (packages/verify/src/verify.ts, and the tests assert exactly that).
+    ...(progress === undefined ? {} : { streamFindings: (finding: Finding) => { streamedFindings += 1; progress(`finding ${streamedFindings}: ${finding.checkId} in ${finding.location.file}`); } }),
   });
   saveCache?.();
+  progress?.(`finished: ${report.summary.findings} findings reported`);
   return reportToJson(report);
 }
 

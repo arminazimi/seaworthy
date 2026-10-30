@@ -1,6 +1,7 @@
 // The MCP server: a thin adapter over the verify API (AGENTS.md: `packages/mcp` must not own check logic).
-// This is the skeleton (issue #76) plus the verify tools (issue #77): an initialize handshake over
-// stdio, `list_checks` for the check metadata, and `verify_site` / `verify_changed` for the reports.
+// This is the skeleton (issue #76), the verify tools (issue #77), and `explain_finding` (issue #78):
+// an initialize handshake over stdio, `list_checks` for the check metadata, `verify_site` /
+// `verify_changed` for the reports, and `explain_finding` for acting on one finding.
 // Tools for later issues are listed in "./planned.js" and stay unregistered until they ship.
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -8,7 +9,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { builtInChecks } from "@seaworthy/verify";
 import type { Check } from "@seaworthy/verify";
+import { EXPLAIN_FINDING_DESCRIPTION, EXPLAIN_FINDING_INPUT, EXPLAIN_FINDING_NAME, explainFinding } from "./explain-finding.js";
 import { LIST_CHECKS_DESCRIPTION, LIST_CHECKS_NAME, listChecks } from "./list-checks.js";
+import { withProgress } from "./progress.js";
 import { SERVER_VERSION } from "./version.js";
 import {
   VERIFY_CHANGED_DESCRIPTION,
@@ -49,12 +52,17 @@ export function createServer(options: SeaworthyMcpOptions = {}): McpServer {
   server.registerTool(
     VERIFY_SITE_NAME,
     { description: VERIFY_SITE_DESCRIPTION, inputSchema: VERIFY_SITE_INPUT },
-    async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifySiteReport(args, toolOptions) }] }),
+    async (args, extra): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifySiteReport(args, withProgress(toolOptions, extra)) }] }),
   );
   server.registerTool(
     VERIFY_CHANGED_NAME,
     { description: VERIFY_CHANGED_DESCRIPTION, inputSchema: VERIFY_CHANGED_INPUT },
-    async (args): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, toolOptions) }] }),
+    async (args, extra): Promise<CallToolResult> => ({ content: [{ type: "text", text: await verifyChangedReport(args, withProgress(toolOptions, extra)) }] }),
+  );
+  server.registerTool(
+    EXPLAIN_FINDING_NAME,
+    { description: EXPLAIN_FINDING_DESCRIPTION, inputSchema: EXPLAIN_FINDING_INPUT },
+    (args): CallToolResult => ({ content: [{ type: "text", text: explainFinding(args, toolOptions) }] }),
   );
   return server;
 }

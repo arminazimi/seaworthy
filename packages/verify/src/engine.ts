@@ -4,7 +4,7 @@
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 
-import type { Check, CheckContext, CheckError, CheckMeta, Finding, FindingDraft, Needs, ProbeSkip, Severity, SkippedCheck } from "./types.js";
+import type { Check, CheckContext, CheckError, CheckMeta, EvidenceSink, Finding, FindingDraft, Needs, ProbeSkip, Severity, SkippedCheck } from "./types.js";
 import type { MarkdownSources } from "./markdown.js";
 import type { SiteGraph } from "./site.js";
 
@@ -19,6 +19,8 @@ export interface RunOptions {
   severity?: Readonly<Record<string, Severity>>;
   /** The browser to launch, for checks that render pages. Default: SEAWORTHY_BROWSER, then an installed Chrome, Chromium, or Edge. */
   browser?: { path?: string };
+  /** Set under --evidence: the folder rendered checks save their proof crops into. */
+  evidence?: EvidenceSink;
   signal?: AbortSignal;
   /** Passed to checks as `context.changed`. Findings are not filtered here; the pipeline does that. */
   changed?: ReadonlySet<string>;
@@ -87,6 +89,7 @@ function contextFor(check: Check, options: RunOptions): CheckContext {
     ...(options.changed ? { changed: options.changed } : {}),
     ...(options.browser ? { browser: options.browser } : {}),
     ...(options.markdownSources ? { markdownSources: options.markdownSources } : {}),
+    ...(options.evidence ? { evidence: options.evidence } : {}),
   };
 }
 
@@ -98,6 +101,7 @@ function toFinding(meta: CheckMeta, draft: FindingDraft, severity: Severity): Fi
     location: draft.location,
     fix: { kind: draft.fix.kind, summary: draft.fix.summary, edits: draft.fix.edits ?? [], appliesTo: "built-output" },
     fingerprint: fingerprint(meta.id, draft.location.file, draft.key),
+    ...(draft.evidence === undefined ? {} : { evidence: draft.evidence }),
   };
 }
 
