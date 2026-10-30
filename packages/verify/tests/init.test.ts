@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { test } from "node:test";
+import { tmpdir } from "node:os";
+import { test, type TestContext } from "node:test";
 
 import { readBaseline, createBaseline } from "../src/baseline.js";
 import { builtInChecks } from "../src/checks/index.js";
 import { EXIT, run } from "../src/cli.js";
 import { CONFIG_FILE, parseConfig } from "../src/config.js";
-import { BASELINE_FILE, detectGenerator, INIT_TARGETS, planInit, WORKFLOW_FILE as INIT_WORKFLOW_FILE } from "../src/init.js";
+import { DEFAULT_FOLDERS } from "../src/folders.js";
+import { AGENTS_HEADING, AGENTS_MARKER, AGENTS_SECTION, BASELINE_FILE, detectGenerator, INIT_TARGETS, planAgents, planInit, WORKFLOW_FILE as INIT_WORKFLOW_FILE } from "../src/init.js";
 import { REPORT_SPEC_VERSION } from "../src/version.js";
 import { makeSite } from "./helpers.js";
 
@@ -193,4 +196,145 @@ test("the planner is pure: same folder, same plan, twice", () => {
   const b = planInit(detectGenerator(["_config.yml"]));
   assert.deepEqual(a, b);
   assert.equal(a.writes.length, INIT_TARGETS.length);
+});
+
+// --agents: the plan prints a patch for the repo's agent instructions and never applies it.
+
+/** The patch block of an `init --agents` run -- everything from the diff header on, "" when there is none. */
+const patchOf = (stdout: string): string => {
+  const at = stdout.indexOf("diff --git ");
+  return at === -1 ? "" : stdout.slice(at);
+};
+
+/** A folder of the caller's own files, outside this repository, for git to apply a patch in. */
+function scratch(files: Record<string, string>): string {
+  const root = mkdtempSync(join(tmpdir(), "seaworthy-agents-"));
+  for (const [path, content] of Object.entries(files)) writeFileSync(join(root, path), content);
+  return root;
+}
+
+const gitSkip = (t: TestContext): boolean => {
+  const version = spawnSync("git", ["--version"]);
+  if (version.status === 0 && !version.error) return false;
+  t.skip("git is not available, so the patch cannot be check-applied");
+  return true;
+};
+
+test("--agents prints a patch that creates AGENTS.md and writes no agent file itself", async (t: TestContext) => {
+  const root = makeSite({ "astro.config.mjs": "" });
+  const result = await run(["init", "--agents"], { cwd: root });
+  assert.equal(result.code, EXIT.ok);
+  assert.deepEqual([...listing(root)].sort(), ["astro.config.mjs", ...INIT_TARGETS].sort(), "the three files init owns, and no AGENTS.md");
+  assert.match(result.stdout, /^ {2}agents: AGENTS\.md \(does not exist yet;.*`git apply` from this folder\)$/m);
+  assert.ok(result.stdout.indexOf("  agents: ") < result.stdout.indexOf("  next: "), "the agent line belongs to the report, before the next step");
+
+  const patch = patchOf(result.stdout);
+  assert.ok(patch.startsWith("diff --git a/AGENTS.md b/AGENTS.md\nnew file mode 100644\n--- /dev/null\n+++ b/AGENTS.md\n@@ -0,0 +1,"), patch);
+  assert.equal(patch.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++")).length, AGENTS_SECTION.split("\n").length - 1, "every line of the section is an addition, none extra");
+
+  if (gitSkip(t)) return;
+  const copy = scratch({});
+  // A work tree, because a patch that creates a file names /dev/null as its old side: outside a
+  // repository git reads that as a path relative to the folder and refuses it.
+  spawnSync("git", ["init", "-q"], { cwd: copy });
+  writeFileSync(join(copy, "agents.patch"), patch);
+  const applied = spawnSync("git", ["apply", "agents.patch"], { cwd: copy, encoding: "utf8" });
+  assert.equal(applied.status, 0, `git apply rejects the new-file patch:\n${applied.stderr}`);
+  assert.equal(readFileSync(join(copy, "AGENTS.md"), "utf8"), AGENTS_SECTION);
+});
+
+test("--agents appends to an existing AGENTS.md, leaves its bytes alone, and adds nothing else", async (t: TestContext) => {
+  const mine = "# my project\n\nBuild with `npm run build`, then serve `dist`.\n";
+  const root = makeSite({ "astro.config.mjs": "", "AGENTS.md": mine });
+  const result = await run(["init", "--agents"], { cwd: root });
+  assert.equal(readFileSync(join(root, "AGENTS.md"), "utf8"), mine, "init never edits the user's agent file");
+  assert.match(result.stdout, /^ {2}agents: AGENTS\.md \(the patch appends to this file and keeps every line you wrote;/m);
+
+  const patch = patchOf(result.stdout);
+  assert.ok(patch.startsWith("diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n"), patch);
+  const deleted = patch.split("\n").filter((line) => line.startsWith("-") && !line.startsWith("---"));
+  assert.deepEqual(deleted, [], "the patch removes no line of the user's file");
+
+  if (gitSkip(t)) return;
+  const copy = scratch({ "AGENTS.md": mine });
+  writeFileSync(join(copy, "agents.patch"), patch);
+  const check = spawnSync("git", ["apply", "--check", "agents.patch"], { cwd: copy, encoding: "utf8" });
+  assert.equal(check.status, 0, `git apply --check rejects the patch:\n${patch}\n${check.stderr}`);
+  assert.equal(spawnSync("git", ["apply", "agents.patch"], { cwd: copy, encoding: "utf8" }).status, 0);
+  assert.ok(readFileSync(join(copy, "AGENTS.md"), "utf8").startsWith(mine), "every byte the user wrote stays first");
+  assert.ok(readFileSync(join(copy, "AGENTS.md"), "utf8").includes(AGENTS_HEADING));
+});
+
+test("an agent file that already carries the section gets no patch", async () => {
+  const root = makeSite({ "AGENTS.md": `# my project\n\n${AGENTS_SECTION}\n` });
+  const result = await run(["init", "--agents"], { cwd: root });
+  assert.equal(patchOf(result.stdout), "", "a second run offers nothing to apply");
+  assert.match(result.stdout, /^ {2}agents: AGENTS\.md \(already carries the Seaworthy section; nothing to add\)$/m);
+  // The heading alone counts too: a person who wrote their own section is not asked to add ours.
+  const byHeading = planAgents({ "AGENTS.md": `## Seaworthy verification\n\nOurs, in our own words.\n` });
+  assert.deepEqual(byHeading, { target: "AGENTS.md", patch: "", summary: "already carries the Seaworthy section; nothing to add" });
+});
+
+test("CLAUDE.md is the target when the repo has no AGENTS.md, and AGENTS.md is never written", async () => {
+  const root = makeSite({ "CLAUDE.md": "# rules\n" });
+  const result = await run(["init", "--agents"], { cwd: root });
+  assert.match(result.stdout, /^ {2}agents: CLAUDE\.md \(the patch appends to this file and keeps every line you wrote;/m);
+  assert.ok(patchOf(result.stdout).startsWith("diff --git a/CLAUDE.md b/CLAUDE.md\n--- a/CLAUDE.md\n+++ b/CLAUDE.md\n"));
+  assert.ok(!listing(root).has("AGENTS.md"), "no second instructions file appears behind the user's back");
+  // With neither file the plan creates AGENTS.md, the file every agent reads first.
+  assert.equal(planAgents({}).target, "AGENTS.md");
+});
+
+test("--agents twice prints the same patch: nothing is consumed, because nothing is written", async () => {
+  const root = makeSite({ "astro.config.mjs": "", "AGENTS.md": "# my project\n" });
+  await run(["init"], { cwd: root });
+  const first = await run(["init", "--agents"], { cwd: root });
+  const second = await run(["init", "--agents"], { cwd: root });
+  assert.equal(second.stdout, first.stdout);
+  assert.notEqual(patchOf(first.stdout), "");
+});
+
+test("the printed section states only what the CLI really does", () => {
+  // A rename of a flag, a folder or an exit code has to show up here, not silently in the wild.
+  assert.deepEqual([...DEFAULT_FOLDERS], ["dist", "build", "out", "public", "_site", "site"]);
+  for (const folder of DEFAULT_FOLDERS) assert.ok(AGENTS_SECTION.includes(`\`${folder}\``), `${folder} named in the section`);
+  for (const fact of ["--fail-on", "--format json", "fix <built-dir> --dry-run", "git apply", "--update-baseline", "`0` clean", "`4` an engine crash"])
+    assert.ok(AGENTS_SECTION.includes(fact), `${fact} in the section`);
+  assert.ok(AGENTS_SECTION.includes("never edits your files") && AGENTS_SECTION.includes("no network"), "the trust rules are stated where agents read them");
+});
+
+test("planAgents is pure and its new-file patch is the whole section", () => {
+  const input = { "AGENTS.md": "# my project\n" };
+  assert.deepEqual(planAgents(input), planAgents(input));
+  const fresh = planAgents({});
+  assert.equal(fresh.target, "AGENTS.md");
+  assert.ok(fresh.patch.includes(AGENTS_MARKER));
+  assert.equal(fresh.patch.split("\n").filter((line) => line.startsWith("+") && !line.startsWith("+++")).length, AGENTS_SECTION.split("\n").length - 1);
+});
+
+test("--agents is a flag: it takes no value, is passed once, and never replaces init's own files", async () => {
+  const root = makeSite({ "astro.config.mjs": "" });
+  assert.equal((await run(["init", "--agents", "--agents"], { cwd: root })).code, EXIT.usage);
+  assert.equal((await run(["init", "--agents=on"], { cwd: root })).code, EXIT.usage);
+  const usage = await run(["init", "--bogus"], { cwd: root });
+  assert.match(usage.stderr, /takes only --force and --agents/);
+  // With the config already present, --agents still prints its patch and writes nothing new.
+  await run(["init"], { cwd: root });
+  const before = listing(root);
+  const again = await run(["init", "--agents"], { cwd: root });
+  assert.equal(patchOf(again.stdout) === "", false);
+  assert.deepEqual([...listing(root)].sort(), [...before].sort(), "no file at all beyond the three init owns");
+  assert.match(again.stdout, /^seaworthy: init kept 3 files already present/);
+});
+
+test("init --agents with an explicit project folder patches that folder's file", async () => {
+  const root = makeSite({});
+  mkdirSync(join(root, "project"));
+  writeFileSync(join(root, "project", "hugo.toml"), "");
+  writeFileSync(join(root, "project", "AGENTS.md"), "# project rules\n");
+  const result = await run(["init", "project", "--agents"], { cwd: root });
+  assert.equal(result.code, EXIT.ok);
+  assert.match(result.stdout, /^ {2}agents: AGENTS\.md \(the patch appends/m);
+  assert.ok(!listing(root).has("AGENTS.md"), "the current folder's agent file is not the one patched");
+  assert.ok(!listing(root).has("seaworthy.config.json"), "and no file is written outside the folder named");
 });

@@ -3,9 +3,12 @@
 // EMPTY first baseline. The plan is a pure function (no fs, no clock, no network), and the
 // CLI layer executes it and prints exactly what it wrote where. Non-interactive by design:
 // no questions, no overwrites without --force, and never a write outside the target folder.
+// --agents is preview-only: it reads one of the user's agent files and prints a git-apply-able
+// diff (below the planner); it writes nothing there.
 
 import { createBaseline } from "./baseline.js";
 import { CONFIG_FILE } from "./config.js";
+import { unifiedDiff } from "./udiff.js";
 
 /** The baseline file init creates. The same name the docs and the `--update-baseline` examples use. */
 export const BASELINE_FILE = "seaworthy-baseline.json";
@@ -270,4 +273,98 @@ export function workflowContent(detected: GeneratorInfo | undefined): string {
           "# add your build step here if the site must be built first.",
         ]);
   return head.join("\n") + "\n" + build + tail.join("\n") + "\n";
+}
+
+// --agents: instructions for the repo's agent file. AGENTS.md and CLAUDE.md belong to the
+// user, so init never writes them: it reads the one chosen file and prints a git-apply-able
+// unified diff (the `fix --dry-run` precedent) that appends the section below. Applying it is
+// the user's or their agent's deliberate move.
+
+/** The files `--agents` can extend, in the order the plan checks them. */
+export const AGENTS_FILES = ["AGENTS.md", "CLAUDE.md"] as const;
+
+/** The first line of the section; its presence (marker or heading) makes a second run a no-op. */
+export const AGENTS_MARKER = "<!-- seaworthy:agents -->";
+export const AGENTS_HEADING = "## Seaworthy verification";
+
+/**
+ * The section `--agents` adds. Every flag and exit code in it is the CLI's real behavior:
+ * verify and its options, `fix --dry-run` plus `git apply`, and the pre-alpha install line.
+ */
+export const AGENTS_SECTION = [
+  AGENTS_MARKER,
+  AGENTS_HEADING,
+  "",
+  "Verify this site with [Seaworthy](https://github.com/arminazimi/seaworthy) after every change",
+  "to its built output. It reads built files only, never edits your files, and uses no network",
+  "by default.",
+  "",
+  "- Build the site, then run `npx seaworthy verify` from the project folder; it checks the",
+  "  first of `dist`, `build`, `out`, `public`, `_site`, `site` that exists. Seaworthy is",
+  "  pre-alpha and not on npm. If it is missing, install it pinned to a commit you trust,",
+  "  after your own `npm ci` and without touching your lockfile:",
+  "  `npm install --no-save github:arminazimi/seaworthy#<full-commit-SHA>`.",
+  "- Exit codes: `0` clean, `1` findings at or above `--fail-on` (default: `error`), `2` usage",
+  "  error, `4` an engine crash. Use `--format json` when you need findings machine-readable.",
+  "- Every finding names its check ID, severity, file, location, and a fix hint. Fix the",
+  "  source, rebuild, and verify again.",
+  "- Suggested edits are previews only: `seaworthy fix <built-dir> --dry-run` prints one",
+  "  unified diff; applying it with `git apply` is your move, not Seaworthy's.",
+  "- `seaworthy-baseline.json` records findings accepted on purpose. Re-record it with",
+  "  `seaworthy verify --update-baseline seaworthy-baseline.json` only when you mean to accept",
+  "  new ones; CI fails on every finding the baseline does not accept.",
+  "",
+].join("\n");
+
+export interface AgentsInput {
+  /** The current content of each agent file, or undefined when the file does not exist. */
+  "AGENTS.md"?: string | undefined;
+  "CLAUDE.md"?: string | undefined;
+}
+
+export interface AgentsPlan {
+  /** The file the patch applies to (AGENTS.md when it exists or neither exists). */
+  target: string;
+  /** The git-apply-able patch, or "" when the target already carries the section. */
+  patch: string;
+  /** One line for the CLI report, phrased after the target name, patch or no patch. */
+  summary: string;
+}
+
+/** The patch that creates a new file: the whole content as additions, /dev/null as the old side. */
+function newFilePatch(file: string, content: string): string {
+  const lines = content.split("\n");
+  // The section ends with a newline, so split leaves one trailing empty piece; the blob is the real lines.
+  const added = lines.slice(0, lines[lines.length - 1] === "" ? -1 : lines.length);
+  return [
+    `diff --git a/${file} b/${file}`,
+    // The mode line is what tells `git apply` this is a creation: without it, git resolves
+    // /dev/null as a path inside the folder and refuses the patch.
+    "new file mode 100644",
+    "--- /dev/null",
+    `+++ b/${file}`,
+    `@@ -0,0 +1,${added.length} @@`,
+    ...added.map((line) => `+${line}`),
+  ].join("\n") + "\n";
+}
+
+/**
+ * The pure heart of `--agents`: pick the target (AGENTS.md wins, then CLAUDE.md, else a new
+ * AGENTS.md), and produce the patch that appends the section without touching the user's own
+ * lines. An existing file gets a context-only diff from `unifiedDiff`, so `git apply` keeps
+ * every byte the user wrote. A file that already carries the section gets no patch.
+ */
+export function planAgents(input: AgentsInput): AgentsPlan {
+  const target: string = input["AGENTS.md"] !== undefined ? "AGENTS.md" : input["CLAUDE.md"] !== undefined ? "CLAUDE.md" : "AGENTS.md";
+  const existing = target === "AGENTS.md" ? input["AGENTS.md"] : input["CLAUDE.md"];
+
+  if (existing !== undefined && (existing.includes(AGENTS_MARKER) || existing.includes(AGENTS_HEADING)))
+    return { target, patch: "", summary: "already carries the Seaworthy section; nothing to add" };
+
+  if (existing === undefined)
+    return { target, patch: newFilePatch(target, AGENTS_SECTION), summary: "does not exist yet; the patch creates it; apply it with `git apply` from this folder" };
+
+  const base = existing.endsWith("\n") ? existing : existing + "\n";
+  const merged = (base.endsWith("\n\n") ? base : base + "\n") + AGENTS_SECTION;
+  return { target, patch: unifiedDiff(existing, merged, target), summary: "the patch appends to this file and keeps every line you wrote; apply it with `git apply` from this folder" };
 }
