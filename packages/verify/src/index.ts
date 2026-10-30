@@ -40,6 +40,9 @@ export { applySuppressions, parseInlineSuppressions } from "./suppress.js";
 export type { SuppressedFinding, Suppression } from "./suppress.js";
 export { BaselineError, applyBaseline, createBaseline, readBaseline, writeBaseline } from "./baseline.js";
 export type { Baseline, BaselineEntry } from "./baseline.js";
+// The baseline file name init creates and the docs use — the MCP `create_baseline` tool needs
+// exactly this default, so it comes from here rather than a second definition.
+export { BASELINE_FILE } from "./init.js";
 export { verifySite } from "./verify.js";
 export type { StageTiming, Timings, VerifyOptions, VerifyResult } from "./verify.js";
 export { builtInChecks } from "./checks/index.js";
