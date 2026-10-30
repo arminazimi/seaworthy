@@ -116,6 +116,21 @@ jobs:
 
 Exit 0 passes the step. Exit 1 (findings at or above the `--fail-on` level), 2 (usage error — a common one is `dist` missing because the build wrote elsewhere), and 4 (a check crashed) all fail the job, so the run stops before deploy. If you use the integration above, drop the Verify step: `npm run build` already fails on findings.
 
+## Or run it as an Action
+
+The repository also ships a composite GitHub Action (`action.yml`). It installs and builds the CLI inside its own checkout, verifies one folder, optionally writes a SARIF 2.1.0 report, and fails the run at the threshold — so it replaces the install-and-verify steps above:
+
+```yaml
+      - name: Verify with Seaworthy
+        uses: arminazimi/seaworthy@<commit> # no release tag is cut yet: pin a commit
+        with:
+          site: dist
+          threshold: error
+          sarif: seaworthy.sarif
+```
+
+`site` is relative to your workspace and is the folder the build command above writes to; leave it empty to let the CLI pick the first build folder it finds. `threshold` accepts `error` (the default), `warning`, `note`, or `none`. `sarif` is optional — when set, the report is written there and uploaded as a workflow artifact. Same pre-alpha caveat as everywhere else on this page: the Action runs the CLI built from the pinned commit, not a published package.
+
 ## Notes
 
 - **`build.outDir`.** Anything other than `dist` means passing that folder to `verify`, or setting `root` to it. Seaworthy guesses nothing about the build.
