@@ -270,13 +270,22 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
         {
           name: FIX_PREVIEW_NAME,
           description: FIX_PREVIEW_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              site: { description: "The built site folder to verify, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
+        {
           name: "explain_finding",
           description: EXPLAIN_FINDING_DESCRIPTION,
           inputSchema: {
             $schema: "http://json-schema.org/draft-07/schema#",
             type: "object",
             properties: {
-              site: { description: "The built site folder to verify, relative to the workspace. Default: the first of dist, build, out, public, _site, site that exists.", type: "string" },
               check_id: {
                 description: 'The check to explain, such as "images.alt". Optional when a finding is given; the finding\'s own check id is used then. With both, they must agree.',
                 type: "string",
