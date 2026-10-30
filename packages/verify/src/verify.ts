@@ -15,7 +15,7 @@ import { buildReport } from "./report.js";
 import { readabilitySummary } from "./readability-score.js";
 import { type SiteGraph, buildSite } from "./site.js";
 import { type Suppression, SUPPRESSION_CHECKS, applySuppressions, fromConfig, parseInlineSuppressions } from "./suppress.js";
-import type { Check, Finding, Report } from "./types.js";
+import type { Check, EvidenceSink, Finding, Report } from "./types.js";
 
 export interface VerifyOptions {
   /** The built site folder. */
@@ -36,6 +36,8 @@ export interface VerifyOptions {
   maxFindings?: number;
   /** The browser to launch for checks that render pages, from --browser-path. Default: SEAWORTHY_BROWSER, then an installed Chrome, Chromium, or Edge. */
   browserPath?: string;
+  /** Set under --evidence: rendered checks save the crop that proves each of their findings into this folder. Absent: nothing is written and no finding gains an `evidence` field. */
+  evidence?: EvidenceSink;
   /** When set, findings it accepts are removed from the report and counted. */
   baseline?: Baseline;
   /** Under --changed: site-relative files that changed. Findings elsewhere are not reported. */
@@ -139,6 +141,7 @@ export async function verifySite(options: VerifyOptions): Promise<VerifyResult> 
       checks: resolved.checks,
       enable: { browser: options.rendered === true, network: options.network === true },
       ...(options.browserPath === undefined ? {} : { browser: { path: options.browserPath } }),
+      ...(options.evidence === undefined ? {} : { evidence: options.evidence }),
       options: resolved.options,
       severity: resolved.severity,
       ...(options.changed ? { changed: options.changed } : {}),

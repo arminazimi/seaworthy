@@ -7,6 +7,11 @@
 // width, so one problem is one finding: a rule and element are merged, and the finding names the
 // widths the problem was seen at.
 //
+// Under --evidence, the first width a problem is seen at also yields its proof: a PNG crop of the
+// viewport around the offending element, saved in the run's evidence folder and named by the
+// finding's fingerprint, and the finding gains an `evidence` field pointing at it. A crop that
+// cannot be taken is not an error — the finding stands on its message alone.
+//
 // Everything is local: pages load from file:// URLs, the axe script comes from this package's own
 // node_modules, and requests to remote http(s) resources are aborted so a run stays offline even
 // for a site that references CDN scripts. Site contents are untrusted input: the browser measures
@@ -18,7 +23,9 @@ import { pathToFileURL } from "node:url";
 
 import type { Check, FindingDraft, Location, Severity } from "../types.js";
 import { findBrowser } from "../browser.js";
-import { launchBrowser, openContext, probeRendered, VIEWPORTS, viewportLabel, type Viewport } from "../render.js";
+import { saveCrop } from "../evidence.js";
+import { fingerprint } from "../engine.js";
+import { cropElement, launchBrowser, openContext, probeRendered, VIEWPORTS, viewportLabel, type Viewport } from "../render.js";
 import { meta, pagesOf } from "./helpers.js";
 
 /** axe impact → Seaworthy severity. Absent impact (axe could not decide) stays at `note`. */
@@ -135,6 +142,8 @@ export interface SeenViolation {
   readonly selector: string;
   readonly snippet: string | undefined;
   readonly viewport: Viewport;
+  /** The report-relative crop saved for it, when the run opted into evidence and this sighting is the first. */
+  readonly image?: string;
 }
 
 /** One problem, seen at one or more widths. */
@@ -148,6 +157,18 @@ export interface MergedViolation {
   /** The widths it was seen at, in the order the widths run. */
   widths: Viewport[];
   severity: Severity;
+  /** The crop saved at the width it was first seen at, or undefined when there is none. */
+  readonly image: string | undefined;
+}
+
+/** The identity one problem keeps across widths: same page, same rule, same element. */
+export function mergedId(file: string, violationId: string, selector: string): string {
+  return JSON.stringify([file, violationId, selector]);
+}
+
+/** The finding's stable identity: the axe rule and the element it fired on. */
+function findingKey(violationId: string, selector: string): string {
+  return `${violationId}:${selector}`;
 }
 
 /**
@@ -155,11 +176,11 @@ export interface MergedViolation {
  * width is the same problem, so it is merged into one finding that names the widths it was seen at.
  */
 export function addViolation(problems: Map<string, MergedViolation>, seen: SeenViolation): void {
-  const id = JSON.stringify([seen.file, seen.violation.id, seen.selector]);
+  const id = mergedId(seen.file, seen.violation.id, seen.selector);
   const severity = severityOf(seen.violation);
   const known = problems.get(id);
   if (known === undefined) {
-    problems.set(id, { file: seen.file, violation: seen.violation, selector: seen.selector, snippet: seen.snippet, widths: [seen.viewport], severity });
+    problems.set(id, { file: seen.file, violation: seen.violation, selector: seen.selector, snippet: seen.snippet, widths: [seen.viewport], severity, image: seen.image });
     return;
   }
   known.widths.push(seen.viewport);
@@ -178,6 +199,7 @@ export const a11yAxe: Check = {
     const found = findBrowser(context.browser?.path); // throws when the user asked for a missing browser
     if (found === undefined) throw new Error("a11y.axe found no browser to launch; next time the engine's probe would skip it");
     const browser = await launchBrowser(found.path);
+    const evidence = context.evidence;
     // One entry per problem, not per width: the same rule on the same element fires at every width.
     const merged = new Map<string, MergedViolation>();
     try {
@@ -205,7 +227,16 @@ export const a11yAxe: Check = {
               }, { options: axeRuleOptions() });
               for (const violation of results.violations) {
                 for (const node of violation.nodes) {
-                  addViolation(merged, { file: page.file, violation, selector: selectorOf(node), snippet: snippetOf(node), viewport });
+                  const selector = selectorOf(node);
+                  // The crop is the proof of the sighting, so it comes from the width the problem was
+                  // first seen at — the narrowest — and later, identical sightings add nothing.
+                  const id = mergedId(page.file, violation.id, selector);
+                  let image: string | undefined;
+                  if (evidence !== undefined && !merged.has(id)) {
+                    const png = await cropElement(pwPage, selector, viewport);
+                    if (png !== undefined) image = saveCrop(evidence, `${fingerprint("a11y.axe", page.file, findingKey(violation.id, selector))}.png`, png);
+                  }
+                  addViolation(merged, { file: page.file, violation, selector, snippet: snippetOf(node), viewport, ...(image === undefined ? {} : { image }) });
                 }
               }
             } finally {
@@ -220,14 +251,15 @@ export const a11yAxe: Check = {
     } finally {
       await browser.close().catch(() => {});
     }
-    for (const { file, violation, selector, snippet, widths, severity } of merged.values()) {
+    for (const { file, violation, selector, snippet, widths, severity, image } of merged.values()) {
       const location: Location = { file, selector, ...(snippet === undefined ? {} : { snippet }) };
       yield {
         message: `axe ${violation.id}: ${violation.help}. Seen at ${viewportLabel(widths)}.`,
         location,
         severity,
         fix: { kind: "manual", summary: fixSummary(violation), edits: [] },
-        key: `${violation.id}:${selector}`,
+        key: findingKey(violation.id, selector),
+        ...(image === undefined ? {} : { evidence: { image, viewport: widths[0]!.name } }),
       } satisfies FindingDraft;
     }
   },

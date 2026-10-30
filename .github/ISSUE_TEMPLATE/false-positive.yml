@@ -1,0 +1,110 @@
+name: False positive
+description: A check reported something that is not a problem.
+title: "False positive: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A false positive is a finding your site does not need to fix: the check is wrong, or it fires on output that is actually correct. The goal here is a reproduction a triager can run and decide from, so the check ID, the report, and the minimal input are the three things that carry the case.
+  - type: input
+    id: check-id
+    attributes:
+      label: Check ID
+      description: The stable ID of the check that reported it, exactly as the finding shows it.
+      placeholder: "links.internal"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Seaworthy version or commit
+      description: The output of `seaworthy --version`, or the commit you built or installed from.
+      placeholder: "0.1.0, or a320510"
+    validations:
+      required: true
+  - type: dropdown
+    id: runner
+    attributes:
+      label: How did you run it?
+      description: All three entry points share one engine, but a flag or an input can be what makes it misfire.
+      options:
+        - CLI
+        - GitHub Action
+        - MCP tool
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command, flags, Action inputs, or MCP tool call
+      description: Everything that shaped the run, including `--format`, `--fail-on`, the config file you passed, and the MCP tool name (`verify_site`, `verify_changed`, `list_checks`).
+      render: bash
+      placeholder: |
+        npx seaworthy verify ./dist --format json --fail-on warning
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: JSON report for the page
+      description: The `seaworthy verify --format json` output for that page. Keep the whole finding, including its location and fix hint; drop the other pages.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: minimal-repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest thing that still triggers the finding. Either the built site folder small enough to commit, like a `fixtures/` case, named with its path, or the one HTML or markdown file pasted here with its path inside the site.
+      render: html
+      placeholder: |
+        Paste the file, or name the folder you attached (dist/, 3 files: index.html, styles.css, notes.html).
+    validations:
+      required: true
+      max_length: 65535
+  - type: textarea
+    id: config
+    attributes:
+      label: seaworthy.config.json
+      description: Paste the config in the folder you ran from, or write `none` if there was no `seaworthy.config.json`. Whether a config was present changes how a triager reproduces it, because severity overrides, `ignore` globs, and the opt-in `rendered` and `network` switches all come from it.
+      render: json
+      placeholder: |
+        none
+    validations:
+      required: true
+      max_length: 20000
+  - type: dropdown
+    id: framework
+    attributes:
+      label: What produced the built output?
+      description: Seaworthy reads built output only, so the generator explains why the markup looks the way it does.
+      options:
+        - Plain HTML, hand written
+        - Jekyll
+        - Hugo
+        - Astro
+        - Eleventy
+        - Gatsby
+        - Next.js static export
+        - Docusaurus
+        - VitePress
+        - MkDocs
+        - Other, say which in the correct outcome
+    validations:
+      required: true
+  - type: input
+    id: host
+    attributes:
+      label: Host the built site is served from, if it matters
+      description: Only needed when the finding depends on how the host serves the files, such as redirects, headers, or a base path.
+      placeholder: "GitHub Pages project site under /docs/"
+  - type: textarea
+    id: correct-outcome
+    attributes:
+      label: What should have happened instead?
+      description: 'What the correct outcome is, and why it is not a problem: no finding at all, a different severity, a different location, or a finding against a different file. Say what the check should have concluded about this exact input.'
+      placeholder: |
+        No finding: /notes/ serves dist/notes/index.html, so the link resolves and links.internal should not fire.
+    validations:
+      required: true

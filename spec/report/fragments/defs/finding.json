@@ -34,6 +34,9 @@
       "type": "string",
       "minLength": 1,
       "description": "A ready-to-paste prompt that instructs an agent to fix this finding. Generated from the finding's data alone; identical in every output format."
+    },
+    "evidence": {
+      "$ref": "#/$defs/evidence"
     }
   }
 }

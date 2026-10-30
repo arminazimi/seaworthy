@@ -17,6 +17,7 @@ import { ErrorCode, LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/ty
 import { builtInChecks, REPORT_SPEC_VERSION } from "@seaworthy/verify";
 
 import { LIST_CHECKS_DESCRIPTION } from "../src/list-checks.js";
+import { EXPLAIN_FINDING_DESCRIPTION, explainFinding } from "../src/explain-finding.js";
 import { PLANNED_TOOLS } from "../src/planned.js";
 import { SERVER_NAME, SERVER_TITLE } from "../src/server.js";
 import { SERVER_VERSION } from "../src/version.js";
@@ -250,6 +251,68 @@ test("tools/list advertises exactly the implemented tools, never planned-but-unb
           },
           execution: { taskSupport: "forbidden" },
         },
+        {
+          name: "explain_finding",
+          description: EXPLAIN_FINDING_DESCRIPTION,
+          inputSchema: {
+            $schema: "http://json-schema.org/draft-07/schema#",
+            type: "object",
+            properties: {
+              check_id: {
+                description: 'The check to explain, such as "images.alt". Optional when a finding is given; the finding\'s own check id is used then. With both, they must agree.',
+                type: "string",
+              },
+              finding: {
+                description: "A finding from the report JSON of verify_site, pasted as it is. Its fix hint, edits, and prompt are explained and returned verbatim.",
+                type: "object",
+                properties: {
+                  checkId: { type: "string" },
+                  severity: { type: "string", enum: ["error", "warning", "note"] },
+                  message: { type: "string" },
+                  location: {
+                    type: "object",
+                    properties: {
+                      file: { type: "string" },
+                      line: { type: "integer", minimum: -9007199254740991, maximum: 9007199254740991 },
+                      column: { type: "integer", minimum: -9007199254740991, maximum: 9007199254740991 },
+                      approximateLine: { type: "boolean" },
+                      selector: { type: "string" },
+                      snippet: { type: "string" },
+                    },
+                    required: ["file"],
+                  },
+                  fix: {
+                    type: "object",
+                    properties: {
+                      kind: { type: "string", enum: ["edit", "manual"] },
+                      summary: { type: "string" },
+                      edits: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            file: { type: "string" },
+                            line: { type: "integer", minimum: -9007199254740991, maximum: 9007199254740991 },
+                            action: { type: "string", const: "replace" },
+                            find: { type: "string" },
+                            replace: { type: "string" },
+                            needsInput: { type: "boolean" },
+                          },
+                          required: ["file", "line", "action", "find", "replace"],
+                        },
+                      },
+                      appliesTo: { type: "string" },
+                    },
+                    required: ["kind", "summary"],
+                  },
+                  prompt: { type: "string" },
+                },
+                required: ["checkId", "fix"],
+              },
+            },
+          },
+          execution: { taskSupport: "forbidden" },
+        },
       ],
     });
   } finally {
@@ -314,12 +377,12 @@ test("calling a planned but unimplemented tool is a tool error, not invented dat
   const child = await startServer();
   try {
     await initialize(child);
-    child.send(request(4, "tools/call", { name: "explain_finding", arguments: {} }));
+    child.send(request(4, "tools/call", { name: "get_config_schema", arguments: {} }));
     const reply = await child.next();
     assert.equal(reply.jsonrpc, "2.0");
     assert.equal(reply.id, 4);
     assert.deepEqual(reply.result, {
-      content: [{ type: "text", text: "MCP error -32602: Tool explain_finding not found" }],
+      content: [{ type: "text", text: "MCP error -32602: Tool get_config_schema not found" }],
       isError: true,
     });
   } finally {
@@ -349,6 +412,46 @@ test("tools/call verify_site returns the report JSON of the named site", { skip:
     }
   } finally {
     rmSync(site, { recursive: true, force: true });
+  }
+});
+
+test("tools/call explain_finding returns the hint, docs link, and example for a known check", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(7, "tools/call", { name: "explain_finding", arguments: { check_id: "images.alt" } }));
+    const reply = await child.next();
+    assert.equal(reply.jsonrpc, "2.0");
+    assert.equal(reply.id, 7);
+    const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+    assert.equal(result.isError, undefined, "explaining a known check is a result, not an error");
+    assert.equal(result.content[0]!.text, explainFinding({ check_id: "images.alt" }), "the wire answer is the tool function's own deterministic JSON");
+    const output = JSON.parse(result.content[0]!.text) as { checkId: string; fixHint: string; docs: string; example: string };
+    assert.equal(output.checkId, "images.alt");
+    assert.equal(output.docs, "https://github.com/arminazimi/seaworthy/blob/main/docs/checks/images.alt.md");
+    assert.ok(output.fixHint.length > 0 && output.example.length > 0);
+  } finally {
+    await child.stop();
+  }
+});
+
+test("tools/call explain_finding answers an unknown check id with a tool error and stays alive", { skip: SKIP_SPAWN }, async () => {
+  const child = await startServer();
+  try {
+    await initialize(child);
+    child.send(request(8, "tools/call", { name: "explain_finding", arguments: { check_id: "no.such.check" } }));
+    const reply = await child.next();
+    assert.equal(reply.id, 8);
+    const result = reply.result as { content: Array<{ type: string; text: string }>; isError?: unknown };
+    assert.equal(result.isError, true, "a clear error result, not a crash");
+    assert.match(result.content[0]!.text, /unknown check id "no\.such\.check"/);
+    // The server survived the failed call: the next one answers as usual.
+    child.send(request(9, "tools/call", { name: "explain_finding", arguments: { check_id: "images.alt" } }));
+    const alive = await child.next();
+    assert.equal(alive.id, 9);
+    assert.equal((alive.result as { isError?: unknown }).isError, undefined);
+  } finally {
+    await child.stop();
   }
 });
 
