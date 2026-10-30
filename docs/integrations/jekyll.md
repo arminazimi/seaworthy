@@ -83,6 +83,21 @@ node ../seaworthy/packages/verify/dist/src/cli.js verify _site --update-baseline
 node ../seaworthy/packages/verify/dist/src/cli.js verify _site --baseline seaworthy-baseline.json
 ```
 
+## Or run it as an Action
+
+The repository also ships a composite GitHub Action (`action.yml`). It installs and builds the CLI inside its own checkout, verifies one folder, optionally writes a SARIF 2.1.0 report, and fails the run at the threshold — so it replaces the install-and-verify steps above:
+
+```yaml
+      - name: Verify with Seaworthy
+        uses: arminazimi/seaworthy@<commit> # no release tag is cut yet: pin a commit
+        with:
+          site: _site
+          threshold: error
+          sarif: seaworthy.sarif
+```
+
+`site` is relative to your workspace and is the folder the build command above writes to; leave it empty to let the CLI pick the first build folder it finds. `threshold` accepts `error` (the default), `warning`, `note`, or `none`. `sarif` is optional — when set, the report is written there and uploaded as a workflow artifact. Same pre-alpha caveat as everywhere else on this page: the Action runs the CLI built from the pinned commit, not a published package.
+
 ## Notes for Jekyll
 
 - **Folder discovery.** With no `dir` argument and no `root` in the config, the CLI takes the first of `dist`, `build`, `out`, `public`, `_site`, `site` that exists. A project that also has a `public/` or `dist/` folder is verified from that one instead, so pass `_site` explicitly (or set `root`) in those projects.
