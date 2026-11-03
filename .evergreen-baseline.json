@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "evergreen.baseline.v1",
+  "createdAt": "2026-11-03T21:49:29.221Z",
+  "findings": [
+    {
+      "fingerprint": "e54cafbbcd3925de8e264ae5bc5683a987ef1d9fd416f4643fc2f919f7841e22",
+      "ruleId": "github-actions.checkout.node20",
+      "path": ".github/workflows/ci.yml"
+    },
+    {
+      "fingerprint": "408db2252bd883ecbf3dd53d50e1c377b1dea5c5901c9e67a41a56c1d34bdcc1",
+      "ruleId": "github-actions.checkout.node20",
+      "path": ".github/workflows/conflict.yml"
+    },
+    {
+      "fingerprint": "583091b9e68cabee2b9665e36b9cbbeb28169b3ca8e6f6dcc3f85dc5b287ff65",
+      "ruleId": "github-actions.setup-node.node20",
+      "path": ".github/workflows/ci.yml"
+    },
+    {
+      "fingerprint": "85d1e36cb6fe7865f455f7c5a5bd4c9bb7a0eaedb6a02ac38ed98d322ea99845",
+      "ruleId": "github-actions.setup-node.node20",
+      "path": ".github/workflows/conflict.yml"
+    },
+    {
+      "fingerprint": "b8f1232ae6f7864f5ae6917a56a03f8e18cd86dfa4aab0e7b1d058f1aee0fa04",
+      "ruleId": "nodejs.runtime.eol-22",
+      "path": ".github/workflows/ci.yml"
+    },
+    {
+      "fingerprint": "7f958657ff97556847a0cf7fa0013f5b754b5d17fc803090301827c390f533e5",
+      "ruleId": "nodejs.runtime.eol-22",
+      "path": ".github/workflows/conflict.yml"
+    }
+  ],
+  "history": [
+    {
+      "at": "2026-11-03T21:49:29.221Z",
+      "count": 6
+    }
+  ]
+}
