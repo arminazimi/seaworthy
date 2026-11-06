@@ -1,12 +1,14 @@
 // Parses ROADMAP.md into phases, epics, and tasks.
-// The format is the one ROADMAP.md uses: a phase table, `# Phase N — Title (dates)` sections,
+// The format is the one ROADMAP.md uses: a milestone table, `# Phase N — Title (dates)` or `# v1.2 — Title (dates)` sections,
 // `## Epic: Title` blocks with a roadmap-key marker, and a `### Tasks` table per epic.
 
-const PHASE_ROW = /^\|\s*(Phase \d+)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*→\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$/;
-const PHASE_HEADING = /^# (Phase \d+) — /;
+const PHASE_ROW = /^\|\s*(Phase \d+[a-z]?|v\d+\.\d+(?:\.\d+)?)\s*\|\s*(\d{4}-\d{2}-\d{2})\s*→\s*(\d{4}-\d{2}-\d{2})\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$/;
+const PHASE_HEADING = /^# (Phase \d+[a-z]?|v\d+\.\d+(?:\.\d+)?) — /;
 const EPIC_HEADING = /^## Epic: (.+)$/;
 const KEY_MARKER = /<!--\s*seaworthy-roadmap-key:\s*(\S+)\s*-->/;
 const SECTION_HEADING = /^### (.+)$/;
+// | `key` | Task | Lane | Size | Priority | Depends |  (the Priority column is optional: P0 to P3, default P2)
+const TASK_ROW_PRIORITY = /^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(P\d)\s*\|\s*(.+?)\s*\|\s*$/;
 const TASK_ROW = /^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(.+?)\s*\|\s*$/;
 
 const stripBold = (s) => s.replace(/\*\*/g, "").trim();
@@ -80,7 +82,7 @@ export function parseRoadmap(markdown) {
         errors.push(`line ${lineNo}: epic "${epicHeading[1]}" is outside a "# Phase N" section`);
         return;
       }
-      epic = { kind: "epic", key: null, title: epicHeading[1].trim(), phase, track: null, header: "", outcome: [], scope: [], nonGoals: [], exit: [], line: lineNo };
+      epic = { kind: "epic", key: null, title: epicHeading[1].trim(), phase, track: null, priority: null, header: "", outcome: [], scope: [], nonGoals: [], exit: [], line: lineNo };
       return;
     }
 
@@ -100,6 +102,8 @@ export function parseRoadmap(markdown) {
       epic.header = line.replace(/^>\s*/, "");
       const track = line.match(/\*\*Track:\*\*\s*(\w+)/);
       if (track) epic.track = track[1];
+      const priority = line.match(/\*\*Priority:\*\*\s*(P\d)/);
+      if (priority) epic.priority = priority[1];
       return;
     }
 
@@ -126,9 +130,12 @@ export function parseRoadmap(markdown) {
         if (text.startsWith("- [ ] ")) epic.exit.push(text.slice(6));
         break;
       case "tasks": {
-        const t = text.match(TASK_ROW);
-        if (t) {
-          tasks.push({ kind: "task", key: t[1], title: t[2], lane: t[3], size: t[4], deps: parseDeps(t[5]), epic: epic.key, phase: epic.phase, track: epic.track, line: lineNo });
+        const p = text.match(TASK_ROW_PRIORITY);
+        const t = p ? null : text.match(TASK_ROW);
+        if (p) {
+          tasks.push({ kind: "task", key: p[1], title: p[2], lane: p[3], size: p[4], priority: p[5], deps: parseDeps(p[6]), epic: epic.key, phase: epic.phase, track: epic.track, line: lineNo });
+        } else if (t) {
+          tasks.push({ kind: "task", key: t[1], title: t[2], lane: t[3], size: t[4], priority: "P2", deps: parseDeps(t[5]), epic: epic.key, phase: epic.phase, track: epic.track, line: lineNo });
         } else if (text.startsWith("|") && !/^\|\s*(Key|---)/.test(text)) {
           errors.push(`line ${lineNo}: task row does not match "| \`key\` | Task | Lane | Size | Depends |"`);
         }
