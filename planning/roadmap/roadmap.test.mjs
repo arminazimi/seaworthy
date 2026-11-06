@@ -206,8 +206,17 @@ test("detects dependency cycles", () => {
 test("the real ROADMAP.md and briefs build without errors", () => {
   const { issues, errors, stats } = buildIssues(real, loadBriefs());
   assert.deepEqual(errors, []);
-  assert.ok(stats.epics >= 20);
+  assert.equal(stats.epics, 13);
   assert.ok(stats.tasks >= 100);
+  assert.equal(stats.withBrief, stats.tasks, "every task has a brief");
+  const tasks = issues.filter((i) => i.kind === "task");
+  const orders = tasks.map((i) => i.order).sort((a, b) => a - b);
+  assert.deepEqual(orders, orders.map((_, i) => i + 1), "execution order is 1..N with no gaps");
+  for (const task of tasks) {
+    for (const dep of task.deps.map((d) => issues.find((i) => i.key === d))) {
+      assert.ok(dep.order < task.order && dep.wave < task.wave, `${task.key} must come after ${dep.key}`);
+    }
+  }
   for (const issue of issues) assert.ok(issue.title.length <= 256, `${issue.key}: title too long for GitHub`);
   for (const issue of issues) assert.ok(issue.body.length < 65_000, `${issue.key}: body too long for GitHub`);
 });
@@ -218,4 +227,29 @@ test("items moved to the theme project are no longer in the roadmap", async () =
   const keys = new Set(issues.map((i) => i.key));
   for (const key of MOVED_TO_THEME) assert.ok(!keys.has(key), `${key} is still in ROADMAP.md`);
   assert.ok(!issues.some((i) => i.labels.includes("track: theme")), "no theme track remains");
+});
+
+test("the real roadmap has no file conflicts between tasks that can run at the same time", () => {
+  const { conflicts } = buildIssues(real, loadBriefs());
+  assert.deepEqual(conflicts.map((c) => c.message), []);
+});
+
+test("the Priority column sets priority, wave, execution order, and Blocks", () => {
+  const withPriority = SAMPLE.replace("| Key | Task | Lane | Size | Depends |\n|---|---|---|---|---|", "| Key | Task | Lane | Size | Priority | Depends |\n|---|---|---|---|---|---|")
+    .replace("| strong-agent | S | none |", "| strong-agent | S | P0 | none |")
+    .replace("| free-agent | XS | `foundation.layout` |", "| free-agent | XS | P1 | `foundation.layout` |");
+  const { issues, errors } = buildIssues(withPriority, new Map(), PARTIAL);
+  assert.deepEqual(errors, []);
+  const layout = issues.find((i) => i.key === "foundation.layout");
+  const check = issues.find((i) => i.key === "foundation.check");
+  assert.deepEqual([layout.priority, layout.wave, layout.order], ["P0", 1, 1]);
+  assert.deepEqual([check.priority, check.wave, check.order], ["P1", 2, 2]);
+  assert.ok(check.labels.includes("priority: P1"));
+  assert.match(check.body, /\*\*Priority:\*\* P1 · \*\*Wave:\*\* 2 · \*\*Order:\*\* 2 of 2/);
+  assert.match(layout.body, /## Blocks\n- \{\{ref:foundation\.check\}\}/);
+});
+
+test("parseBriefFiles reads paths under a ## Files section with Create and Edit lists", () => {
+  const brief = "## Goal\nX.\n\n## Files\n\n**Create**\n- `a/new.ts`\n\n**Edit**\n- `b/old.ts`\n\nTouch no other file.\n\n## Steps\n1. Go.\n";
+  assert.deepEqual(parseBriefFiles(brief), ["a/new.ts", "b/old.ts"]);
 });
