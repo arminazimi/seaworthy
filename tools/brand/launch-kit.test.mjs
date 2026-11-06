@@ -1,6 +1,6 @@
 // Keeps the launch kit in brand/launch-1/ honest: every path it names exists, its copy matches the
-// brand tokens, it uses no hype word outside the section that bans them, and it covers exactly the
-// channels the roadmap's launch-1 epic names.
+// brand tokens, and it uses no hype word outside the section that bans them. Its channels are no longer
+// checked against ROADMAP.md: the v0.1.0 roadmap replaced the launch-1 epic that named them.
 
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -99,34 +99,4 @@ test("the kit never writes a product name the guide forbids", () => {
       }
     }
   }
-});
-
-/** The launch-1 epic of the roadmap: the section the kit's channels come from. */
-function launch1Section() {
-  const roadmap = read(join(root, "ROADMAP.md"));
-  const start = roadmap.indexOf("## Epic: Launch wave 1");
-  assert.notEqual(start, -1, "the roadmap has no launch-1 epic");
-  const end = roadmap.indexOf("\n## ", start + 1);
-  return roadmap.slice(start, end === -1 ? roadmap.length : end);
-}
-
-test("every channel in the kit is a channel the roadmap names", () => {
-  const section = launch1Section();
-  const rows = kitFile("channels.md").split("\n").filter((line) => line.startsWith("| ") && !line.startsWith("| ---") && !line.startsWith("| Channel "));
-  const channels = rows.map((row) => (row.split("|")[1] ?? "").trim()).filter((channel) => channel !== "");
-  assert.ok(channels.length >= 8, "the kit lists too few channels");
-  for (const channel of channels) {
-    assert.match(section, new RegExp(`\\b${escapeRegex(channel)}\\b`), `the roadmap does not name ${channel}`);
-  }
-});
-
-test("every channel the roadmap names is in the kit", () => {
-  const section = launch1Section();
-  const scope = section.slice(section.indexOf("### Scope"), section.indexOf("### Tasks"));
-  const bullet = scope.split("\n").find((line) => line.startsWith("- ") && line.includes("Show HN"));
-  assert.ok(bullet, "the roadmap's launch-1 scope no longer lists the channels");
-  const channels = bullet.replace(/^-\s*/, "").split(/[(),]/).map((part) => part.trim()).filter((part) => part !== "");
-  assert.ok(channels.length >= 5, "the roadmap's scope list could not be read");
-  const kit = kitFile("channels.md");
-  for (const channel of channels) assert.ok(kit.includes(channel), `the kit does not cover ${channel}`);
 });
